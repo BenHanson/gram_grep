@@ -1702,7 +1702,7 @@ int main(int argc, char *argv[])
 
 				if (i < argc)
 				{
-					g_exclude.emplace_back(wildcardtl::wildcard(argv[i], true, '*', '?'));
+					g_exclude.emplace_back(wildcardtl::wildcard(argv[i], true));
 				}
 				else
 				{
