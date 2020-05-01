@@ -221,7 +221,7 @@ std::size_t g_hits = 0;
 std::size_t g_files = 0;
 std::size_t g_searched = 0;
 
-using token = parsertl::token<lexertl::citerator>;
+using token = parsertl::token<lexertl::criterator>;
 
 struct config_state
 {
@@ -505,9 +505,9 @@ bool process_parser(const parser& p, const char* start,
     std::vector<match>& ranges, std::stack<std::string>& matches,
     std::map<std::pair<std::size_t, std::size_t>, std::string>& replacements)
 {
-    lexertl::citerator iter(ranges.back()._first,
+    lexertl::criterator iter(ranges.back()._first,
         ranges.back()._eoi, p._lsm);
-    lexertl::citerator end;
+    lexertl::criterator end;
     std::multimap<uint16_t, token::token_vector> prod_map;
     bool success = parsertl::search(p._gsm, iter, end, &prod_map);
 
@@ -608,7 +608,7 @@ bool process_parser(const parser& p, const char* start,
 
 bool process_lexer(const lexer& l, std::vector<match>& ranges)
 {
-    lexertl::citerator iter(ranges.back()._first,
+    lexertl::criterator iter(ranges.back()._first,
         ranges.back()._eoi, l._sm);
     bool success = iter->first != ranges.back()._eoi;
 
@@ -1137,7 +1137,8 @@ void process_file(const std::string& pathname)
 }
 
 void process_file(const fs::path& path,
-    const std::pair<std::vector<wildcardtl::wildcard>, std::vector<wildcardtl::wildcard>>& include)
+    const std::pair<std::vector<wildcardtl::wildcard>,
+    std::vector<wildcardtl::wildcard>>& include)
 {
     // Skip directories
     if (fs::is_directory(path))
@@ -1247,8 +1248,8 @@ void build_config_parser()
     parsertl::rules grules;
     lexertl::rules lrules;
 
-    grules.token("Charset Index Integer Literal Macro MacroName Name NL "
-        "Number Repeat ScriptString String");
+    grules.token("Charset ExitState Index Integer Literal Macro MacroName Name NL "
+        "Number Repeat ScriptString StartState String");
 
     grules.push("start", "file");
     grules.push("file",
@@ -1257,17 +1258,7 @@ void build_config_parser()
         "| directives directive ");
     grules.push("directive", "NL");
 
-    // Read and stored %token entries
-    g_config_parser._actions[grules.push("directive", "'%token' tokens NL")] =
-        [](config_state& state, config_parser& parser)
-    {
-        const auto& token = state._results.dollar(parser._gsm, 1,
-            state._productions);
-        const std::string tokens = token.str();
-
-        state._grules.token(tokens.c_str());
-    };
-    // Read and stored %left entries
+    // Read and store %left entries
     g_config_parser._actions[grules.push("directive", "'%left' tokens NL")] =
         [](config_state& state, config_parser& parser)
     {
@@ -1277,19 +1268,8 @@ void build_config_parser()
 
         state._grules.left(tokens.c_str());
     };
-    // Read and stored %right entries
-    g_config_parser._actions[grules.push("directive", "'%right' tokens NL")] =
-        [](config_state& state, config_parser& parser)
-    {
-        const auto& token = state._results.dollar(parser._gsm, 1,
-            state._productions);
-        const std::string tokens = token.str();
-
-        state._grules.right(tokens.c_str());
-    };
-    // Read and stored %nonassoc entries
-    g_config_parser._actions[grules.push("directive",
-        "'%nonassoc' tokens NL")] =
+    // Read and store %nonassoc entries
+    g_config_parser._actions[grules.push("directive", "'%nonassoc' tokens NL")] =
         [](config_state& state, config_parser& parser)
     {
         const auto& token = state._results.dollar(parser._gsm, 1,
@@ -1298,7 +1278,7 @@ void build_config_parser()
 
         state._grules.nonassoc(tokens.c_str());
     };
-    // Read and stored %precedence entries
+    // Read and store %precedence entries
     g_config_parser._actions[grules.push("directive",
         "'%precedence' tokens NL")] =
         [](config_state& state, config_parser& parser)
@@ -1309,7 +1289,17 @@ void build_config_parser()
 
         state._grules.precedence(tokens.c_str());
     };
-    // Read and stored %start
+    // Read and store %right entries
+    g_config_parser._actions[grules.push("directive", "'%right' tokens NL")] =
+        [](config_state& state, config_parser& parser)
+    {
+        const auto& token = state._results.dollar(parser._gsm, 1,
+            state._productions);
+        const std::string tokens = token.str();
+
+        state._grules.right(tokens.c_str());
+    };
+    // Read and store %start
     g_config_parser._actions[grules.push("directive", "'%start' Name NL")] =
         [](config_state& state, config_parser& parser)
     {
@@ -1319,9 +1309,48 @@ void build_config_parser()
 
         state._grules.start(name.c_str());
     };
+    // Read and store %token entries
+    g_config_parser._actions[grules.push("directive", "'%token' tokens NL")] =
+        [](config_state& state, config_parser& parser)
+    {
+        const auto& token = state._results.dollar(parser._gsm, 1,
+            state._productions);
+        const std::string tokens = token.str();
+
+        state._grules.token(tokens.c_str());
+    };
     grules.push("tokens", "token "
         "| tokens token");
     grules.push("token", "Literal | Name");
+    // Read and stored %x entries
+    g_config_parser._actions[grules.push("directive", "'%x' names NL")] =
+        [](config_state& state, config_parser& parser)
+    {
+        const auto& names = state._results.dollar(parser._gsm, 1,
+            state._productions);
+        const char* start = names.first;
+        const char* curr = start;
+
+        for (; curr != names.second; ++curr)
+        {
+            if (*curr == ' ' || *curr == '\t')
+            {
+                state._lrules.push_state(std::string(start, curr).c_str());
+
+                do
+                {
+                    ++curr;
+                } while (curr != names.second && (*curr == ' ' || *curr == '\t'));
+
+                start = curr;
+            }
+        }
+
+        if (start != curr)
+            state._lrules.push_state(std::string(start, curr).c_str());
+    };
+    grules.push("names", "Name "
+        "| names Name");
 
     grules.push("grules", "%empty "
         "| grules grule");
@@ -1360,7 +1389,8 @@ void build_config_parser()
                 {
                     std::ostringstream ss;
 
-                    ss << "Index $" << cmd._param2 + 1 << " cannot have first following second.";
+                    ss << "Index $" << cmd._param2 + 1 <<
+                        " cannot have first following second.";
                     throw std::runtime_error(ss.str());
                 }
             }
@@ -1585,7 +1615,8 @@ void build_config_parser()
             index1, index2, replace_cmd(text)));
     };
     g_config_parser._actions[grules.push("mod_cmd",
-        "'replace' '(' Index '.' first_second ',' Index '.' first_second ',' ScriptString ')' ';'")] =
+        "'replace' '(' Index '.' first_second ',' "
+        "Index '.' first_second ',' ScriptString ')' ';'")] =
         [](config_state& state, config_parser& parser)
     {
         const uint16_t rule_idx = static_cast<uint16_t>(state._grules.
@@ -1651,6 +1682,23 @@ void build_config_parser()
 
         state._lrules.push(regex, static_cast<uint16_t>(atoi(number.c_str())));
     };
+    g_config_parser._actions[grules.push("rx_rules",
+        "rx_rules StartState regex ExitState Number")] =
+        [](config_state& state, config_parser& parser)
+    {
+        const auto& start_state = state._results.dollar(parser._gsm, 1,
+            state._productions);
+        const std::string regex = state._results.dollar(parser._gsm, 2,
+            state._productions).str();
+        const auto& exit_state = state._results.dollar(parser._gsm, 3,
+            state._productions);
+        const std::string number = state._results.dollar(parser._gsm, 4,
+            state._productions).str();
+
+        state._lrules.push(std::string(start_state.first + 1, start_state.second - 1).c_str(),
+            regex, static_cast<uint16_t>(atoi(number.c_str())),
+            std::string(exit_state.first + 1, exit_state.second - 1).c_str());
+    };
     g_config_parser._actions[grules.push("rx_rules", "rx_rules regex Literal")] =
         [](config_state& state, config_parser& parser)
     {
@@ -1663,6 +1711,23 @@ void build_config_parser()
         state._lrules.push(regex,
             state._grules.token_id(literal.c_str()));
     };
+    g_config_parser._actions[grules.push("rx_rules",
+        "rx_rules StartState regex ExitState Literal")] =
+        [](config_state& state, config_parser& parser)
+    {
+        const auto& start_state = state._results.dollar(parser._gsm, 1,
+            state._productions);
+        const std::string regex = state._results.dollar(parser._gsm, 2,
+            state._productions).str();
+        const auto& exit_state = state._results.dollar(parser._gsm, 3,
+            state._productions);
+        const std::string literal = state._results.dollar(parser._gsm, 4,
+            state._productions).str();
+
+        state._lrules.push(std::string(start_state.first + 1, start_state.second - 1).c_str(),
+            regex, state._grules.token_id(literal.c_str()),
+            std::string(exit_state.first + 1, exit_state.second - 1).c_str());
+    };
     g_config_parser._actions[grules.push("rx_rules", "rx_rules regex Name")] =
         [](config_state& state, config_parser& parser)
     {
@@ -1674,6 +1739,23 @@ void build_config_parser()
 
         state._lrules.push(regex, state._grules.token_id(name.c_str()));
     };
+    g_config_parser._actions[grules.push("rx_rules",
+        "rx_rules StartState regex ExitState Name")] =
+        [](config_state& state, config_parser& parser)
+    {
+        const auto& start_state = state._results.dollar(parser._gsm, 1,
+            state._productions);
+        const std::string regex = state._results.dollar(parser._gsm, 2,
+            state._productions).str();
+        const auto& exit_state = state._results.dollar(parser._gsm, 3,
+            state._productions);
+        const std::string name = state._results.dollar(parser._gsm, 4,
+            state._productions).str();
+
+        state._lrules.push(std::string(start_state.first + 1, start_state.second - 1).c_str(),
+            regex, state._grules.token_id(name.c_str()),
+            std::string(exit_state.first + 1, exit_state.second - 1).c_str());
+    };
     g_config_parser._actions[grules.push("rx_rules", "rx_rules regex 'skip()'")] =
         [](config_state& state, config_parser& parser)
     {
@@ -1682,6 +1764,21 @@ void build_config_parser()
         const std::string regex = token.str();
 
         state._lrules.push(regex, state._lrules.skip());
+    };
+    g_config_parser._actions[grules.push("rx_rules",
+        "rx_rules StartState regex ExitState 'skip()'")] =
+        [](config_state& state, config_parser& parser)
+    {
+        const auto& start_state = state._results.dollar(parser._gsm, 1,
+            state._productions);
+        const std::string regex = state._results.dollar(parser._gsm, 2,
+            state._productions).str();
+        const auto& exit_state = state._results.dollar(parser._gsm, 3,
+            state._productions);
+
+        state._lrules.push(std::string(start_state.first + 1, start_state.second - 1).c_str(),
+            regex, state._lrules.skip(),
+            std::string(exit_state.first + 1, exit_state.second - 1).c_str());
     };
 
     grules.push("regex", "rx "
@@ -1722,20 +1819,22 @@ void build_config_parser()
     lrules.push_state("REGEX");
     lrules.push_state("RULE");
     lrules.push_state("ID");
+    lrules.insert_macro("comment", "[/][*].{+}[\r\n]*?[*][/]");
+    lrules.insert_macro("escape", "\\\\(.|x[0-9A-Fa-f]+|c[@a-zA-Z])");
     lrules.insert_macro("posix_name", "alnum|alpha|blank|cntrl|digit|graph|"
         "lower|print|punct|space|upper|xdigit");
     lrules.insert_macro("posix", "\\[:{posix_name}:\\]");
-    lrules.insert_macro("escape", "\\\\(.|x[0-9A-Fa-f]+|c[@a-zA-Z])");
-    lrules.insert_macro("comment", "[/][*].{+}[\r\n]*?[*][/]");
+    lrules.insert_macro("state_name", "[A-Z_a-z][0-9A-Z_a-z]*");
 
     lrules.push("[ \t]+", lrules.skip());
     lrules.push("\n|\r\n", grules.token_id("NL"));
-    lrules.push("%token", grules.token_id("'%token'"));
     lrules.push("%left", grules.token_id("'%left'"));
-    lrules.push("%right", grules.token_id("'%right'"));
     lrules.push("%nonassoc", grules.token_id("'%nonassoc'"));
     lrules.push("%precedence", grules.token_id("'%precedence'"));
+    lrules.push("%right", grules.token_id("'%right'"));
     lrules.push("%start", grules.token_id("'%start'"));
+    lrules.push("%token", grules.token_id("'%token'"));
+    lrules.push("%x", grules.token_id("'%x'"));
     lrules.push("INITIAL", "%%", grules.token_id("'%%'"), "GRULE");
 
     lrules.push("GRULE", ":", grules.token_id("':'"), ".");
@@ -1789,6 +1888,8 @@ void build_config_parser()
     lrules.push("REGEX", "[ \t]+", lrules.skip(), ".");
     lrules.push("RULE", "^[ \t]+({comment}([ \t]+|{comment})*)?",
         lrules.skip(), ".");
+    lrules.push("RULE", "^<([*]|{state_name}(,{state_name})*)>",
+        grules.token_id("StartState"), ".");
     lrules.push("REGEX,RULE", "\\^", grules.token_id("'^'"), ".");
     lrules.push("REGEX,RULE", "\\$", grules.token_id("'$'"), ".");
     lrules.push("REGEX,RULE", "[|]", grules.token_id("'|'"), ".");
@@ -1812,6 +1913,7 @@ void build_config_parser()
 
     lrules.push("RULE,ID", "[ \t]+({comment}([ \t]+|{comment})*)?",
         lrules.skip(), "ID");
+    lrules.push("RULE", "<([.]|<|>?{state_name})>", grules.token_id("ExitState"), "ID");
     lrules.push("RULE,ID", "\n|\r\n", lrules.skip(), "RULE");
     lrules.push("ID", "skip\\s*[(]\\s*[)]", grules.token_id("'skip()'"), "RULE");
     lexertl::generator::build(lrules, g_config_parser._lsm);
