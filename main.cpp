@@ -338,7 +338,17 @@ struct config_state
 
             for (std::size_t i = 1, size = terminals.size(); i < size; ++i)
             {
-                if (std::find(ids[0].begin(), ids[0].end(), i) == ids[0].end())
+                bool found_id = false;
+
+                for (const auto& curr_ids : ids)
+                {
+                    found_id = std::find(curr_ids.begin(), curr_ids.end(), i) !=
+                        curr_ids.end();
+
+                    if (found_id) break;
+                }
+
+                if (!found_id)
                 {
                     std::cerr << "Warning: Token \"" << terminals[i] <<
                         "\" does not have a lexer definiton.\n";
