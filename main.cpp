@@ -220,6 +220,7 @@ std::map<std::string, std::pair<std::vector<wildcardtl::wildcard>,
 std::size_t g_hits = 0;
 std::size_t g_files = 0;
 std::size_t g_searched = 0;
+bool g_writable = false;
 
 using token = parsertl::token<lexertl::criterator>;
 
@@ -769,8 +770,8 @@ file_type fetch_file_type(lexertl::memory_file& mf)
     return type;
 }
 
-file_type load_file(lexertl::memory_file &mf, std::vector<unsigned char> &utf8,
-    const char*& data_first, const char*& data_second, std::vector<match> &ranges)
+file_type load_file(lexertl::memory_file& mf, std::vector<unsigned char>& utf8,
+    const char*& data_first, const char*& data_second, std::vector<match>& ranges)
 {
     file_type type = fetch_file_type(mf);
 
@@ -846,6 +847,12 @@ file_type load_file(lexertl::memory_file &mf, std::vector<unsigned char> &utf8,
 
 void process_file(const std::string& pathname)
 {
+    if (g_writable && (fs::status(pathname).permissions() &
+        fs::perms::owner_write) == fs::perms::none)
+    {
+        return;
+    }
+
     lexertl::memory_file mf(pathname.c_str());
     std::vector<unsigned char> utf8;
     const char* data_first = nullptr;
@@ -1046,9 +1053,9 @@ void process_file(const std::string& pathname)
                 case file_type::utf16:
                 {
                     std::vector<uint16_t> utf16;
-                    const unsigned char *first = reinterpret_cast
-                        <const unsigned char *>(&content.front());
-                    const unsigned char *second = first + content.size();
+                    const unsigned char* first = reinterpret_cast
+                        <const unsigned char*>(&content.front());
+                    const unsigned char* second = first + content.size();
                     lexertl::basic_utf8_in_iterator<const unsigned char*, int32_t>
                         iter(first, second);
                     lexertl::basic_utf8_in_iterator<const unsigned char*, int32_t>
@@ -1074,7 +1081,7 @@ void process_file(const std::string& pathname)
                     std::ofstream os(pathname.c_str(), std::ofstream::binary);
 
                     os.exceptions(std::ofstream::badbit);
-                    os.write(reinterpret_cast<const char *>(&utf16.front()),
+                    os.write(reinterpret_cast<const char*>(&utf16.front()),
                         utf16.size() * sizeof(uint16_t));
                     os.close();
                     break;
@@ -1083,7 +1090,7 @@ void process_file(const std::string& pathname)
                 {
                     std::vector<uint16_t> utf16;
                     const unsigned char* first = reinterpret_cast
-                        <const unsigned char *>(&content.front());
+                        <const unsigned char*>(&content.front());
                     const unsigned char* second = first + content.size();
                     lexertl::basic_utf8_in_iterator<const unsigned char*, int32_t>
                         iter(first, second);
@@ -1124,7 +1131,7 @@ void process_file(const std::string& pathname)
                     const unsigned char header[] = { 0xef, 0xbb, 0xbf };
 
                     os.exceptions(std::ofstream::badbit);
-                    os.write(reinterpret_cast<const char *>(header), sizeof(header));
+                    os.write(reinterpret_cast<const char*>(header), sizeof(header));
                     os.write(content.c_str(), content.size());
                     os.close();
                     break;
@@ -1151,8 +1158,12 @@ void process_file(const fs::path& path,
     std::vector<wildcardtl::wildcard>>& include)
 {
     // Skip directories
-    if (fs::is_directory(path))
+    if (fs::is_directory(path) ||
+        g_writable && (fs::status(path).permissions() &
+            fs::perms::owner_write) == fs::perms::none)
+    {
         return;
+    }
 
     const auto pathname = path.string();
 
@@ -1949,6 +1960,7 @@ void show_help()
         "-Vf <config file>\tSearch using config file (all negated).\n"
         "-vP <regex>\t\tSearch using Perl regex (negated).\n"
         "-VP <regex>\t\tSearch using Perl regex (all negated).\n"
+        "-writable\t\tOnly process file that are writable.\n"
         "<pathname>...\t\tFiles to search (wildcards supported).\n\n"
         "Config file format:\n\n"
         "<grammar directives>\n"
@@ -1990,9 +2002,9 @@ void show_help()
         "The searches are run in the order they occur on the command line.\n";
 }
 
-void add_pathname(const char *param,
+void add_pathname(const char* param,
     std::map<std::string, std::pair<std::vector<wildcardtl::wildcard>,
-    std::vector<wildcardtl::wildcard>>> &map)
+    std::vector<wildcardtl::wildcard>>>& map)
 {
     std::string pn = param;
     const std::size_t index = pn.rfind(fs::path::preferred_separator,
@@ -2289,6 +2301,10 @@ int main(int argc, char* argv[])
                     return 1;
                 }
             }
+            else if (strcmp("-writable", param) == 0)
+            {
+                g_writable = true;
+            }
             else
             {
                 add_pathname(param, g_pathnames);
@@ -2332,8 +2348,8 @@ int main(int argc, char* argv[])
                 regex._negate = tuple._negate;
                 regex._all = tuple._all;
                 regex._rx.assign(tuple._param, g_icase ?
-                (std::regex_constants::ECMAScript |
-                    std::regex_constants::icase) :
+                    (std::regex_constants::ECMAScript |
+                        std::regex_constants::icase) :
                     std::regex_constants::ECMAScript);
                 g_pipeline.emplace_back(std::move(regex));
                 break;
