@@ -256,10 +256,10 @@ struct config_state
             g_config_parser._lsm);
         _results.reset(iter->id, g_config_parser._gsm);
 
-        while (_results.entry.action != parsertl::error &&
-            _results.entry.action != parsertl::accept)
+        while (_results.entry.action != parsertl::action::error &&
+            _results.entry.action != parsertl::action::accept)
         {
-            if (_results.entry.action == parsertl::reduce)
+            if (_results.entry.action == parsertl::action::reduce)
             {
                 auto i = g_config_parser._actions.find(_results.entry.param);
 
@@ -288,7 +288,7 @@ struct config_state
                 _productions);
         }
 
-        if (_results.entry.action == parsertl::error)
+        if (_results.entry.action == parsertl::action::error)
         {
             const std::size_t line =
                 1 + std::count(_mf.data(), iter->first, '\n');
@@ -330,7 +330,7 @@ struct config_state
             {
                 for (const auto& rhs : p._rhs.first)
                 {
-                    if (rhs._type == parsertl::rules::symbol::TERMINAL)
+                    if (rhs._type == parsertl::rules::symbol::type::TERMINAL)
                     {
                         used_tokens.insert(rhs._id);
                     }
