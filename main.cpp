@@ -2048,6 +2048,37 @@ void add_pathname(const char* param,
         pair.first.emplace_back(wildcardtl::wildcard(pn, true));
 }
 
+std::vector<std::string_view> split(const char* str, const char c)
+{
+    std::vector<std::string_view> ret;
+    const char* first = str;
+    std::size_t count = 0;
+
+    for (; *str; ++str)
+    {
+        if (*str == c)
+        {
+            count = str - first;
+
+            if (count > 0)
+            {
+                ret.emplace_back(std::string_view(first, count));
+            }
+
+            first = str + 1;
+        }
+    }
+
+    count = str - first;
+
+    if (count > 0)
+    {
+        ret.emplace_back(std::string_view(first, count));
+    }
+
+    return ret;
+}
+
 int main(int argc, char* argv[])
 {
     try
@@ -2103,17 +2134,25 @@ int main(int argc, char* argv[])
             else if (strcmp("-exclude", param) == 0)
             {
                 ++i;
-                param = argv[i];
 
                 if (i < argc)
                 {
-                    if (*param == '!')
+                    auto pathnames = split(argv[i], ';');
+
+                    for (const auto& p : pathnames)
                     {
-                        g_exclude.second.emplace_back(wildcardtl::wildcard(&param[1], true));
-                    }
-                    else
-                    {
-                        g_exclude.first.emplace_back(wildcardtl::wildcard(param, true));
+                        param = p.data();
+
+                        if (*param == '!')
+                        {
+                            g_exclude.second.emplace_back(wildcardtl::
+                                wildcard(&param[1], param + p.size(), true));
+                        }
+                        else
+                        {
+                            g_exclude.first.emplace_back(wildcardtl::
+                                wildcard(param, param + p.size(), true));
+                        }
                     }
                 }
                 else
@@ -2125,11 +2164,17 @@ int main(int argc, char* argv[])
             else if (strcmp("-f", param) == 0)
             {
                 ++i;
-                param = argv[i];
 
                 if (i < argc)
                 {
-                    configs.push_back(config(match_type::parser, param, false, false));
+                    auto pathnames = split(argv[i], ';');
+
+                    for (const auto& p : pathnames)
+                    {
+                        param = p.data();
+                        configs.push_back(config(match_type::parser,
+                            std::string(param, param + p.size()), false, false));
+                    }
                 }
                 else
                 {
@@ -2256,11 +2301,17 @@ int main(int argc, char* argv[])
             else if (strcmp("-vf", param) == 0)
             {
                 ++i;
-                param = argv[i];
 
                 if (i < argc)
                 {
-                    configs.push_back(config(match_type::parser, param, true, false));
+                    auto pathnames = split(argv[i], ';');
+
+                    for (const auto& p : pathnames)
+                    {
+                        param = p.data();
+                        configs.push_back(config(match_type::parser,
+                            std::string(param, param + p.size()), true, false));
+                    }
                 }
                 else
                 {
@@ -2271,11 +2322,17 @@ int main(int argc, char* argv[])
             else if (strcmp("-Vf", param) == 0)
             {
                 ++i;
-                param = argv[i];
 
                 if (i < argc)
                 {
-                    configs.push_back(config(match_type::parser, param, true, true));
+                    auto pathnames = split(argv[i], ';');
+
+                    for (const auto& p : pathnames)
+                    {
+                        param = p.data();
+                        configs.push_back(config(match_type::parser,
+                            std::string(param, param + p.size()), true, true));
+                    }
                 }
                 else
                 {
