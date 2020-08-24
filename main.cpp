@@ -2016,6 +2016,15 @@ void show_help()
         "The searches are run in the order they occur on the command line.\n";
 }
 
+bool is_windows()
+{
+#ifdef WIN32
+    return true;
+#else
+    return false;
+#endif
+}
+
 void add_pathname(const char* param,
     std::map<std::string, std::pair<std::vector<wildcardtl::wildcard>,
     std::vector<wildcardtl::wildcard>>>& map)
@@ -2043,9 +2052,9 @@ void add_pathname(const char* param,
     }
 
     if (negate)
-        pair.second.emplace_back(wildcardtl::wildcard(pn, true));
+        pair.second.emplace_back(wildcardtl::wildcard(pn, is_windows()));
     else
-        pair.first.emplace_back(wildcardtl::wildcard(pn, true));
+        pair.first.emplace_back(wildcardtl::wildcard(pn, is_windows()));
 }
 
 std::vector<std::string_view> split(const char* str, const char c)
@@ -2146,12 +2155,12 @@ int main(int argc, char* argv[])
                         if (*param == '!')
                         {
                             g_exclude.second.emplace_back(wildcardtl::
-                                wildcard(&param[1], param + p.size(), true));
+                                wildcard(&param[1], param + p.size(), is_windows()));
                         }
                         else
                         {
                             g_exclude.first.emplace_back(wildcardtl::
-                                wildcard(param, param + p.size(), true));
+                                wildcard(param, param + p.size(), is_windows()));
                         }
                     }
                 }
