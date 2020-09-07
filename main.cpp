@@ -974,13 +974,13 @@ void process_file(const std::string& pathname)
             }
         }
 
-        const auto old = ranges.back();
+        const auto& old = ranges.back();
 
         ranges.pop_back();
 
         if (!ranges.empty())
         {
-            const auto curr = ranges.back();
+            const auto& curr = ranges.back();
 
             // Cleardown any stale strings in matches.
             // First makes sure current range is not from the same
@@ -1200,7 +1200,7 @@ void process_file(const fs::path& path,
 
         for (const auto& wc : include.second)
         {
-            if (!wc.match(pathname))
+            if (wc.match(pathname))
             {
                 process = false;
                 break;
@@ -2025,11 +2025,10 @@ bool is_windows()
 #endif
 }
 
-void add_pathname(const char* param,
+void add_pathname(const std::string& pn,
     std::map<std::string, std::pair<std::vector<wildcardtl::wildcard>,
     std::vector<wildcardtl::wildcard>>>& map)
 {
-    std::string pn = param;
     const std::size_t index = pn.rfind(fs::path::preferred_separator,
         pn.find_first_of("*?["));
     const bool negate = pn[0] == '!';
@@ -2037,22 +2036,9 @@ void add_pathname(const char* param,
         pn.substr(negate ? 1 : 0, index - (negate ? 1 : 0));
     auto& pair = map[path];
 
-    if (index == std::string::npos)
-    {
-        if (negate)
-        {
-            pn.insert(1, 1, static_cast<char>(fs::path::preferred_separator));
-            pn.insert(1, 1, '*');
-        }
-        else
-        {
-            pn = static_cast<char>(fs::path::preferred_separator) + pn;
-            pn = '*' + pn;
-        }
-    }
-
     if (negate)
-        pair.second.emplace_back(wildcardtl::wildcard(pn, is_windows()));
+        pair.second.emplace_back(wildcardtl::
+            wildcard(pn.substr(1), is_windows()));
     else
         pair.first.emplace_back(wildcardtl::wildcard(pn, is_windows()));
 }
@@ -2387,7 +2373,13 @@ int main(int argc, char* argv[])
             }
             else
             {
-                add_pathname(param, g_pathnames);
+                auto pathnames = split(argv[i], ';');
+
+                for (const auto& p : pathnames)
+                {
+                    param = p.data();
+                    add_pathname(std::string(param, param + p.size()), g_pathnames);
+                }
             }
         }
 
