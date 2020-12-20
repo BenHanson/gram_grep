@@ -2490,7 +2490,7 @@ bool is_windows()
 #endif
 }
 
-void add_pathname(const std::string& pn,
+void add_pathname(std::string pn,
     std::map<std::string, std::pair<std::vector<wildcardtl::wildcard>,
     std::vector<wildcardtl::wildcard>>>& map)
 {
@@ -2500,6 +2500,9 @@ void add_pathname(const std::string& pn,
     const std::string path = index == std::string::npos ? "." :
         pn.substr(negate ? 1 : 0, index - (negate ? 1 : 0));
     auto& pair = map[path];
+
+    if (index == std::string::npos)
+        pn.insert(negate ? 1 : 0, path + static_cast<char>(fs::path::preferred_separator));
 
     if (negate)
         pair.second.emplace_back(wildcardtl::
@@ -2859,7 +2862,7 @@ int main(int argc, char* argv[])
         }
 
         // Postponed to allow -i to be processed first.
-        for (const auto& tuple : configs)
+        for (auto& tuple : configs)
         {
             switch (tuple._type)
             {
