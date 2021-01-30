@@ -2502,7 +2502,12 @@ void add_pathname(std::string pn,
     auto& pair = map[path];
 
     if (index == std::string::npos)
-        pn.insert(negate ? 1 : 0, path + static_cast<char>(fs::path::preferred_separator));
+        if (g_recursive)
+            pn.insert(negate ? 1 : 0, std::string(1, '*') +
+                static_cast<char>(fs::path::preferred_separator));
+        else
+            pn.insert(negate ? 1 : 0, path +
+                static_cast<char>(fs::path::preferred_separator));
 
     if (negate)
         pair.second.emplace_back(wildcardtl::
@@ -2862,7 +2867,7 @@ int main(int argc, char* argv[])
         }
 
         // Postponed to allow -i to be processed first.
-        for (auto& tuple : configs)
+        for (const auto& tuple : configs)
         {
             switch (tuple._type)
             {
