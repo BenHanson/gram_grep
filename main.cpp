@@ -226,6 +226,7 @@ std::vector<std::variant<parser, uparser, lexer, ulexer, regex>> g_pipeline;
 std::pair<std::vector<wildcardtl::wildcard>,
     std::vector<wildcardtl::wildcard>> g_exclude;
 bool g_icase = false;
+bool g_pathname_only = false;
 bool g_force_unicode = false;
 bool g_modify = false; // Set when grammar has modifying operations
 bool g_output = false;
@@ -1315,20 +1316,25 @@ void process_file(const std::string& pathname)
                     const auto count = std::count(data_first, curr, '\n');
                     const char* eoi = data_second;
 
-                    std::cout << pathname << '(' << 1 + count << "):";
+                    std::cout << pathname;
 
-                    if (count == 0)
+                    if (!g_pathname_only)
                     {
-                        curr = data_first;
-                    }
-                    else
-                    {
-                        for (; *(curr - 1) != '\n'; --curr);
-                    }
+                        std::cout << '(' << 1 + count << "):";
 
-                    for (; curr != eoi && *curr != '\r' && *curr != '\n'; ++curr)
-                    {
-                        std::cout << *curr;
+                        if (count == 0)
+                        {
+                            curr = data_first;
+                        }
+                        else
+                        {
+                            for (; *(curr - 1) != '\n'; --curr);
+                        }
+
+                        for (; curr != eoi && *curr != '\r' && *curr != '\n'; ++curr)
+                        {
+                            std::cout << *curr;
+                        }
                     }
 
                     // Flush buffer, to give fast feedback to user
@@ -1338,6 +1344,9 @@ void process_file(const std::string& pathname)
                 }
             }
         }
+
+        if (success && g_pathname_only)
+            break;
 
         const auto& old = ranges.back();
 
@@ -2412,6 +2421,7 @@ void show_help()
         "-exclude <wildcard>\tExclude pathnames matching wildcard.\n"
         "-f <config file>\tSearch using config file.\n"
         "-i\t\t\tCase insensitive searching.\n"
+        "-l\t\t\tOutput pathname only.\n"
         "-o\t\t\tOutput changes to matching file.\n"
         "-P <regex>\t\tSearch using std::regex.\n"
         "-r, -R, --recursive\tRecurse subdirectories.\n"
@@ -2658,6 +2668,10 @@ int main(int argc, char* argv[])
             else if (strcmp("-i", param) == 0)
             {
                 g_icase = true;
+            }
+            else if (strcmp("-l", param) == 0)
+            {
+                g_pathname_only = true;
             }
             else if (strcmp("-o", param) == 0)
             {
@@ -3031,8 +3045,9 @@ int main(int argc, char* argv[])
             }
         }
 
-        std::cout << "Matches: " << g_hits << "    Matching files: " << g_files <<
-            "    Total files searched: " << g_searched << '\n';
+        if (!g_pathname_only)
+            std::cout << "Matches: " << g_hits << "    Matching files: " << g_files <<
+                "    Total files searched: " << g_searched << '\n';
     }
     catch (const std::exception& e)
     {
