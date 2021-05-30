@@ -1027,7 +1027,7 @@ bool process_lexer(const ulexer& l, std::vector<match>& ranges)
     return success;
 }
 
-bool process_regex(const regex& r, std::vector<match>& ranges)
+bool process_regex(const regex& r, std::vector<match>& ranges, std::vector<std::string>& captures)
 {
     std::cregex_iterator iter(ranges.back()._first,
         ranges.back()._eoi, r._rx);
@@ -1081,6 +1081,16 @@ bool process_regex(const regex& r, std::vector<match>& ranges)
             ranges.push_back(match(ranges.back()._first,
                 ranges.back()._eoi, ranges.back()._eoi));
             success = true;
+        }
+    }
+
+    if (success)
+    {
+        captures.clear();
+
+        for (const auto& m : *iter)
+        {
+            captures.push_back(m.str());
         }
     }
 
@@ -1211,6 +1221,8 @@ void process_file(const std::string& pathname)
     file_type type = file_type::ansi;
     std::size_t hits = 0;
     std::vector<match> ranges;
+    lexertl::state_machine cap_sm;
+    std::vector<std::string> captures;
     std::stack<std::string> matches;
     std::map<std::pair<std::size_t, std::size_t>, std::string> replacements;
 
@@ -1268,7 +1280,7 @@ void process_file(const std::string& pathname)
             {
                 const auto& r = std::get<regex>(v);
 
-                success = process_regex(r, ranges);
+                success = process_regex(r, ranges, captures);
                 break;
             }
             }
@@ -1301,8 +1313,48 @@ void process_file(const std::string& pathname)
                     // Replace with g_replace.
                     const char* second = iter->_eoi;
 
-                    replacements[std::make_pair(first - data_first,
-                        second - first)] = g_replace;
+                    if (captures.empty())
+                        replacements[std::make_pair(first - data_first,
+                            second - first)] = g_replace;
+                    else
+                    {
+                        std::string replace;
+                        bool skip = false;
+
+                        if (cap_sm.empty())
+                        {
+                            lexertl::rules rules;
+
+                            rules.push(R"(\$\d)", 1);
+                            lexertl::generator::build(rules, cap_sm);
+                        }
+
+                        lexertl::citerator i(g_replace.c_str(),
+                            g_replace.c_str() + g_replace.size(), cap_sm);
+                        lexertl::citerator e;
+
+                        for (; i != e; ++i)
+                        {
+                            if (i->id == 1)
+                            {
+                                const std::size_t idx = atoi(i->first + 1);
+
+                                if (idx < captures.size())
+                                    replace += captures[idx];
+                                else
+                                {
+                                    std::cerr << "Capture $" << idx << " is out of range.\n";
+                                    skip = true;
+                                }
+                            }
+                            else
+                                replace.push_back(*i->first);
+                        }
+
+                        if (!skip)
+                            replacements[std::make_pair(first - data_first,
+                                second - first)] = replace;
+                    }
                 }
             }
 
@@ -1396,7 +1448,7 @@ void process_file(const std::string& pathname)
 
                 if (::system(checkout.c_str()) != 0)
                 {
-                    std::cerr << "Failed to execute " << g_checkout << '\n';
+                    std::cerr << "Failed to execute " << g_checkout << ".\n";
                 }
             }
         }
@@ -3027,7 +3079,7 @@ int main(int argc, char* argv[])
         {
             if (::system(startup.c_str()))
             {
-                std::cerr << "Failed to execute " << startup << '\n';
+                std::cerr << "Failed to execute " << startup << ".\n";
                 run = false;
             }
         }
@@ -3041,7 +3093,7 @@ int main(int argc, char* argv[])
         {
             if (::system(shutdown.c_str()))
             {
-                std::cerr << "Failed to execute " << shutdown << '\n';
+                std::cerr << "Failed to execute " << shutdown << ".\n";
             }
         }
 
