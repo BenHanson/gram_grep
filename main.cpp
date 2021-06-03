@@ -909,7 +909,7 @@ bool process_parser(const uparser& p, const char* start,
     return success;
 }
 
-bool process_lexer(const lexer& l, std::vector<match>& ranges)
+bool process_lexer(const lexer& l, std::vector<match>& ranges, std::vector<std::string>& captures)
 {
     lexertl::criterator iter(ranges.back()._first,
         ranges.back()._eoi, l._sm);
@@ -965,10 +965,16 @@ bool process_lexer(const lexer& l, std::vector<match>& ranges)
         }
     }
 
+    if (success)
+    {
+        captures.clear();
+        captures.push_back(std::string(ranges.back()._first, ranges.back()._eoi));
+    }
+
     return success;
 }
 
-bool process_lexer(const ulexer& l, std::vector<match>& ranges)
+bool process_lexer(const ulexer& l, std::vector<match>& ranges, std::vector<std::string>& captures)
 {
     crutf8iterator iter(utf8_iterator(ranges.back()._first, ranges.back()._eoi),
         utf8_iterator(ranges.back()._eoi, ranges.back()._eoi), l._sm);
@@ -1022,6 +1028,12 @@ bool process_lexer(const ulexer& l, std::vector<match>& ranges)
                 iter->first.get(), iter->first.get()));
             success = true;
         }
+    }
+
+    if (success)
+    {
+        captures.clear();
+        captures.push_back(std::string(ranges.back()._first, ranges.back()._eoi));
     }
 
     return success;
@@ -1088,9 +1100,14 @@ bool process_regex(const regex& r, std::vector<match>& ranges, std::vector<std::
     {
         captures.clear();
 
-        for (const auto& m : *iter)
+        if (r._negate)
+            captures.push_back(std::string(ranges.back()._first, ranges.back()._second));
+        else
         {
-            captures.push_back(m.str());
+            for (const auto& m : *iter)
+            {
+                captures.push_back(m.str());
+            }
         }
     }
 
@@ -1221,7 +1238,7 @@ void process_file(const std::string& pathname)
     file_type type = file_type::ansi;
     std::size_t hits = 0;
     std::vector<match> ranges;
-    lexertl::state_machine cap_sm;
+    static lexertl::state_machine cap_sm;
     std::vector<std::string> captures;
     std::stack<std::string> matches;
     std::map<std::pair<std::size_t, std::size_t>, std::string> replacements;
@@ -1238,6 +1255,7 @@ void process_file(const std::string& pathname)
     {
         bool success = false;
         std::map<std::pair<std::size_t, std::size_t>, std::string> temp_replacements;
+        bool negate = false;
 
         for (std::size_t index = ranges.size() - 1, size = g_pipeline.size();
             index < size; ++index)
@@ -1252,6 +1270,7 @@ void process_file(const std::string& pathname)
 
                 success = process_parser(p, data_first, ranges, matches,
                     temp_replacements);
+                negate = p._negate;
                 break;
             }
             case match_type::uparser:
@@ -1260,20 +1279,23 @@ void process_file(const std::string& pathname)
 
                 success = process_parser(p, data_first, ranges, matches,
                     temp_replacements);
+                negate = p._negate;
                 break;
             }
             case match_type::lexer:
             {
                 const auto& l = std::get<lexer>(v);
 
-                success = process_lexer(l, ranges);
+                success = process_lexer(l, ranges, captures);
+                negate = l._negate;
                 break;
             }
             case match_type::ulexer:
             {
                 const auto& l = std::get<ulexer>(v);
 
-                success = process_lexer(l, ranges);
+                success = process_lexer(l, ranges, captures);
+                negate = l._negate;
                 break;
             }
             case match_type::regex:
@@ -1281,6 +1303,7 @@ void process_file(const std::string& pathname)
                 const auto& r = std::get<regex>(v);
 
                 success = process_regex(r, ranges, captures);
+                negate = r._negate;
                 break;
             }
             }
@@ -1300,7 +1323,7 @@ void process_file(const std::string& pathname)
             // Only allow g_replace if g_modify (grammar actions) not set
             if (g_output && !g_modify)
             {
-                const char* first = iter->_second;
+                const char* first = negate ? iter->_first : iter->_second;
 
                 if (first < tuple._first || first > tuple._second)
                 {
