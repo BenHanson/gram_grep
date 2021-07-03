@@ -1114,14 +1114,13 @@ bool process_regex(const regex& r, std::vector<match>& ranges, std::vector<std::
     return success;
 }
 
-file_type fetch_file_type(lexertl::memory_file& mf)
+file_type fetch_file_type(const char* data, std::size_t size)
 {
     file_type type = file_type::ansi;
-    const std::size_t size = mf.size();
 
     if (size > 1)
     {
-        const uint16_t* utf16 = reinterpret_cast<const uint16_t*>(mf.data());
+        const uint16_t* utf16 = reinterpret_cast<const uint16_t*>(data);
 
         switch (*utf16)
         {
@@ -1135,7 +1134,7 @@ file_type fetch_file_type(lexertl::memory_file& mf)
             if (size > 2)
             {
                 const unsigned char* utf8 =
-                    reinterpret_cast<const unsigned char*>(mf.data());
+                    reinterpret_cast<const unsigned char*>(data);
 
                 if (utf8[0] == 0xef && utf8[1] == 0xbb && utf8[2] == 0xbf)
                     type = file_type::utf8;
@@ -1148,10 +1147,11 @@ file_type fetch_file_type(lexertl::memory_file& mf)
     return type;
 }
 
-file_type load_file(lexertl::memory_file& mf, std::vector<unsigned char>& utf8,
+file_type load_file(std::vector<unsigned char>& utf8,
     const char*& data_first, const char*& data_second, std::vector<match>& ranges)
 {
-    file_type type = fetch_file_type(mf);
+    const std::size_t size = data_second - data_first;
+    file_type type = fetch_file_type(data_first, size);
 
     switch (type)
     {
@@ -1160,22 +1160,21 @@ file_type load_file(lexertl::memory_file& mf, std::vector<unsigned char>& utf8,
         using in_iter = lexertl::basic_utf16_in_iterator<const uint16_t*, int32_t>;
         using out_iter = lexertl::basic_utf8_out_iterator<in_iter>;
         const uint16_t* first =
-            reinterpret_cast<const uint16_t*>(mf.data() + 2);
+            reinterpret_cast<const uint16_t*>(data_first + 2);
         const uint16_t* second =
-            reinterpret_cast<const uint16_t*>(mf.data() + mf.size());
+            reinterpret_cast<const uint16_t*>(data_second);
         in_iter in(first, second);
         in_iter in_end(second, second);
         out_iter out(in, in_end);
         out_iter out_end(in_end, in_end);
 
-        utf8.reserve(mf.size() / 2 - 1);
+        utf8.reserve(size / 2 - 1);
 
         for (; out != out_end; ++out)
         {
             utf8.push_back(*out);
         }
 
-        mf.close();
         data_first = reinterpret_cast<const char*>(&utf8.front());
         data_second = data_first + utf8.size();
         ranges.push_back(match(data_first, data_first, data_second));
@@ -1187,35 +1186,31 @@ file_type load_file(lexertl::memory_file& mf, std::vector<unsigned char>& utf8,
             <lexertl::basic_flip_iterator<const uint16_t*>, int32_t>;
         using out_flip_iter = lexertl::basic_utf8_out_iterator<in_flip_iter>;
         lexertl::basic_flip_iterator<const uint16_t*>
-            first(reinterpret_cast<const uint16_t*>(mf.data() + 2));
+            first(reinterpret_cast<const uint16_t*>(data_first + 2));
         lexertl::basic_flip_iterator<const uint16_t*>
-            second(reinterpret_cast<const uint16_t*>(mf.data() + mf.size()));
+            second(reinterpret_cast<const uint16_t*>(data_second));
         in_flip_iter in(first, second);
         in_flip_iter in_end(second, second);
         out_flip_iter out(in, in_end);
         out_flip_iter out_end(in_end, in_end);
 
-        utf8.reserve(mf.size() / 2 - 1);
+        utf8.reserve(size / 2 - 1);
 
         for (; out != out_end; ++out)
         {
             utf8.push_back(*out);
         }
 
-        mf.close();
         data_first = reinterpret_cast<const char*>(&utf8.front());
         data_second = data_first + utf8.size();
         ranges.push_back(match(data_first, data_first, data_second));
         break;
     }
     case file_type::utf8:
-        data_first = mf.data() + 3;
-        data_second = mf.data() + mf.size();
+        data_first += 3;
         ranges.push_back(match(data_first, data_first, data_second));
         break;
     default:
-        data_first = mf.data();
-        data_second = data_first + mf.size();
         ranges.push_back(match(data_first, data_first, data_second));
         break;
     }
@@ -1223,7 +1218,7 @@ file_type load_file(lexertl::memory_file& mf, std::vector<unsigned char>& utf8,
     return type;
 }
 
-void process_file(const std::string& pathname)
+void process_file(const std::string& pathname, std::string* cin = nullptr)
 {
     if (g_writable && (fs::status(pathname).permissions() &
         fs::perms::owner_write) == fs::perms::none)
@@ -1243,13 +1238,32 @@ void process_file(const std::string& pathname)
     std::stack<std::string> matches;
     std::map<std::pair<std::size_t, std::size_t>, std::string> replacements;
 
-    if (!mf.data())
+    if (!mf.data() && !cin)
     {
         std::cerr << "Error: failed to open " << pathname << ".\n";
         return;
     }
 
-    type = load_file(mf, utf8, data_first, data_second, ranges);
+    if (cin)
+    {
+        char c = 0;
+
+        while (std::cin.get(c))
+            *cin += c;
+
+        data_first = cin->c_str();
+        data_second = data_first + cin->size();
+    }
+    else
+    {
+        data_first = mf.data();
+        data_second = data_first + mf.size();
+    }
+
+    type = load_file(utf8, data_first, data_second, ranges);
+
+    if (type != file_type::ansi)
+        mf.close();
 
     do
     {
@@ -1488,7 +1502,9 @@ void process_file(const std::string& pathname)
             }
 
             replacements.clear();
-            mf.close();
+
+            if (type == file_type::ansi)
+                mf.close();
 
             if ((fs::status(pathname.c_str()).permissions() &
                 fs::perms::owner_write) != fs::perms::owner_write)
@@ -2583,7 +2599,7 @@ void add_pathname(std::string pn,
         pn.find_first_of("*?["));
     const bool negate = pn[0] == '!';
     const std::string path = index == std::string::npos ? "." :
-        pn.substr(negate ? 1 : 0, index - (negate ? 1 : 0));
+        pn.substr(negate ? 1 : 0, index + 1);
     auto& pair = map[path];
 
     if (index == std::string::npos)
@@ -2949,12 +2965,6 @@ int main(int argc, char* argv[])
             }
         }
 
-        if (g_pathnames.empty())
-        {
-            std::cerr << "No input file specified.\n";
-            return 1;
-        }
-
         // Postponed to allow -i to be processed first.
         for (const auto& tuple : configs)
         {
@@ -3109,7 +3119,14 @@ int main(int argc, char* argv[])
 
         if (run)
         {
-            process();
+            if (g_pathnames.empty())
+            {
+                std::string cin;
+
+                process_file(std::string(), &cin);
+            }
+            else
+                process();
         }
 
         if (!shutdown.empty())
