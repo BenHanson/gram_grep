@@ -1911,7 +1911,7 @@ void build_config_parser()
         }
     };
     grules.push("cmd_list", "%empty "
-        "| cmd_list single_cmd");
+        "| cmd_list single_cmd ';'");
     grules.push("single_cmd", "cmd");
     g_config_parser._actions[grules.push("single_cmd",
         "mod_cmd")] =
@@ -1920,7 +1920,7 @@ void build_config_parser()
         g_modify = true;
     };
     g_config_parser._actions[grules.push("mod_cmd",
-        "'erase' '(' Index ')' ';'")] =
+        "'erase' '(' Index ')'")] =
         [](config_state& state, config_parser& parser)
     {
         const auto& token = state._results.dollar(parser._gsm, 2,
@@ -1937,7 +1937,7 @@ void build_config_parser()
                 index, erase_cmd()));
     };
     g_config_parser._actions[grules.push("mod_cmd",
-        "'erase' '(' Index ',' Index ')' ';'")] =
+        "'erase' '(' Index ',' Index ')'")] =
         [](config_state& state, config_parser& parser)
     {
         const uint16_t rule_idx = static_cast<uint16_t>(state._grules.
@@ -1957,7 +1957,7 @@ void build_config_parser()
                 index1, index2, erase_cmd()));
     };
     g_config_parser._actions[grules.push("mod_cmd",
-        "'erase' '(' Index '.' first_second ',' Index '.' first_second ')' ';'")] =
+        "'erase' '(' Index '.' first_second ',' Index '.' first_second ')'")] =
         [](config_state& state, config_parser& parser)
     {
         const uint16_t rule_idx = static_cast<uint16_t>(state._grules.
@@ -1981,7 +1981,7 @@ void build_config_parser()
                 index1, second1, index2, second2, erase_cmd()));
     };
     g_config_parser._actions[grules.push("mod_cmd",
-        "'insert' '(' Index ',' ScriptString ')' ';'")] =
+        "'insert' '(' Index ',' ScriptString ')'")] =
         [](config_state& state, config_parser& parser)
     {
         const uint16_t rule_idx = static_cast<uint16_t>(state._grules.
@@ -2001,7 +2001,7 @@ void build_config_parser()
                 index, insert_cmd(text)));
     };
     g_config_parser._actions[grules.push("mod_cmd",
-        "'insert' '(' Index '.' 'second' ',' ScriptString ')' ';'")] =
+        "'insert' '(' Index '.' 'second' ',' ScriptString ')'")] =
         [](config_state& state, config_parser& parser)
     {
         const uint16_t rule_idx = static_cast<uint16_t>(state._grules.
@@ -2020,7 +2020,7 @@ void build_config_parser()
             g_curr_parser->_actions[rule_idx].emplace_back(cmd(cmd_type::insert,
                 index, true, insert_cmd(text)));
     };
-    g_config_parser._actions[grules.push("cmd", "'match' '=' Index ';'")] =
+    g_config_parser._actions[grules.push("cmd", "'match' '=' Index")] =
         [](config_state& state, config_parser& parser)
     {
         const uint16_t rule_idx = static_cast<uint16_t>(state._grules.
@@ -2037,7 +2037,7 @@ void build_config_parser()
                 index, match_cmd(0, 0)));
     };
     g_config_parser._actions[grules.push("cmd",
-        "'match' '=' 'substr' '(' Index ',' Integer ',' Integer ')' ';'")] =
+        "'match' '=' 'substr' '(' Index ',' Integer ',' Integer ')'")] =
         [](config_state& state, config_parser& parser)
     {
         const uint16_t rule_idx = static_cast<uint16_t>(state._grules.
@@ -2059,7 +2059,7 @@ void build_config_parser()
                 index, match_cmd(static_cast<uint16_t>(atoi(token6.first)),
                     static_cast<uint16_t>(atoi(token8.first)))));
     };
-    g_config_parser._actions[grules.push("cmd", "'match' '+=' Index ';'")] =
+    g_config_parser._actions[grules.push("cmd", "'match' '+=' Index")] =
         [](config_state& state, config_parser& parser)
     {
         const uint16_t rule_idx = static_cast<uint16_t>(state._grules.
@@ -2076,7 +2076,7 @@ void build_config_parser()
                 index, match_cmd(0, 0)));
     };
     g_config_parser._actions[grules.push("cmd",
-        "'match' '+=' 'substr' '(' Index ',' Integer ',' Integer ')' ';'")] =
+        "'match' '+=' 'substr' '(' Index ',' Integer ',' Integer ')'")] =
         [](config_state& state, config_parser& parser)
     {
         const uint16_t rule_idx = static_cast<uint16_t>(state._grules.
@@ -2099,7 +2099,7 @@ void build_config_parser()
                     static_cast<uint16_t>(atoi(token8.first)))));
     };
     g_config_parser._actions[grules.push("mod_cmd",
-        "'replace' '(' Index ',' ScriptString ')' ';'")] =
+        "'replace' '(' Index ',' ScriptString ')'")] =
         [](config_state& state, config_parser& parser)
     {
         const uint16_t rule_idx = static_cast<uint16_t>(state._grules.
@@ -2119,7 +2119,7 @@ void build_config_parser()
                 index, replace_cmd(text)));
     };
     g_config_parser._actions[grules.push("mod_cmd",
-        "'replace' '(' Index ',' Index ',' ScriptString ')' ';'")] =
+        "'replace' '(' Index ',' Index ',' ScriptString ')'")] =
         [](config_state& state, config_parser& parser)
     {
         const uint16_t rule_idx = static_cast<uint16_t>(state._grules.
@@ -2143,7 +2143,7 @@ void build_config_parser()
     };
     g_config_parser._actions[grules.push("mod_cmd",
         "'replace' '(' Index '.' first_second ',' "
-        "Index '.' first_second ',' ScriptString ')' ';'")] =
+        "Index '.' first_second ',' ScriptString ')'")] =
         [](config_state& state, config_parser& parser)
     {
         const uint16_t rule_idx = static_cast<uint16_t>(state._grules.
@@ -2170,7 +2170,7 @@ void build_config_parser()
                 index1, second1, index2, second2, replace_cmd(text)));
     };
     g_config_parser._actions[grules.push("mod_cmd",
-        "'replace_all' '(' Index ',' ScriptString ',' ScriptString ')' ';'")] =
+        "'replace_all' '(' Index ',' ScriptString ',' ScriptString ')'")] =
         [](config_state& state, config_parser& parser)
     {
         const uint16_t rule_idx = static_cast<uint16_t>(state._grules.
@@ -2374,7 +2374,7 @@ void build_config_parser()
 
     std::string warnings;
 
-    //    parsertl::debug::dump(grules, std::cout);
+    //parsertl::debug::dump(grules, std::cout);
     parsertl::generator::build(grules, g_config_parser._gsm, &warnings);
 
     if (!warnings.empty())
