@@ -1262,7 +1262,8 @@ void process_file(const std::string& pathname, std::string* cin = nullptr)
 
     type = load_file(utf8, data_first, data_second, ranges);
 
-    if (type != file_type::ansi)
+    if (type == file_type::utf16 || type == file_type::utf16_flip)
+        // No need for original data
         mf.close();
 
     do
@@ -1502,9 +1503,8 @@ void process_file(const std::string& pathname, std::string* cin = nullptr)
             }
 
             replacements.clear();
-
-            if (type == file_type::ansi)
-                mf.close();
+            // In case the memory_file is still open
+            mf.close();
 
             if ((fs::status(pathname.c_str()).permissions() &
                 fs::perms::owner_write) != fs::perms::owner_write)
