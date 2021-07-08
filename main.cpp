@@ -241,6 +241,8 @@ std::size_t g_hits = 0;
 std::size_t g_files = 0;
 std::size_t g_searched = 0;
 bool g_writable = false;
+std::string g_startup;
+std::string g_shutdown;
 
 using token = parsertl::token<lexertl::criterator>;
 
@@ -353,19 +355,15 @@ struct config_state
             _grules.terminals(terminals);
 
             if (!warnings.empty())
-            {
                 std::cerr << "Warnings from config " << config_pathname <<
                     " : " << warnings;
-            }
 
             for (const auto& p : grammar)
             {
                 for (const auto& rhs : p._rhs.first)
                 {
                     if (rhs._type == parsertl::rules::symbol::type::TERMINAL)
-                    {
                         used_tokens.insert(rhs._id);
-                    }
                 }
             }
 
@@ -382,10 +380,8 @@ struct config_state
                 }
 
                 if (!found_id)
-                {
                     std::cerr << "Warning: Token \"" << terminals[i] <<
                         "\" does not have a lexer definiton.\n";
-                }
 
                 if (std::find(used_tokens.begin(), used_tokens.end(), i) ==
                     used_tokens.end())
@@ -429,9 +425,7 @@ void process_action(const parser& p, const char* start,
             const uint16_t size = c._front + c._back;
 
             if (c._front == 0 && c._back == 0)
-            {
                 matches.top() += temp;
-            }
             else
             {
                 if (c._front >= temp.size() || size > temp.size())
@@ -456,9 +450,7 @@ void process_action(const parser& p, const char* start,
                 p._gsm._rules[item.first].second.size() + cmd._param1].str();
 
             if (c._front == 0 && c._back == 0)
-            {
                 matches.top() = std::move(temp);
-            }
             else
             {
                 const uint16_t size = c._front + c._back;
@@ -568,9 +560,7 @@ bool process_parser(const parser& p, const char* start,
         if (p._negate)
         {
             if (p._all)
-            {
                 success = false;
-            }
             else
             {
                 const char* last_start = ranges.back()._first;
@@ -586,18 +576,14 @@ bool process_parser(const parser& p, const char* start,
                     success = false;
                 }
                 else
-                {
                     ranges.push_back(match(ranges.back()._first,
                         iter->first, iter->first));
-                }
             }
         }
         else
         {
             if (!p._actions.empty())
-            {
                 matches.push(std::string());
-            }
 
             // Store start of match
             ranges.back()._first = iter->first;
@@ -679,9 +665,7 @@ void process_action(const uparser& p, const char* start,
             const uint16_t size = c._front + c._back;
 
             if (c._front == 0 && c._back == 0)
-            {
                 matches.top() += temp;
-            }
             else
             {
                 if (c._front >= temp.size() || size > temp.size())
@@ -707,9 +691,7 @@ void process_action(const uparser& p, const char* start,
             std::string temp(token.first.get(), token.second.get());
 
             if (c._front == 0 && c._back == 0)
-            {
                 matches.top() = std::move(temp);
-            }
             else
             {
                 const uint16_t size = c._front + c._back;
@@ -819,9 +801,7 @@ bool process_parser(const uparser& p, const char* start,
         if (p._negate)
         {
             if (p._all)
-            {
                 success = false;
-            }
             else
             {
                 const char* last_start = ranges.back()._first;
@@ -837,18 +817,14 @@ bool process_parser(const uparser& p, const char* start,
                     success = false;
                 }
                 else
-                {
                     ranges.push_back(match(ranges.back()._first,
                         iter->first.get(), iter->first.get()));
-                }
             }
         }
         else
         {
             if (!p._actions.empty())
-            {
                 matches.push(std::string());
-            }
 
             // Store start of match
             ranges.back()._first = iter->first.get();
@@ -920,9 +896,7 @@ bool process_lexer(const lexer& l, std::vector<match>& ranges, std::vector<std::
         if (l._negate)
         {
             if (l._all)
-            {
                 success = false;
-            }
             else
             {
                 const char* last_start = ranges.back()._first;
@@ -938,10 +912,8 @@ bool process_lexer(const lexer& l, std::vector<match>& ranges, std::vector<std::
                     success = false;
                 }
                 else
-                {
                     ranges.push_back(match(ranges.back()._first,
                         iter->first, iter->first));
-                }
             }
         }
         else
@@ -985,9 +957,7 @@ bool process_lexer(const ulexer& l, std::vector<match>& ranges, std::vector<std:
         if (l._negate)
         {
             if (l._all)
-            {
                 success = false;
-            }
             else
             {
                 const char* last_start = ranges.back()._first;
@@ -1003,10 +973,8 @@ bool process_lexer(const ulexer& l, std::vector<match>& ranges, std::vector<std:
                     success = false;
                 }
                 else
-                {
                     ranges.push_back(match(ranges.back()._first,
                         iter->first.get(), iter->first.get()));
-                }
             }
         }
         else
@@ -1051,9 +1019,7 @@ bool process_regex(const regex& r, std::vector<match>& ranges, std::vector<std::
         if (r._negate)
         {
             if (r._all)
-            {
                 success = false;
-            }
             else
             {
                 const char* last_start = ranges.back()._first;
@@ -1069,10 +1035,8 @@ bool process_regex(const regex& r, std::vector<match>& ranges, std::vector<std::
                     success = false;
                 }
                 else
-                {
                     ranges.push_back(match(ranges.back()._first,
                         (*iter)[0].first, (*iter)[0].first));
-                }
             }
         }
         else
@@ -1218,6 +1182,334 @@ file_type load_file(std::vector<unsigned char>& utf8,
     return type;
 }
 
+std::pair<bool, bool> search(std::vector<match>& ranges, const char* data_first,
+    std::stack<std::string>& matches,
+    std::map<std::pair<std::size_t, std::size_t>, std::string>& replacements,
+    std::vector<std::string>& captures)
+{
+    bool success = false;
+    bool negate = false;
+
+    for (std::size_t index = ranges.size() - 1, size = g_pipeline.size();
+        index < size; ++index)
+    {
+        const auto& v = g_pipeline[index];
+
+        switch (static_cast<match_type>(v.index()))
+        {
+        case match_type::parser:
+        {
+            const auto& p = std::get<parser>(v);
+
+            success = process_parser(p, data_first, ranges, matches,
+                replacements);
+            negate = p._negate;
+            break;
+        }
+        case match_type::uparser:
+        {
+            const auto& p = std::get<uparser>(v);
+
+            success = process_parser(p, data_first, ranges, matches,
+                replacements);
+            negate = p._negate;
+            break;
+        }
+        case match_type::lexer:
+        {
+            const auto& l = std::get<lexer>(v);
+
+            success = process_lexer(l, ranges, captures);
+            negate = l._negate;
+            break;
+        }
+        case match_type::ulexer:
+        {
+            const auto& l = std::get<ulexer>(v);
+
+            success = process_lexer(l, ranges, captures);
+            negate = l._negate;
+            break;
+        }
+        case match_type::regex:
+        {
+            const auto& r = std::get<regex>(v);
+
+            success = process_regex(r, ranges, captures);
+            negate = r._negate;
+            break;
+        }
+        }
+
+        if (!success) break;
+    }
+
+    return std::make_pair(success, negate);
+}
+
+void process_matches(const std::vector<match>& ranges,
+    std::map<std::pair<std::size_t, std::size_t>, std::string> &replacements,
+    std::map<std::pair<std::size_t, std::size_t>, std::string> &temp_replacements,
+    const bool negate, const std::vector<std::string>& captures,
+    const char* data_first, const char* data_second,
+    lexertl::state_machine& cap_sm, const std::string& pathname,
+    std::size_t& hits)
+{
+    const auto& tuple = ranges.front();
+    auto iter = ranges.rbegin();
+    auto end = ranges.rend();
+
+    replacements.insert(temp_replacements.begin(), temp_replacements.end());
+    temp_replacements.clear();
+
+    // Only allow g_replace if g_modify (grammar actions) not set
+    if (g_output && !g_modify)
+    {
+        const char* first = negate ? iter->_first : iter->_second;
+
+        if (first < tuple._first || first > tuple._second)
+        {
+            std::cerr << "Cannot replace text when source "
+                "is not contained in original string.\n";
+            return;
+        }
+        else
+        {
+            // Replace with g_replace.
+            const char* second = iter->_eoi;
+
+            if (captures.empty())
+                replacements[std::make_pair(first - data_first,
+                    second - first)] = g_replace;
+            else
+            {
+                std::string replace;
+                bool skip = false;
+
+                if (cap_sm.empty())
+                {
+                    lexertl::rules rules;
+
+                    rules.push(R"(\$\d)", 1);
+                    lexertl::generator::build(rules, cap_sm);
+                }
+
+                lexertl::citerator i(g_replace.c_str(),
+                    g_replace.c_str() + g_replace.size(), cap_sm);
+                lexertl::citerator e;
+
+                for (; i != e; ++i)
+                {
+                    if (i->id == 1)
+                    {
+                        const std::size_t idx = atoi(i->first + 1);
+
+                        if (idx < captures.size())
+                            replace += captures[idx];
+                        else
+                        {
+                            std::cerr << "Capture $" << idx << " is out of range.\n";
+                            skip = true;
+                        }
+                    }
+                    else
+                        replace.push_back(*i->first);
+                }
+
+                if (!skip)
+                    replacements[std::make_pair(first - data_first,
+                        second - first)] = replace;
+            }
+        }
+    }
+
+    for (; iter != end; ++iter)
+    {
+        const char* first = iter->_second;
+
+        if (first >= tuple._first && first <= tuple._eoi)
+        {
+            const char* curr = iter->_first;
+            const auto count = std::count(data_first, curr, '\n');
+            const char* eoi = data_second;
+
+            std::cout << pathname;
+
+            if (!g_pathname_only)
+            {
+                std::cout << '(' << 1 + count << "):";
+
+                if (count == 0)
+                    curr = data_first;
+                else
+                    for (; *(curr - 1) != '\n'; --curr);
+
+                for (; curr != eoi && *curr != '\r' && *curr != '\n'; ++curr)
+                {
+                    std::cout << *curr;
+                }
+            }
+
+            // Flush buffer, to give fast feedback to user
+            std::cout << std::endl;
+            ++hits;
+            break;
+        }
+    }
+}
+
+void perform_output(const std::size_t hits, const std::string& pathname,
+    std::map<std::pair<std::size_t, std::size_t>, std::string>& replacements,
+    const char* data_first, const char* data_second, lexertl::memory_file& mf,
+    const file_type type, const std::size_t size)
+{
+    ++g_files;
+    g_hits += hits;
+
+    if ((fs::status(pathname.c_str()).permissions() &
+        fs::perms::owner_write) != fs::perms::owner_write)
+    {
+        // Read-only
+        if (!g_checkout.empty())
+        {
+            std::string checkout = g_checkout;
+            const std::size_t index = checkout.find("$1");
+
+            if (index != std::string::npos)
+            {
+                checkout.erase(index, 2);
+                checkout.insert(index, pathname);
+            }
+
+            if (::system(checkout.c_str()) != 0)
+                std::cerr << "Failed to execute " << g_checkout << ".\n";
+        }
+    }
+
+    if (!replacements.empty())
+    {
+        std::string content(data_first, data_second);
+
+        for (auto iter = replacements.rbegin(), end = replacements.rend();
+            iter != end; ++iter)
+        {
+            content.erase(iter->first.first, iter->first.second);
+            content.insert(iter->first.first, iter->second);
+        }
+
+        replacements.clear();
+        // In case the memory_file is still open
+        mf.close();
+
+        if ((fs::status(pathname.c_str()).permissions() &
+            fs::perms::owner_write) != fs::perms::owner_write)
+        {
+            std::cerr << pathname << " is read only.\n";
+        }
+        else
+        {
+            switch (type)
+            {
+            case file_type::utf16:
+            {
+                std::vector<uint16_t> utf16;
+                const unsigned char* first = reinterpret_cast
+                    <const unsigned char*>(&content.front());
+                const unsigned char* second = first + content.size();
+                lexertl::basic_utf8_in_iterator<const unsigned char*, int32_t>
+                    iter(first, second);
+                lexertl::basic_utf8_in_iterator<const unsigned char*, int32_t>
+                    end(second, second);
+
+                utf16.reserve(size);
+                utf16.push_back(0xfeff);
+
+                for (; iter != end; ++iter)
+                {
+                    const int32_t val = *iter;
+                    lexertl::basic_utf16_out_iterator<const int32_t*, uint16_t>
+                        out_iter(&val, &val + 1);
+                    lexertl::basic_utf16_out_iterator<const int32_t*, uint16_t>
+                        out_end(&val + 1, &val + 1);
+
+                    for (; out_iter != out_end; ++out_iter)
+                    {
+                        utf16.push_back(*out_iter);
+                    }
+                }
+
+                std::ofstream os(pathname.c_str(), std::ofstream::binary);
+
+                os.exceptions(std::ofstream::badbit);
+                os.write(reinterpret_cast<const char*>(&utf16.front()),
+                    utf16.size() * sizeof(uint16_t));
+                os.close();
+                break;
+            }
+            case file_type::utf16_flip:
+            {
+                std::vector<uint16_t> utf16;
+                const unsigned char* first = reinterpret_cast
+                    <const unsigned char*>(&content.front());
+                const unsigned char* second = first + content.size();
+                lexertl::basic_utf8_in_iterator<const unsigned char*, int32_t>
+                    iter(first, second);
+                lexertl::basic_utf8_in_iterator<const unsigned char*, int32_t>
+                    end(second, second);
+
+                utf16.reserve(size);
+                utf16.push_back(0xfffe);
+
+                for (; iter != end; ++iter)
+                {
+                    const int32_t val = *iter;
+                    lexertl::basic_utf16_out_iterator<const int32_t*, uint16_t>
+                        out_iter(&val, &val + 1);
+                    lexertl::basic_utf16_out_iterator<const int32_t*, uint16_t>
+                        out_end(&val + 1, &val + 1);
+
+                    for (; out_iter != out_end; ++out_iter)
+                    {
+                        uint16_t flip = *out_iter;
+                        lexertl::basic_flip_iterator<uint16_t*> flip_iter(&flip);
+
+                        utf16.push_back(*flip_iter);
+                    }
+                }
+
+                std::ofstream os(pathname.c_str(), std::ofstream::binary);
+
+                os.exceptions(std::ofstream::badbit);
+                os.write(reinterpret_cast<const char*>(&utf16.front()),
+                    utf16.size() * sizeof(uint16_t));
+                os.close();
+                break;
+            }
+            case file_type::utf8:
+            {
+                std::ofstream os(pathname.c_str(), std::ofstream::binary);
+                const unsigned char header[] = { 0xef, 0xbb, 0xbf };
+
+                os.exceptions(std::ofstream::badbit);
+                os.write(reinterpret_cast<const char*>(header), sizeof(header));
+                os.write(content.c_str(), content.size());
+                os.close();
+                break;
+            }
+            default:
+            {
+                std::ofstream os(pathname.c_str(), std::ofstream::binary);
+
+                os.exceptions(std::ofstream::badbit);
+                os.write(content.c_str(), content.size());
+                os.close();
+                break;
+            }
+            }
+        }
+    }
+}
+
 void process_file(const std::string& pathname, std::string* cin = nullptr)
 {
     if (g_writable && (fs::status(pathname).permissions() &
@@ -1246,11 +1538,10 @@ void process_file(const std::string& pathname, std::string* cin = nullptr)
 
     if (cin)
     {
-        char c = 0;
+        std::ostringstream ss;
 
-        while (std::cin.get(c))
-            *cin += c;
-
+        ss << std::cin.rdbuf();
+        *cin = ss.str();
         data_first = cin->c_str();
         data_second = data_first + cin->size();
     }
@@ -1268,175 +1559,12 @@ void process_file(const std::string& pathname, std::string* cin = nullptr)
 
     do
     {
-        bool success = false;
         std::map<std::pair<std::size_t, std::size_t>, std::string> temp_replacements;
-        bool negate = false;
-
-        for (std::size_t index = ranges.size() - 1, size = g_pipeline.size();
-            index < size; ++index)
-        {
-            const auto& v = g_pipeline[index];
-
-            switch (static_cast<match_type>(v.index()))
-            {
-            case match_type::parser:
-            {
-                const auto& p = std::get<parser>(v);
-
-                success = process_parser(p, data_first, ranges, matches,
-                    temp_replacements);
-                negate = p._negate;
-                break;
-            }
-            case match_type::uparser:
-            {
-                const auto& p = std::get<uparser>(v);
-
-                success = process_parser(p, data_first, ranges, matches,
-                    temp_replacements);
-                negate = p._negate;
-                break;
-            }
-            case match_type::lexer:
-            {
-                const auto& l = std::get<lexer>(v);
-
-                success = process_lexer(l, ranges, captures);
-                negate = l._negate;
-                break;
-            }
-            case match_type::ulexer:
-            {
-                const auto& l = std::get<ulexer>(v);
-
-                success = process_lexer(l, ranges, captures);
-                negate = l._negate;
-                break;
-            }
-            case match_type::regex:
-            {
-                const auto& r = std::get<regex>(v);
-
-                success = process_regex(r, ranges, captures);
-                negate = r._negate;
-                break;
-            }
-            }
-
-            if (!success) break;
-        }
+        auto [success, negate] = search(ranges, data_first, matches, temp_replacements, captures);
 
         if (success)
-        {
-            const auto& tuple = ranges.front();
-            auto iter = ranges.rbegin();
-            auto end = ranges.rend();
-
-            replacements.insert(temp_replacements.begin(), temp_replacements.end());
-            temp_replacements.clear();
-
-            // Only allow g_replace if g_modify (grammar actions) not set
-            if (g_output && !g_modify)
-            {
-                const char* first = negate ? iter->_first : iter->_second;
-
-                if (first < tuple._first || first > tuple._second)
-                {
-                    std::cerr << "Cannot replace text when source "
-                        "is not contained in original string.\n";
-                    return;
-                }
-                else
-                {
-                    // Replace with g_replace.
-                    const char* second = iter->_eoi;
-
-                    if (captures.empty())
-                        replacements[std::make_pair(first - data_first,
-                            second - first)] = g_replace;
-                    else
-                    {
-                        std::string replace;
-                        bool skip = false;
-
-                        if (cap_sm.empty())
-                        {
-                            lexertl::rules rules;
-
-                            rules.push(R"(\$\d)", 1);
-                            lexertl::generator::build(rules, cap_sm);
-                        }
-
-                        lexertl::citerator i(g_replace.c_str(),
-                            g_replace.c_str() + g_replace.size(), cap_sm);
-                        lexertl::citerator e;
-
-                        for (; i != e; ++i)
-                        {
-                            if (i->id == 1)
-                            {
-                                const std::size_t idx = atoi(i->first + 1);
-
-                                if (idx < captures.size())
-                                    replace += captures[idx];
-                                else
-                                {
-                                    std::cerr << "Capture $" << idx << " is out of range.\n";
-                                    skip = true;
-                                }
-                            }
-                            else
-                                replace.push_back(*i->first);
-                        }
-
-                        if (!skip)
-                            replacements[std::make_pair(first - data_first,
-                                second - first)] = replace;
-                    }
-                }
-            }
-
-            for (; iter != end; ++iter)
-            {
-                const char* first = iter->_second;
-
-                if (first >= tuple._first && first <= tuple._eoi)
-                {
-                    const char* curr = iter->_first;
-                    const auto count = std::count(data_first, curr, '\n');
-                    const char* eoi = data_second;
-
-                    std::cout << pathname;
-
-                    if (!g_pathname_only)
-                    {
-                        std::cout << '(' << 1 + count << "):";
-
-                        if (count == 0)
-                        {
-                            curr = data_first;
-                        }
-                        else
-                        {
-                            for (; *(curr - 1) != '\n'; --curr);
-                        }
-
-                        for (; curr != eoi && *curr != '\r' && *curr != '\n'; ++curr)
-                        {
-                            std::cout << *curr;
-                        }
-                    }
-
-                    // Flush buffer, to give fast feedback to user
-                    std::cout << std::endl;
-                    ++hits;
-                    break;
-                }
-            }
-        }
-
-        if (success && g_pathname_only)
-            break;
+            process_matches(ranges, replacements, temp_replacements, negate,
+                captures, data_first, data_second, cap_sm, pathname, hits);
 
         const auto& old = ranges.back();
 
@@ -1462,158 +1590,11 @@ void process_file(const std::string& pathname, std::string* cin = nullptr)
             // Start searching from end of last match
             ranges.back()._first = ranges.back()._second;
         }
-    } while (!ranges.empty());
+    } while (!g_pathname_only && !ranges.empty());
 
     if (hits)
-    {
-        ++g_files;
-        g_hits += hits;
-
-        if ((fs::status(pathname.c_str()).permissions() &
-            fs::perms::owner_write) != fs::perms::owner_write)
-        {
-            // Read-only
-            if (!g_checkout.empty())
-            {
-                std::string checkout = g_checkout;
-                const std::size_t index = checkout.find("$1");
-
-                if (index != std::string::npos)
-                {
-                    checkout.erase(index, 2);
-                    checkout.insert(index, pathname);
-                }
-
-                if (::system(checkout.c_str()) != 0)
-                {
-                    std::cerr << "Failed to execute " << g_checkout << ".\n";
-                }
-            }
-        }
-
-        if (!replacements.empty())
-        {
-            std::string content(data_first, data_second);
-
-            for (auto iter = replacements.rbegin(), end = replacements.rend();
-                iter != end; ++iter)
-            {
-                content.erase(iter->first.first, iter->first.second);
-                content.insert(iter->first.first, iter->second);
-            }
-
-            replacements.clear();
-            // In case the memory_file is still open
-            mf.close();
-
-            if ((fs::status(pathname.c_str()).permissions() &
-                fs::perms::owner_write) != fs::perms::owner_write)
-            {
-                std::cerr << pathname << " is read only.\n";
-            }
-            else
-            {
-                switch (type)
-                {
-                case file_type::utf16:
-                {
-                    std::vector<uint16_t> utf16;
-                    const unsigned char* first = reinterpret_cast
-                        <const unsigned char*>(&content.front());
-                    const unsigned char* second = first + content.size();
-                    lexertl::basic_utf8_in_iterator<const unsigned char*, int32_t>
-                        iter(first, second);
-                    lexertl::basic_utf8_in_iterator<const unsigned char*, int32_t>
-                        end(second, second);
-
-                    utf16.reserve(utf8.size());
-                    utf16.push_back(0xfeff);
-
-                    for (; iter != end; ++iter)
-                    {
-                        const int32_t val = *iter;
-                        lexertl::basic_utf16_out_iterator<const int32_t*, uint16_t>
-                            out_iter(&val, &val + 1);
-                        lexertl::basic_utf16_out_iterator<const int32_t*, uint16_t>
-                            out_end(&val + 1, &val + 1);
-
-                        for (; out_iter != out_end; ++out_iter)
-                        {
-                            utf16.push_back(*out_iter);
-                        }
-                    }
-
-                    std::ofstream os(pathname.c_str(), std::ofstream::binary);
-
-                    os.exceptions(std::ofstream::badbit);
-                    os.write(reinterpret_cast<const char*>(&utf16.front()),
-                        utf16.size() * sizeof(uint16_t));
-                    os.close();
-                    break;
-                }
-                case file_type::utf16_flip:
-                {
-                    std::vector<uint16_t> utf16;
-                    const unsigned char* first = reinterpret_cast
-                        <const unsigned char*>(&content.front());
-                    const unsigned char* second = first + content.size();
-                    lexertl::basic_utf8_in_iterator<const unsigned char*, int32_t>
-                        iter(first, second);
-                    lexertl::basic_utf8_in_iterator<const unsigned char*, int32_t>
-                        end(second, second);
-
-                    utf16.reserve(utf8.size());
-                    utf16.push_back(0xfffe);
-
-                    for (; iter != end; ++iter)
-                    {
-                        const int32_t val = *iter;
-                        lexertl::basic_utf16_out_iterator<const int32_t*, uint16_t>
-                            out_iter(&val, &val + 1);
-                        lexertl::basic_utf16_out_iterator<const int32_t*, uint16_t>
-                            out_end(&val + 1, &val + 1);
-
-                        for (; out_iter != out_end; ++out_iter)
-                        {
-                            uint16_t flip = *out_iter;
-                            lexertl::basic_flip_iterator<uint16_t*> flip_iter(&flip);
-
-                            utf16.push_back(*flip_iter);
-                        }
-                    }
-
-                    std::ofstream os(pathname.c_str(), std::ofstream::binary);
-
-                    os.exceptions(std::ofstream::badbit);
-                    os.write(reinterpret_cast<const char*>(&utf16.front()),
-                        utf16.size() * sizeof(uint16_t));
-                    os.close();
-                    break;
-                }
-                case file_type::utf8:
-                {
-                    std::ofstream os(pathname.c_str(), std::ofstream::binary);
-                    const unsigned char header[] = { 0xef, 0xbb, 0xbf };
-
-                    os.exceptions(std::ofstream::badbit);
-                    os.write(reinterpret_cast<const char*>(header), sizeof(header));
-                    os.write(content.c_str(), content.size());
-                    os.close();
-                    break;
-                }
-                default:
-                {
-                    std::ofstream os(pathname.c_str(), std::ofstream::binary);
-
-                    os.exceptions(std::ofstream::badbit);
-                    os.write(content.c_str(), content.size());
-                    os.close();
-                    break;
-                }
-                }
-            }
-        }
-    }
+        perform_output(hits, pathname, replacements, data_first, data_second,
+            mf, type, utf8.size());
 
     ++g_searched;
 }
@@ -1685,9 +1666,7 @@ void process_file(const fs::path& path,
         }
 
         if (process)
-        {
             process_file(pathname);
-        }
     }
 }
 
@@ -1843,7 +1822,6 @@ void build_config_parser()
     };
     grules.push("names", "Name "
         "| names Name");
-
     grules.push("grules", "%empty "
         "| grules grule");
     g_config_parser._actions[grules.push("grule",
@@ -2222,7 +2200,7 @@ void build_config_parser()
         if (g_force_unicode)
             state._lurules.insert_macro(name.c_str(), regex.c_str());
         else
-        state._lrules.insert_macro(name.c_str(), regex.c_str());
+            state._lrules.insert_macro(name.c_str(), regex.c_str());
     };
     grules.push("rx_rules", "%empty");
     g_config_parser._actions[grules.push("rx_rules", "rx_rules regex Number")] =
@@ -2394,9 +2372,7 @@ void build_config_parser()
     parsertl::generator::build(grules, g_config_parser._gsm, &warnings);
 
     if (!warnings.empty())
-    {
         std::cerr << "Config parser warnings: " << warnings;
-    }
 
     lrules.push_state("GRULE");
     lrules.push_state("SCRIPT");
@@ -2404,7 +2380,7 @@ void build_config_parser()
     lrules.push_state("REGEX");
     lrules.push_state("RULE");
     lrules.push_state("ID");
-    lrules.insert_macro("comment", "[/][*].{+}[\r\n]*?[*][/]");
+    lrules.insert_macro("c_comment", "[/][*](?s:.)*?[*][/]");
     lrules.insert_macro("escape", "\\\\(.|x[0-9A-Fa-f]+|c[@a-zA-Z])");
     lrules.insert_macro("posix_name", "alnum|alpha|blank|cntrl|digit|graph|"
         "lower|print|punct|space|upper|xdigit");
@@ -2456,7 +2432,9 @@ void build_config_parser()
     lrules.push("GRULE", "[ \t]+|\n|\r\n", lrules.skip(), ".");
     lrules.push("GRULE", "%empty", grules.token_id("'%empty'"), ".");
     lrules.push("GRULE", "%%", grules.token_id("'%%'"), "MACRO");
-    lrules.push("INITIAL,GRULE,SCRIPT", "{comment}", lrules.skip(), ".");
+    lrules.push("INITIAL,GRULE,SCRIPT", "{c_comment}", lrules.skip(), ".");
+    // Bison supports single line comments
+    lrules.push("INITIAL,GRULE,SCRIPT", "[/][/].*", lrules.skip(), ".");
     lrules.push("INITIAL,GRULE,ID",
         "'(\\\\([^0-9cx]|[0-9]{1,3}|c[@a-zA-Z]|x\\d+)|[^'])+'|"
         "[\"](\\\\([^0-9cx]|[0-9]{1,3}|c[@a-zA-Z]|x\\d+)|[^\"])+[\"]",
@@ -2471,7 +2449,7 @@ void build_config_parser()
     lrules.push("MACRO,REGEX", "\n|\r\n", lrules.skip(), "MACRO");
 
     lrules.push("REGEX", "[ \t]+", lrules.skip(), ".");
-    lrules.push("RULE", "^[ \t]+({comment}([ \t]+|{comment})*)?",
+    lrules.push("RULE", "^[ \t]+({c_comment}([ \t]+|{c_comment})*)?",
         lrules.skip(), ".");
     lrules.push("RULE", "^<([*]|{state_name}(,{state_name})*)>",
         grules.token_id("StartState"), ".");
@@ -2496,7 +2474,7 @@ void build_config_parser()
     lrules.push("REGEX,RULE", "[\"](\\\\.|[^\r\n\"])*[\"]",
         grules.token_id("String"), ".");
 
-    lrules.push("RULE,ID", "[ \t]+({comment}([ \t]+|{comment})*)?",
+    lrules.push("RULE,ID", "[ \t]+({c_comment}([ \t]+|{c_comment})*)?",
         lrules.skip(), "ID");
     lrules.push("RULE", "<([.]|<|>?{state_name})>", grules.token_id("ExitState"), "ID");
     lrules.push("RULE,ID", "\n|\r\n", lrules.skip(), "RULE");
@@ -2630,9 +2608,7 @@ std::vector<std::string_view> split(const char* str, const char c)
             count = str - first;
 
             if (count > 0)
-            {
                 ret.emplace_back(std::string_view(first, count));
-            }
 
             first = str + 1;
         }
@@ -2641,11 +2617,364 @@ std::vector<std::string_view> split(const char* str, const char c)
     count = str - first;
 
     if (count > 0)
-    {
         ret.emplace_back(std::string_view(first, count));
-    }
 
     return ret;
+}
+
+void read_switches(const int argc, const char* const argv[],
+    std::vector<config>& configs)
+{
+    for (int i = 1; i < argc; ++i)
+    {
+        const char* param = argv[i];
+
+        if (strcmp("-checkout", param) == 0)
+        {
+            ++i;
+            param = argv[i];
+
+            if (i < argc)
+            {
+                // "C:\Program Files (x86)\Microsoft Visual Studio 14.0\Common7\IDE\tf.exe"
+                // checkout <pathname>
+                g_checkout = param;
+            }
+            else
+                throw std::runtime_error("Missing pathname following -checkout.\n");
+        }
+        else if (strcmp("-E", param) == 0)
+        {
+            // DFA regex
+            ++i;
+            param = argv[i];
+
+            if (i < argc)
+                configs.push_back(config(match_type::dfa_regex, param, false, false));
+            else
+                throw std::runtime_error("Missing regex following -E.\n");
+        }
+        else if (strcmp("-exclude", param) == 0)
+        {
+            ++i;
+
+            if (i < argc)
+            {
+                auto pathnames = split(argv[i], ';');
+
+                for (const auto& p : pathnames)
+                {
+                    param = p.data();
+
+                    if (*param == '!')
+                        g_exclude.second.emplace_back(wildcardtl::
+                            wildcard(&param[1], param + p.size(), is_windows()));
+                    else
+                        g_exclude.first.emplace_back(wildcardtl::
+                            wildcard(param, param + p.size(), is_windows()));
+                }
+            }
+            else
+                throw std::runtime_error("Missing wildcard following -exclude.\n");
+        }
+        else if (strcmp("-f", param) == 0)
+        {
+            ++i;
+
+            if (i < argc)
+            {
+                auto pathnames = split(argv[i], ';');
+
+                for (const auto& p : pathnames)
+                {
+                    param = p.data();
+                    configs.push_back(config(match_type::parser,
+                        std::string(param, param + p.size()), false, false));
+                }
+            }
+            else
+                throw std::runtime_error("Missing pathname following -f.\n");
+        }
+        else if (strcmp("--help", param) == 0)
+        {
+            show_help();
+            exit(0);
+        }
+        else if (strcmp("-i", param) == 0)
+            g_icase = true;
+        else if (strcmp("-l", param) == 0)
+            g_pathname_only = true;
+        else if (strcmp("-o", param) == 0)
+            g_output = true;
+        else if (strcmp("-P", param) == 0)
+        {
+            // Perl style regex
+            ++i;
+            param = argv[i];
+
+            if (i < argc)
+                configs.push_back(config(match_type::regex, param, false, false));
+            else
+                throw std::runtime_error("Missing regex following -P.\n");
+        }
+        else if (strcmp("-r", param) == 0 || strcmp("-R", param) == 0 ||
+            strcmp("--recursive", param) == 0)
+        {
+            g_recursive = true;
+        }
+        else if (strcmp("-replace", param) == 0)
+        {
+            ++i;
+            param = argv[i];
+
+            if (i < argc)
+                g_replace = param;
+            else
+                throw std::runtime_error("Missing text following -replacement.\n");
+        }
+        else if (strcmp("-shutdown", param) == 0)
+        {
+            ++i;
+            param = argv[i];
+
+            if (i < argc)
+            {
+                // "C:\Program Files (x86)\Microsoft Visual Studio 14.0\Common7\IDE\tf.exe"
+                // /delete /collection:http://tfssrv01:8080/tfs/PartnerDev gram_grep /noprompt
+                g_shutdown = param;
+            }
+            else
+                throw std::runtime_error("Missing pathname following -shutdown.\n");
+        }
+        else if (strcmp("-startup", param) == 0)
+        {
+            ++i;
+            param = argv[i];
+
+            if (i < argc)
+            {
+                // "C:\Program Files (x86)\Microsoft Visual Studio 14.0\Common7\IDE\tf.exe"
+                // workspace /new /collection:http://tfssrv01:8080/tfs/PartnerDev gram_grep
+                // /noprompt
+                g_startup = param;
+            }
+            else
+                throw std::runtime_error("Missing pathname following -startup.\n");
+        }
+        else if (strcmp("-vE", param) == 0)
+        {
+            // DFA regex
+            ++i;
+            param = argv[i];
+
+            if (i < argc)
+                configs.push_back(config(match_type::dfa_regex, param, true, false));
+            else
+                throw std::runtime_error("Missing regex following -vE.\n");
+        }
+        else if (strcmp("-VE", param) == 0)
+        {
+            // DFA regex
+            ++i;
+            param = argv[i];
+
+            if (i < argc)
+                configs.push_back(config(match_type::dfa_regex, param, true, true));
+            else
+                throw std::runtime_error("Missing regex following -VE.\n");
+        }
+        else if (strcmp("-vf", param) == 0)
+        {
+            ++i;
+
+            if (i < argc)
+            {
+                auto pathnames = split(argv[i], ';');
+
+                for (const auto& p : pathnames)
+                {
+                    param = p.data();
+                    configs.push_back(config(match_type::parser,
+                        std::string(param, param + p.size()), true, false));
+                }
+            }
+            else
+                throw std::runtime_error("Missing pathname following -vf.\n");
+        }
+        else if (strcmp("-Vf", param) == 0)
+        {
+            ++i;
+
+            if (i < argc)
+            {
+                auto pathnames = split(argv[i], ';');
+
+                for (const auto& p : pathnames)
+                {
+                    param = p.data();
+                    configs.push_back(config(match_type::parser,
+                        std::string(param, param + p.size()), true, true));
+                }
+            }
+            else
+                throw std::runtime_error("Missing pathname following -Vf.\n");
+        }
+        else if (strcmp("-vP", param) == 0)
+        {
+            // Perl style regex
+            ++i;
+            param = argv[i];
+
+            if (i < argc)
+                configs.push_back(config(match_type::regex, param, true, false));
+            else
+                throw std::runtime_error("Missing regex following -vP.\n");
+        }
+        else if (strcmp("-VP", param) == 0)
+        {
+            // Perl style regex
+            ++i;
+            param = argv[i];
+
+            if (i < argc)
+                configs.push_back(config(match_type::regex, param, true, true));
+            else
+                throw std::runtime_error("Missing regex following -VP.\n");
+        }
+        else if (strcmp("-writable", param) == 0)
+            g_writable = true;
+        else if (strcmp("-utf8", param) == 0)
+            g_force_unicode = true;
+        else
+        {
+            auto pathnames = split(argv[i], ';');
+
+            for (const auto& p : pathnames)
+            {
+                param = p.data();
+                add_pathname(std::string(param, param + p.size()), g_pathnames);
+            }
+        }
+    }
+}
+
+void fill_pipeline(const std::vector<config>& configs)
+{
+    // Postponed to allow -i to be processed first.
+    for (const auto& tuple : configs)
+    {
+        switch (tuple._type)
+        {
+        case match_type::dfa_regex:
+        {
+            if (g_force_unicode)
+            {
+                using rules_type = lexertl::basic_rules<char, char32_t>;
+                using generator = lexertl::basic_generator<rules_type,
+                    lexertl::u32state_machine>;
+                rules_type rules;
+                ulexer lexer;
+
+                lexer._negate = tuple._negate;
+                lexer._all = tuple._all;
+
+                if (g_icase)
+                    rules.flags(lexertl::icase | lexertl::dot_not_cr_lf);
+
+                rules.push(tuple._param, 1);
+                rules.push(".{+}[\r\n]", rules.skip());
+                generator::build(rules, lexer._sm);
+                g_pipeline.emplace_back(std::move(lexer));
+            }
+            else
+            {
+                lexertl::rules rules;
+                lexer lexer;
+
+                lexer._negate = tuple._negate;
+                lexer._all = tuple._all;
+
+                if (g_icase)
+                    rules.flags(lexertl::icase | lexertl::dot_not_cr_lf);
+
+                rules.push(tuple._param, 1);
+                rules.push(".{+}[\r\n]", rules.skip());
+                lexertl::generator::build(rules, lexer._sm);
+                g_pipeline.emplace_back(std::move(lexer));
+            }
+
+            break;
+        }
+        case match_type::regex:
+        {
+            regex regex;
+
+            regex._negate = tuple._negate;
+            regex._all = tuple._all;
+            regex._rx.assign(tuple._param, g_icase ?
+                (std::regex_constants::ECMAScript |
+                    std::regex_constants::icase) :
+                std::regex_constants::ECMAScript);
+            g_pipeline.emplace_back(std::move(regex));
+            break;
+        }
+        case match_type::parser:
+        {
+            if (g_force_unicode)
+            {
+                uparser parser;
+                config_state state;
+
+                parser._negate = tuple._negate;
+                parser._all = tuple._all;
+                g_curr_uparser = &parser;
+
+                if (g_config_parser._gsm.empty())
+                    build_config_parser();
+
+                state.parse(tuple._param);
+
+                if (parser._gsm.empty())
+                {
+                    ulexer lexer;
+
+                    lexer._negate = parser._negate;
+                    lexer._sm.swap(parser._lsm);
+                    g_pipeline.emplace_back(std::move(lexer));
+                }
+                else
+                    g_pipeline.emplace_back(std::move(parser));
+            }
+            else
+            {
+                parser parser;
+                config_state state;
+
+                parser._negate = tuple._negate;
+                parser._all = tuple._all;
+                g_curr_parser = &parser;
+
+                if (g_config_parser._gsm.empty())
+                    build_config_parser();
+
+                state.parse(tuple._param);
+
+                if (parser._gsm.empty())
+                {
+                    lexer lexer;
+
+                    lexer._negate = parser._negate;
+                    lexer._sm.swap(parser._lsm);
+                    g_pipeline.emplace_back(std::move(lexer));
+                }
+                else
+                    g_pipeline.emplace_back(std::move(parser));
+            }
+
+            break;
+        }
+        }
+    }
 }
 
 int main(int argc, char* argv[])
@@ -2659,460 +2988,26 @@ int main(int argc, char* argv[])
         }
 
         std::vector<config> configs;
-        std::string startup;
-        std::string shutdown;
         bool run = true;
 
-        for (int i = 1; i < argc; ++i)
-        {
-            const char* param = argv[i];
-
-            if (strcmp("-checkout", param) == 0)
-            {
-                ++i;
-                param = argv[i];
-
-                if (i < argc)
-                {
-                    // "C:\Program Files (x86)\Microsoft Visual Studio 14.0\Common7\IDE\tf.exe"
-                    // checkout <pathname>
-                    g_checkout = param;
-                }
-                else
-                {
-                    std::cerr << "Missing pathname following -checkout.\n";
-                    return 1;
-                }
-            }
-            else if (strcmp("-E", param) == 0)
-            {
-                // DFA regex
-                ++i;
-                param = argv[i];
-
-                if (i < argc)
-                {
-                    configs.push_back(config(match_type::dfa_regex, param, false, false));
-                }
-                else
-                {
-                    std::cerr << "Missing regex following -E.\n";
-                    return 1;
-                }
-            }
-            else if (strcmp("-exclude", param) == 0)
-            {
-                ++i;
-
-                if (i < argc)
-                {
-                    auto pathnames = split(argv[i], ';');
-
-                    for (const auto& p : pathnames)
-                    {
-                        param = p.data();
-
-                        if (*param == '!')
-                        {
-                            g_exclude.second.emplace_back(wildcardtl::
-                                wildcard(&param[1], param + p.size(), is_windows()));
-                        }
-                        else
-                        {
-                            g_exclude.first.emplace_back(wildcardtl::
-                                wildcard(param, param + p.size(), is_windows()));
-                        }
-                    }
-                }
-                else
-                {
-                    std::cerr << "Missing wildcard following -exclude.\n";
-                    return 1;
-                }
-            }
-            else if (strcmp("-f", param) == 0)
-            {
-                ++i;
-
-                if (i < argc)
-                {
-                    auto pathnames = split(argv[i], ';');
-
-                    for (const auto& p : pathnames)
-                    {
-                        param = p.data();
-                        configs.push_back(config(match_type::parser,
-                            std::string(param, param + p.size()), false, false));
-                    }
-                }
-                else
-                {
-                    std::cerr << "Missing pathname following -f.\n";
-                    return 1;
-                }
-            }
-            else if (strcmp("--help", param) == 0)
-            {
-                show_help();
-                return 0;
-            }
-            else if (strcmp("-i", param) == 0)
-            {
-                g_icase = true;
-            }
-            else if (strcmp("-l", param) == 0)
-            {
-                g_pathname_only = true;
-            }
-            else if (strcmp("-o", param) == 0)
-            {
-                g_output = true;
-            }
-            else if (strcmp("-P", param) == 0)
-            {
-                // Perl style regex
-                ++i;
-                param = argv[i];
-
-                if (i < argc)
-                {
-                    configs.push_back(config(match_type::regex, param, false, false));
-                }
-                else
-                {
-                    std::cerr << "Missing regex following -P.\n";
-                    return 1;
-                }
-            }
-            else if (strcmp("-r", param) == 0 || strcmp("-R", param) == 0 ||
-                strcmp("--recursive", param) == 0)
-            {
-                g_recursive = true;
-            }
-            else if (strcmp("-replace", param) == 0)
-            {
-                ++i;
-                param = argv[i];
-
-                if (i < argc)
-                {
-                    g_replace = param;
-                }
-                else
-                {
-                    std::cerr << "Missing text following -replacement.\n";
-                    return 1;
-                }
-            }
-            else if (strcmp("-shutdown", param) == 0)
-            {
-                ++i;
-                param = argv[i];
-
-                if (i < argc)
-                {
-                    // "C:\Program Files (x86)\Microsoft Visual Studio 14.0\Common7\IDE\tf.exe"
-                    // /delete /collection:http://tfssrv01:8080/tfs/PartnerDev gram_grep /noprompt
-                    shutdown = param;
-                }
-                else
-                {
-                    std::cerr << "Missing pathname following -shutdown.\n";
-                    return 1;
-                }
-            }
-            else if (strcmp("-startup", param) == 0)
-            {
-                ++i;
-                param = argv[i];
-
-                if (i < argc)
-                {
-                    // "C:\Program Files (x86)\Microsoft Visual Studio 14.0\Common7\IDE\tf.exe"
-                    // workspace /new /collection:http://tfssrv01:8080/tfs/PartnerDev gram_grep
-                    // /noprompt
-                    startup = param;
-                }
-                else
-                {
-                    std::cerr << "Missing pathname following -startup.\n";
-                    return 1;
-                }
-            }
-            else if (strcmp("-vE", param) == 0)
-            {
-                // DFA regex
-                ++i;
-                param = argv[i];
-
-                if (i < argc)
-                {
-                    configs.push_back(config(match_type::dfa_regex, param, true, false));
-                }
-                else
-                {
-                    std::cerr << "Missing regex following -vE.\n";
-                    return 1;
-                }
-            }
-            else if (strcmp("-VE", param) == 0)
-            {
-                // DFA regex
-                ++i;
-                param = argv[i];
-
-                if (i < argc)
-                {
-                    configs.push_back(config(match_type::dfa_regex, param, true, true));
-                }
-                else
-                {
-                    std::cerr << "Missing regex following -VE.\n";
-                    return 1;
-                }
-            }
-            else if (strcmp("-vf", param) == 0)
-            {
-                ++i;
-
-                if (i < argc)
-                {
-                    auto pathnames = split(argv[i], ';');
-
-                    for (const auto& p : pathnames)
-                    {
-                        param = p.data();
-                        configs.push_back(config(match_type::parser,
-                            std::string(param, param + p.size()), true, false));
-                    }
-                }
-                else
-                {
-                    std::cerr << "Missing pathname following -vf.\n";
-                    return 1;
-                }
-            }
-            else if (strcmp("-Vf", param) == 0)
-            {
-                ++i;
-
-                if (i < argc)
-                {
-                    auto pathnames = split(argv[i], ';');
-
-                    for (const auto& p : pathnames)
-                    {
-                        param = p.data();
-                        configs.push_back(config(match_type::parser,
-                            std::string(param, param + p.size()), true, true));
-                    }
-                }
-                else
-                {
-                    std::cerr << "Missing pathname following -Vf.\n";
-                    return 1;
-                }
-            }
-            else if (strcmp("-vP", param) == 0)
-            {
-                // Perl style regex
-                ++i;
-                param = argv[i];
-
-                if (i < argc)
-                {
-                    configs.push_back(config(match_type::regex, param, true, false));
-                }
-                else
-                {
-                    std::cerr << "Missing regex following -vP.\n";
-                    return 1;
-                }
-            }
-            else if (strcmp("-VP", param) == 0)
-            {
-                // Perl style regex
-                ++i;
-                param = argv[i];
-
-                if (i < argc)
-                {
-                    configs.push_back(config(match_type::regex, param, true, true));
-                }
-                else
-                {
-                    std::cerr << "Missing regex following -VP.\n";
-                    return 1;
-                }
-            }
-            else if (strcmp("-writable", param) == 0)
-            {
-                g_writable = true;
-            }
-            else if (strcmp("-utf8", param) == 0)
-            {
-                g_force_unicode = true;
-            }
-            else
-            {
-                auto pathnames = split(argv[i], ';');
-
-                for (const auto& p : pathnames)
-                {
-                    param = p.data();
-                    add_pathname(std::string(param, param + p.size()), g_pathnames);
-                }
-            }
-        }
-
-        // Postponed to allow -i to be processed first.
-        for (const auto& tuple : configs)
-        {
-            switch (tuple._type)
-            {
-            case match_type::dfa_regex:
-            {
-                if (g_force_unicode)
-                {
-                    using rules_type = lexertl::basic_rules<char, char32_t>;
-                    using generator = lexertl::basic_generator<rules_type,
-                        lexertl::u32state_machine>;
-                    rules_type rules;
-                    ulexer lexer;
-
-                    lexer._negate = tuple._negate;
-                    lexer._all = tuple._all;
-
-                    if (g_icase)
-                    {
-                        rules.flags(lexertl::icase | lexertl::dot_not_cr_lf);
-                    }
-
-                    rules.push(tuple._param, 1);
-                    rules.push(".{+}[\r\n]", rules.skip());
-
-                    generator::build(rules, lexer._sm);
-                    g_pipeline.emplace_back(std::move(lexer));
-                }
-                else
-                {
-                    lexertl::rules rules;
-                    lexer lexer;
-
-                    lexer._negate = tuple._negate;
-                    lexer._all = tuple._all;
-
-                    if (g_icase)
-                    {
-                        rules.flags(lexertl::icase | lexertl::dot_not_cr_lf);
-                    }
-
-                    rules.push(tuple._param, 1);
-                    rules.push(".{+}[\r\n]", rules.skip());
-
-                    lexertl::generator::build(rules, lexer._sm);
-                    g_pipeline.emplace_back(std::move(lexer));
-                }
-
-                break;
-            }
-            case match_type::regex:
-            {
-                regex regex;
-
-                regex._negate = tuple._negate;
-                regex._all = tuple._all;
-                regex._rx.assign(tuple._param, g_icase ?
-                    (std::regex_constants::ECMAScript |
-                        std::regex_constants::icase) :
-                    std::regex_constants::ECMAScript);
-                g_pipeline.emplace_back(std::move(regex));
-                break;
-            }
-            case match_type::parser:
-            {
-                if (g_force_unicode)
-                {
-                    uparser parser;
-                    config_state state;
-
-                    parser._negate = tuple._negate;
-                    parser._all = tuple._all;
-                    g_curr_uparser = &parser;
-
-                    if (g_config_parser._gsm.empty())
-                    {
-                        build_config_parser();
-                    }
-
-                    state.parse(tuple._param);
-
-                    if (parser._gsm.empty())
-                    {
-                        ulexer lexer;
-
-                        lexer._negate = parser._negate;
-                        lexer._sm.swap(parser._lsm);
-                        g_pipeline.emplace_back(std::move(lexer));
-                    }
-                    else
-                    {
-                        g_pipeline.emplace_back(std::move(parser));
-                    }
-                }
-                else
-                {
-                    parser parser;
-                    config_state state;
-
-                    parser._negate = tuple._negate;
-                    parser._all = tuple._all;
-                    g_curr_parser = &parser;
-
-                    if (g_config_parser._gsm.empty())
-                    {
-                        build_config_parser();
-                    }
-
-                    state.parse(tuple._param);
-
-                    if (parser._gsm.empty())
-                    {
-                        lexer lexer;
-
-                        lexer._negate = parser._negate;
-                        lexer._sm.swap(parser._lsm);
-                        g_pipeline.emplace_back(std::move(lexer));
-                    }
-                    else
-                    {
-                        g_pipeline.emplace_back(std::move(parser));
-                    }
-                }
-
-                break;
-            }
-            }
-        }
+        read_switches(argc, argv, configs);
+        fill_pipeline(configs);
 
         if (g_pipeline.empty())
-        {
-            std::cerr << "No actions have been specified.\n";
-            return 1;
-        }
+            throw std::runtime_error("No actions have been specified.\n");
+
+        if (g_output && g_pathnames.empty())
+            throw std::runtime_error("Cannot combine stdin with -o.\n");
 
         if (!g_replace.empty() && g_modify)
-        {
-            std::cerr << "Cannot combine -replace with grammar actions "
-                "that modify the input.\n";
-            return 1;
-        }
+            throw std::runtime_error("Cannot combine -replace with grammar actions "
+                "that modify the input.\n");
 
-        if (!startup.empty())
+        if (!g_startup.empty())
         {
-            if (::system(startup.c_str()))
+            if (::system(g_startup.c_str()))
             {
-                std::cerr << "Failed to execute " << startup << ".\n";
+                std::cerr << "Failed to execute " << g_startup << ".\n";
                 run = false;
             }
         }
@@ -3129,22 +3024,19 @@ int main(int argc, char* argv[])
                 process();
         }
 
-        if (!shutdown.empty())
-        {
-            if (::system(shutdown.c_str()))
-            {
-                std::cerr << "Failed to execute " << shutdown << ".\n";
-            }
-        }
+        if (!g_shutdown.empty())
+            if (::system(g_shutdown.c_str()))
+                std::cerr << "Failed to execute " << g_shutdown << ".\n";
 
         if (!g_pathname_only)
             std::cout << "Matches: " << g_hits << "    Matching files: " << g_files <<
                 "    Total files searched: " << g_searched << '\n';
+
+        return 0;
     }
     catch (const std::exception& e)
     {
         std::cerr << e.what() << '\n';
+        return 1;
     }
-
-    return 0;
 }
