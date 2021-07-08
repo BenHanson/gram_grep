@@ -274,7 +274,7 @@ struct config_state
         {
             std::ostringstream ss;
 
-            ss << "Unable to open " << config_pathname << '\n';
+            ss << "Unable to open " << config_pathname;
             throw std::runtime_error(ss.str());
         }
 
@@ -324,7 +324,7 @@ struct config_state
             std::ostringstream ss;
 
             ss << "Parse error in " << config_pathname << " at line " <<
-                line << ", column " << column << '\n';
+                line << ", column " << column;
             throw std::runtime_error(ss.str());
         }
 
@@ -2641,7 +2641,7 @@ void read_switches(const int argc, const char* const argv[],
                 g_checkout = param;
             }
             else
-                throw std::runtime_error("Missing pathname following -checkout.\n");
+                throw std::runtime_error("Missing pathname following -checkout.");
         }
         else if (strcmp("-E", param) == 0)
         {
@@ -2652,7 +2652,7 @@ void read_switches(const int argc, const char* const argv[],
             if (i < argc)
                 configs.push_back(config(match_type::dfa_regex, param, false, false));
             else
-                throw std::runtime_error("Missing regex following -E.\n");
+                throw std::runtime_error("Missing regex following -E.");
         }
         else if (strcmp("-exclude", param) == 0)
         {
@@ -2675,7 +2675,7 @@ void read_switches(const int argc, const char* const argv[],
                 }
             }
             else
-                throw std::runtime_error("Missing wildcard following -exclude.\n");
+                throw std::runtime_error("Missing wildcard following -exclude.");
         }
         else if (strcmp("-f", param) == 0)
         {
@@ -2693,7 +2693,7 @@ void read_switches(const int argc, const char* const argv[],
                 }
             }
             else
-                throw std::runtime_error("Missing pathname following -f.\n");
+                throw std::runtime_error("Missing pathname following -f.");
         }
         else if (strcmp("--help", param) == 0)
         {
@@ -2715,7 +2715,7 @@ void read_switches(const int argc, const char* const argv[],
             if (i < argc)
                 configs.push_back(config(match_type::regex, param, false, false));
             else
-                throw std::runtime_error("Missing regex following -P.\n");
+                throw std::runtime_error("Missing regex following -P.");
         }
         else if (strcmp("-r", param) == 0 || strcmp("-R", param) == 0 ||
             strcmp("--recursive", param) == 0)
@@ -2730,7 +2730,7 @@ void read_switches(const int argc, const char* const argv[],
             if (i < argc)
                 g_replace = param;
             else
-                throw std::runtime_error("Missing text following -replacement.\n");
+                throw std::runtime_error("Missing text following -replacement.");
         }
         else if (strcmp("-shutdown", param) == 0)
         {
@@ -2744,7 +2744,7 @@ void read_switches(const int argc, const char* const argv[],
                 g_shutdown = param;
             }
             else
-                throw std::runtime_error("Missing pathname following -shutdown.\n");
+                throw std::runtime_error("Missing pathname following -shutdown.");
         }
         else if (strcmp("-startup", param) == 0)
         {
@@ -2759,7 +2759,7 @@ void read_switches(const int argc, const char* const argv[],
                 g_startup = param;
             }
             else
-                throw std::runtime_error("Missing pathname following -startup.\n");
+                throw std::runtime_error("Missing pathname following -startup.");
         }
         else if (strcmp("-vE", param) == 0)
         {
@@ -2770,7 +2770,7 @@ void read_switches(const int argc, const char* const argv[],
             if (i < argc)
                 configs.push_back(config(match_type::dfa_regex, param, true, false));
             else
-                throw std::runtime_error("Missing regex following -vE.\n");
+                throw std::runtime_error("Missing regex following -vE.");
         }
         else if (strcmp("-VE", param) == 0)
         {
@@ -2781,7 +2781,7 @@ void read_switches(const int argc, const char* const argv[],
             if (i < argc)
                 configs.push_back(config(match_type::dfa_regex, param, true, true));
             else
-                throw std::runtime_error("Missing regex following -VE.\n");
+                throw std::runtime_error("Missing regex following -VE.");
         }
         else if (strcmp("-vf", param) == 0)
         {
@@ -2799,7 +2799,7 @@ void read_switches(const int argc, const char* const argv[],
                 }
             }
             else
-                throw std::runtime_error("Missing pathname following -vf.\n");
+                throw std::runtime_error("Missing pathname following -vf.");
         }
         else if (strcmp("-Vf", param) == 0)
         {
@@ -2817,7 +2817,7 @@ void read_switches(const int argc, const char* const argv[],
                 }
             }
             else
-                throw std::runtime_error("Missing pathname following -Vf.\n");
+                throw std::runtime_error("Missing pathname following -Vf.");
         }
         else if (strcmp("-vP", param) == 0)
         {
@@ -2828,7 +2828,7 @@ void read_switches(const int argc, const char* const argv[],
             if (i < argc)
                 configs.push_back(config(match_type::regex, param, true, false));
             else
-                throw std::runtime_error("Missing regex following -vP.\n");
+                throw std::runtime_error("Missing regex following -vP.");
         }
         else if (strcmp("-VP", param) == 0)
         {
@@ -2839,7 +2839,7 @@ void read_switches(const int argc, const char* const argv[],
             if (i < argc)
                 configs.push_back(config(match_type::regex, param, true, true));
             else
-                throw std::runtime_error("Missing regex following -VP.\n");
+                throw std::runtime_error("Missing regex following -VP.");
         }
         else if (strcmp("-writable", param) == 0)
             g_writable = true;
@@ -2994,14 +2994,14 @@ int main(int argc, char* argv[])
         fill_pipeline(configs);
 
         if (g_pipeline.empty())
-            throw std::runtime_error("No actions have been specified.\n");
+            throw std::runtime_error("No actions have been specified.");
 
         if (g_output && g_pathnames.empty())
-            throw std::runtime_error("Cannot combine stdin with -o.\n");
+            throw std::runtime_error("Cannot combine stdin with -o.");
 
         if (!g_replace.empty() && g_modify)
             throw std::runtime_error("Cannot combine -replace with grammar actions "
-                "that modify the input.\n");
+                "that modify the input.");
 
         if (!g_startup.empty())
         {
