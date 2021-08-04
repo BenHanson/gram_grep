@@ -2628,7 +2628,7 @@ std::vector<std::string_view> split(const char* str, const char c)
 }
 
 void read_switches(const int argc, const char* const argv[],
-    std::vector<config>& configs)
+    std::vector<config>& configs, std::vector<std::string>& files)
 {
     for (int i = 1; i < argc; ++i)
     {
@@ -2853,15 +2853,7 @@ void read_switches(const int argc, const char* const argv[],
         else if (strcmp("-utf8", param) == 0)
             g_force_unicode = true;
         else
-        {
-            auto pathnames = split(argv[i], ';');
-
-            for (const auto& p : pathnames)
-            {
-                param = p.data();
-                add_pathname(std::string(param, param + p.size()), g_pathnames);
-            }
-        }
+            files.push_back(argv[i]);
     }
 }
 
@@ -2995,10 +2987,25 @@ int main(int argc, char* argv[])
         }
 
         std::vector<config> configs;
+        std::vector<std::string> files;
         bool run = true;
 
-        read_switches(argc, argv, configs);
+        read_switches(argc, argv, configs, files);
         fill_pipeline(configs);
+
+        // Postponed to allow -r to be processed first as
+        // add_pathname() checks g_recursive.
+        for (const auto& f : files)
+        {
+            auto pathnames = split(f.c_str(), ';');
+
+            for (const auto& p : pathnames)
+            {
+                const char* param = p.data();
+
+                add_pathname(std::string(param, param + p.size()), g_pathnames);
+            }
+        }
 
         if (g_pipeline.empty())
             throw std::runtime_error("No actions have been specified.");
