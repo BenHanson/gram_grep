@@ -243,6 +243,7 @@ std::size_t g_searched = 0;
 bool g_writable = false;
 std::string g_startup;
 std::string g_shutdown;
+bool g_force_write = false;
 
 using token = parsertl::token<lexertl::criterator>;
 
@@ -1363,11 +1364,12 @@ void perform_output(const std::size_t hits, const std::string& pathname,
     const char* data_first, const char* data_second, lexertl::memory_file& mf,
     const file_type type, const std::size_t size)
 {
+    const auto perms = fs::status(pathname.c_str()).permissions();
+
     ++g_files;
     g_hits += hits;
 
-    if ((fs::status(pathname.c_str()).permissions() &
-        fs::perms::owner_write) != fs::perms::owner_write)
+    if ((perms & fs::perms::owner_write) != fs::perms::owner_write)
     {
         // Read-only
         if (!g_checkout.empty())
@@ -1384,6 +1386,8 @@ void perform_output(const std::size_t hits, const std::string& pathname,
             if (::system(checkout.c_str()) != 0)
                 std::cerr << "Failed to execute " << g_checkout << ".\n";
         }
+        else if (g_force_write)
+            fs::permissions(pathname.c_str(), perms | fs::perms::owner_write);
     }
 
     if (!replacements.empty())
@@ -2489,6 +2493,7 @@ void show_help()
         "-E <regex>\t\tSearch using DFA regex.\n"
         "-exclude <wildcard>\tExclude pathnames matching wildcard.\n"
         "-f <config file>\tSearch using config file.\n"
+        "-force_write\t\tIf a file is read only, force it to be writable.\n"
         "-i\t\t\tCase insensitive searching.\n"
         "-l\t\t\tOutput pathname only.\n"
         "-o\t\t\tOutput changes to matching file.\n"
@@ -2695,6 +2700,8 @@ void read_switches(const int argc, const char* const argv[],
             else
                 throw std::runtime_error("Missing pathname following -f.");
         }
+        else if (strcmp("-force_write", param) == 0)
+            g_force_write = true;
         else if (strcmp("--help", param) == 0)
         {
             show_help();
