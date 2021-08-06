@@ -1339,6 +1339,7 @@ bool process_matches(const std::vector<match>& ranges,
 
             if (g_pathname_only)
             {
+                std::cout << std::endl;
                 finished = true;
                 break;
             }
