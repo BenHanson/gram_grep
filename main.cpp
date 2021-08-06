@@ -1248,7 +1248,7 @@ std::pair<bool, bool> search(std::vector<match>& ranges, const char* data_first,
     return std::make_pair(success, negate);
 }
 
-void process_matches(const std::vector<match>& ranges,
+bool process_matches(const std::vector<match>& ranges,
     std::map<std::pair<std::size_t, std::size_t>, std::string> &replacements,
     std::map<std::pair<std::size_t, std::size_t>, std::string> &temp_replacements,
     const bool negate, const std::vector<std::string>& captures,
@@ -1256,6 +1256,7 @@ void process_matches(const std::vector<match>& ranges,
     lexertl::state_machine& cap_sm, const std::string& pathname,
     std::size_t& hits)
 {
+    bool finished = false;
     const auto& tuple = ranges.front();
     auto iter = ranges.rbegin();
     auto end = ranges.rend();
@@ -1272,7 +1273,7 @@ void process_matches(const std::vector<match>& ranges,
         {
             std::cerr << "Cannot replace text when source "
                 "is not contained in original string.\n";
-            return;
+            return true;
         }
         else
         {
@@ -1336,7 +1337,12 @@ void process_matches(const std::vector<match>& ranges,
 
             std::cout << pathname;
 
-            if (!g_pathname_only)
+            if (g_pathname_only)
+            {
+                finished = true;
+                break;
+            }
+            else
             {
                 std::cout << '(' << 1 + count << "):";
 
@@ -1357,6 +1363,8 @@ void process_matches(const std::vector<match>& ranges,
             break;
         }
     }
+
+    return finished;
 }
 
 void perform_output(const std::size_t hits, const std::string& pathname,
@@ -1533,6 +1541,7 @@ void process_file(const std::string& pathname, std::string* cin = nullptr)
     std::vector<std::string> captures;
     std::stack<std::string> matches;
     std::map<std::pair<std::size_t, std::size_t>, std::string> replacements;
+    bool finished = false;
 
     if (!mf.data() && !cin)
     {
@@ -1567,7 +1576,7 @@ void process_file(const std::string& pathname, std::string* cin = nullptr)
         auto [success, negate] = search(ranges, data_first, matches, temp_replacements, captures);
 
         if (success)
-            process_matches(ranges, replacements, temp_replacements, negate,
+            finished = process_matches(ranges, replacements, temp_replacements, negate,
                 captures, data_first, data_second, cap_sm, pathname, hits);
 
         const auto& old = ranges.back();
@@ -1594,7 +1603,7 @@ void process_file(const std::string& pathname, std::string* cin = nullptr)
             // Start searching from end of last match
             ranges.back()._first = ranges.back()._second;
         }
-    } while (!g_pathname_only && !ranges.empty());
+    } while (!finished && !ranges.empty());
 
     if (hits)
         perform_output(hits, pathname, replacements, data_first, data_second,
@@ -2489,7 +2498,7 @@ void build_config_parser()
 void show_help()
 {
     std::cout << "--help\t\t\tShows help.\n"
-        "-checkout <checkout command (include $1 for pathname)>.\n"
+        "-checkout\t\t<checkout command (include $1 for pathname)>.\n"
         "-E <regex>\t\tSearch using DFA regex.\n"
         "-exclude <wildcard>\tExclude pathnames matching wildcard.\n"
         "-f <config file>\tSearch using config file.\n"
@@ -2500,8 +2509,8 @@ void show_help()
         "-P <regex>\t\tSearch using std::regex.\n"
         "-r, -R, --recursive\tRecurse subdirectories.\n"
         "-replace\t\tReplacement literal text.\n"
-        "-shutdown <command to run when exiting>.\n"
-        "-startup <command to run at startup>.\n"
+        "-shutdown\t\t<command to run when exiting>.\n"
+        "-startup\t\t<command to run at startup>.\n"
         "-utf8\t\t\tIn the absence of a BOM assume UTF-8\n"
         "-vE <regex>\t\tSearch using DFA regex (negated).\n"
         "-VE <regex>\t\tSearch using DFA regex (all negated).\n"
