@@ -570,8 +570,7 @@ bool process_parser(const parser& p, const char* start,
 
                 if (last_start == iter->first)
                 {
-                    // The match is right at the beginning,
-                    // so skip.
+                    // The match is right at the beginning, so skip.
                     ranges.push_back(match(iter->second,
                         iter->second, iter->second));
                     success = false;
@@ -811,8 +810,7 @@ bool process_parser(const uparser& p, const char* start,
 
                 if (last_start == iter->first.get())
                 {
-                    // The match is right at the beginning,
-                    // so skip.
+                    // The match is right at the beginning, so skip.
                     ranges.push_back(match(iter->second.get(),
                         iter->second.get(), iter->second.get()));
                     success = false;
@@ -906,8 +904,7 @@ bool process_lexer(const lexer& l, std::vector<match>& ranges, std::vector<std::
 
                 if (last_start == iter->first)
                 {
-                    // The match is right at the beginning,
-                    // so skip.
+                    // The match is right at the beginning, so skip.
                     ranges.push_back(match(iter->second,
                         iter->second, iter->second));
                     success = false;
@@ -967,8 +964,7 @@ bool process_lexer(const ulexer& l, std::vector<match>& ranges, std::vector<std:
 
                 if (last_start == iter->first.get())
                 {
-                    // The match is right at the beginning,
-                    // so skip.
+                    // The match is right at the beginning, so skip.
                     ranges.push_back(match(iter->second.get(),
                         iter->second.get(), iter->second.get()));
                     success = false;
@@ -1029,8 +1025,7 @@ bool process_regex(const regex& r, std::vector<match>& ranges, std::vector<std::
 
                 if (last_start == (*iter)[0].first)
                 {
-                    // The match is right at the beginning,
-                    // so skip.
+                    // The match is right at the beginning, so skip.
                     ranges.push_back(match((*iter)[0].second,
                         (*iter)[0].second, (*iter)[0].second));
                     success = false;
@@ -1734,7 +1729,7 @@ void build_config_parser()
     grules.push("file",
         "directives '%%' grules '%%' rx_macros '%%' rx_rules '%%'");
     grules.push("directives", "%empty "
-        "| directives directive ");
+        "| directives directive");
     grules.push("directive", "NL");
 
     // Read and store %left entries
@@ -1801,7 +1796,16 @@ void build_config_parser()
     grules.push("tokens", "token "
         "| tokens token");
     grules.push("token", "Literal | Name");
-    // Read and stored %x entries
+    // Read and store %option caseless
+    g_config_parser._actions[grules.push("directive", "'%option' 'caseless' NL")] =
+        [](config_state& state, config_parser&)
+    {
+        if (g_force_unicode)
+            state._lurules.flags(state._lurules.flags() | lexertl::icase);
+        else
+            state._lrules.flags(state._lrules.flags() | lexertl::icase);
+    };
+    // Read and store %x entries
     g_config_parser._actions[grules.push("directive", "'%x' names NL")] =
         [](config_state& state, config_parser& parser)
     {
@@ -1836,6 +1840,8 @@ void build_config_parser()
     };
     grules.push("names", "Name "
         "| names Name");
+
+    // Grammar rules
     grules.push("grules", "%empty "
         "| grules grule");
     g_config_parser._actions[grules.push("grule",
@@ -2201,6 +2207,8 @@ void build_config_parser()
                 index, replace_all_cmd(text1, text2)));
     };
     grules.push("first_second", "'first' | 'second'");
+
+    // Token regex macros
     grules.push("rx_macros", "%empty");
     g_config_parser._actions[grules.push("rx_macros", "rx_macros MacroName regex")] =
         [](config_state& state, config_parser& parser)
@@ -2216,6 +2224,8 @@ void build_config_parser()
         else
             state._lrules.insert_macro(name.c_str(), regex.c_str());
     };
+
+    // Tokens
     grules.push("rx_rules", "%empty");
     g_config_parser._actions[grules.push("rx_rules", "rx_rules regex Number")] =
         [](config_state& state, config_parser& parser)
@@ -2333,7 +2343,7 @@ void build_config_parser()
         const std::string regex = token.str();
 
         if (g_force_unicode)
-            state._lurules.push(regex, state._lrules.skip());
+            state._lurules.push(regex, state._lurules.skip());
         else
             state._lrules.push(regex, state._lrules.skip());
     };
@@ -2350,7 +2360,7 @@ void build_config_parser()
 
         if (g_force_unicode)
             state._lurules.push(std::string(start_state.first + 1, start_state.second - 1).c_str(),
-                regex, state._lrules.skip(),
+                regex, state._lurules.skip(),
                 std::string(exit_state.first + 1, exit_state.second - 1).c_str());
         else
             state._lrules.push(std::string(start_state.first + 1, start_state.second - 1).c_str(),
@@ -2358,6 +2368,7 @@ void build_config_parser()
                 std::string(exit_state.first + 1, exit_state.second - 1).c_str());
     };
 
+    // Regex
     grules.push("regex", "rx "
         "| '^' rx "
         "| rx '$' "
@@ -2388,6 +2399,7 @@ void build_config_parser()
     if (!warnings.empty())
         std::cerr << "Config parser warnings: " << warnings;
 
+    lrules.push_state("OPTION");
     lrules.push_state("GRULE");
     lrules.push_state("SCRIPT");
     lrules.push_state("MACRO");
@@ -2401,7 +2413,7 @@ void build_config_parser()
     lrules.insert_macro("posix", "\\[:{posix_name}:\\]");
     lrules.insert_macro("state_name", "[A-Z_a-z][0-9A-Z_a-z]*");
 
-    lrules.push("[ \t]+", lrules.skip());
+    lrules.push("INITIAL,OPTION", "[ \t]+", lrules.skip(), ".");
     lrules.push("\n|\r\n", grules.token_id("NL"));
     lrules.push("%left", grules.token_id("'%left'"));
     lrules.push("%nonassoc", grules.token_id("'%nonassoc'"));
@@ -2410,6 +2422,8 @@ void build_config_parser()
     lrules.push("%start", grules.token_id("'%start'"));
     lrules.push("%token", grules.token_id("'%token'"));
     lrules.push("%x", grules.token_id("'%x'"));
+    lrules.push("INITIAL", "%option", grules.token_id("'%option'"), "OPTION");
+    lrules.push("OPTION", "caseless", grules.token_id("'caseless'"), "INITIAL");
     lrules.push("INITIAL", "%%", grules.token_id("'%%'"), "GRULE");
 
     lrules.push("GRULE", ":", grules.token_id("':'"), ".");
@@ -2531,6 +2545,7 @@ void show_help()
         "<regexes>\n"
         "%%\n\n"
         "Grammar Directives:\n\n"
+        "%option caseless\n"
         "%token\n"
         "%left\n"
         "%right\n"
@@ -2652,7 +2667,8 @@ void read_switches(const int argc, const char* const argv[],
             if (i < argc)
             {
                 // "C:\Program Files (x86)\Microsoft Visual Studio 14.0\Common7\IDE\tf.exe"
-                // checkout <pathname>
+                // checkout $1
+                // *NOTE* $1 is replaced by the pathname
                 g_checkout = param;
             }
             else
