@@ -178,7 +178,7 @@ struct config_parser;
 using config_actions_map = std::map<uint16_t, void(*)(config_state& state,
     config_parser& parser)>;
 using utf8_iterator = lexertl::basic_utf8_in_iterator<const char*, char32_t>;
-using utf8results = lexertl::match_results<utf8_iterator>;
+using utf8results = lexertl::recursive_match_results<utf8_iterator>;
 using crutf8iterator =
     lexertl::iterator<utf8_iterator, lexertl::u32state_machine, utf8results>;
 namespace fs = std::filesystem;
