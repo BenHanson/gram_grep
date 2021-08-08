@@ -334,7 +334,7 @@ struct config_state
         if (_grules.grammar().empty())
         {
             if (g_force_unicode)
-                _lurules.push(".{+}[\r\n]", _lrules.skip());
+                _lurules.push(".{+}[\r\n]", _lurules.skip());
             else
                 _lrules.push(".{+}[\r\n]", _lrules.skip());
         }
@@ -343,7 +343,7 @@ struct config_state
             std::string warnings;
             parsertl::rules::string_vector terminals;
             const auto& grammar = _grules.grammar();
-            const auto& ids = _lrules.ids();
+            const auto& ids = g_force_unicode ? _lurules.ids() : _lrules.ids();
             std::set<std::size_t> used_tokens;
 
             if (g_force_unicode)
