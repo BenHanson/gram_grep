@@ -542,6 +542,8 @@ void process_action(const parser& p, const char* start,
             }
 
             break;
+        default:
+            break;
         }
     }
 }
@@ -781,6 +783,8 @@ void process_action(const uparser& p, const char* start,
                 replacements[pair] = text;
             }
 
+            break;
+        default:
             break;
         }
     }
@@ -1235,6 +1239,8 @@ std::pair<bool, bool> search(std::vector<match>& ranges, const char* data_first,
             negate = r._negate;
             break;
         }
+        default:
+            break;
         }
 
         if (!success) break;
@@ -1614,8 +1620,8 @@ void process_file(const fs::path& path,
 {
     // Skip directories
     if (fs::is_directory(path) ||
-        g_writable && (fs::status(path).permissions() &
-            fs::perms::owner_write) == fs::perms::none)
+        (g_writable && (fs::status(path).permissions() &
+            fs::perms::owner_write) == fs::perms::none))
     {
         return;
     }
@@ -1833,10 +1839,12 @@ void build_config_parser()
         }
 
         if (start != curr)
+        {
             if (g_force_unicode)
                 state._lurules.push_state(std::string(start, curr).c_str());
             else
                 state._lrules.push_state(std::string(start, curr).c_str());
+        }
     };
     grules.push("names", "Name "
         "| names Name");
@@ -2611,12 +2619,14 @@ void add_pathname(std::string pn,
     auto& pair = map[path];
 
     if (index == std::string::npos)
+    {
         if (g_recursive)
             pn.insert(negate ? 1 : 0, std::string(1, '*') +
                 static_cast<char>(fs::path::preferred_separator));
         else
             pn.insert(negate ? 1 : 0, path +
                 static_cast<char>(fs::path::preferred_separator));
+    }
 
     if (negate)
         pair.second.emplace_back(wildcardtl::
@@ -2998,6 +3008,8 @@ void fill_pipeline(const std::vector<config>& configs)
 
             break;
         }
+        default:
+            break;
         }
     }
 }
