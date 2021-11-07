@@ -141,20 +141,21 @@ struct cmd
     }
 };
 
-struct parser : base
+struct parser_base : base
 {
     parsertl::state_machine _gsm;
-    lexertl::state_machine _lsm;
     std::set<uint16_t> _reduce_set;
     std::map<uint16_t, std::vector<cmd>> _actions;
 };
 
-struct uparser : base
+struct parser : parser_base
 {
-    parsertl::state_machine _gsm;
+    lexertl::state_machine _lsm;
+};
+
+struct uparser : parser_base
+{
     lexertl::u32state_machine _lsm;
-    std::set<uint16_t> _reduce_set;
-    std::map<uint16_t, std::vector<cmd>> _actions;
 };
 
 struct lexer : base
@@ -2611,14 +2612,16 @@ void add_pathname(std::string pn,
     std::map<std::string, std::pair<std::vector<wildcardtl::wildcard>,
     std::vector<wildcardtl::wildcard>>>& map)
 {
-    const std::size_t index = pn.rfind(fs::path::preferred_separator,
-        pn.find_first_of("*?["));
+    const std::size_t wc_idx = pn.find_first_of("*?[");
+    const std::size_t sep_idx = pn.rfind(fs::path::preferred_separator,
+        wc_idx);
     const bool negate = pn[0] == '!';
-    const std::string path = index == std::string::npos ? "." :
-        pn.substr(negate ? 1 : 0, index + 1);
+    const std::string path = sep_idx == std::string::npos ? "." :
+        pn.substr(negate ? 1 : 0, sep_idx + 1);
     auto& pair = map[path];
 
-    if (index == std::string::npos)
+    if (sep_idx == std::string::npos &&
+        !(!negate && wc_idx == 0 || negate && wc_idx == 1))
     {
         if (g_recursive)
             pn.insert(negate ? 1 : 0, std::string(1, '*') +
@@ -2630,7 +2633,7 @@ void add_pathname(std::string pn,
 
     if (negate)
         pair.second.emplace_back(wildcardtl::
-            wildcard(pn.substr(1), is_windows()));
+            wildcard(&pn[1], pn.c_str() + pn.size(), is_windows()));
     else
         pair.first.emplace_back(wildcardtl::wildcard(pn, is_windows()));
 }
