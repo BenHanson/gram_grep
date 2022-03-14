@@ -4,6 +4,7 @@
 #include "stdafx.h"
 
 //#include "../parsertl14/include/parsertl/debug.hpp"
+#include "../lexertl14/include/lexertl/debug.hpp"
 #include <filesystem>
 #include <fstream>
 #include "../parsertl14/include/parsertl/generator.hpp"
@@ -25,7 +26,7 @@ enum class file_type
 
 enum class match_type
 {
-    // Must match order of variant below
+    // Must match order of variant in g_pipeline
     parser, uparser, lexer, ulexer, regex, dfa_regex
 };
 
@@ -227,6 +228,7 @@ std::vector<std::variant<parser, uparser, lexer, ulexer, regex>> g_pipeline;
 std::pair<std::vector<wildcardtl::wildcard>,
     std::vector<wildcardtl::wildcard>> g_exclude;
 bool g_icase = false;
+bool g_dump = false;
 bool g_pathname_only = false;
 bool g_force_unicode = false;
 bool g_modify = false; // Set when grammar has modifying operations
@@ -1334,7 +1336,6 @@ bool process_matches(const std::vector<match>& ranges,
         if (first >= tuple._first && first <= tuple._eoi)
         {
             const char* curr = iter->_first;
-            const auto count = std::count(data_first, curr, '\n');
             const char* eoi = data_second;
 
             std::cout << pathname;
@@ -1347,7 +1348,10 @@ bool process_matches(const std::vector<match>& ranges,
             }
             else
             {
-                std::cout << '(' << 1 + count << "):";
+                const auto count = std::count(data_first, curr, '\n');
+
+                if (!pathname.empty())
+                    std::cout << '(' << 1 + count << "):";
 
                 if (count == 0)
                     curr = data_first;
@@ -2687,6 +2691,10 @@ void read_switches(const int argc, const char* const argv[],
             else
                 throw std::runtime_error("Missing pathname following -checkout.");
         }
+        else if (strcmp("-dump", param) == 0)
+        {
+            g_dump = true;
+        }
         else if (strcmp("-E", param) == 0)
         {
             // DFA regex
@@ -3048,6 +3056,27 @@ int main(int argc, char* argv[])
             }
         }
 
+        if (g_dump)
+        {
+            for (const auto& v : g_pipeline)
+            {
+                switch (static_cast<match_type>(v.index()))
+                {
+                case match_type::lexer:
+                    if (!g_force_unicode)
+                    {
+                        const auto& l = std::get<lexer>(v);
+
+                        lexertl::debug::dump(l._sm, std::cout);
+                    }
+
+                    break;
+                default:
+                    break;
+                }
+            }
+        }
+
         if (g_pipeline.empty())
             throw std::runtime_error("No actions have been specified.");
 
@@ -3085,7 +3114,7 @@ int main(int argc, char* argv[])
 
         if (!g_pathname_only)
             std::cout << "Matches: " << g_hits << "    Matching files: " << g_files <<
-                "    Total files searched: " << g_searched << '\n';
+                "    Total files searched: " << g_searched << std::endl;
 
         return 0;
     }
