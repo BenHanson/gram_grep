@@ -571,7 +571,7 @@ bool process_parser(const parser& p, const char* start,
             {
                 const char* last_start = ranges.back()._first;
 
-                ranges.back()._second = iter->second;
+                ranges.back()._second = end->first;
 
                 if (last_start == iter->first)
                 {
@@ -813,7 +813,7 @@ bool process_parser(const uparser& p, const char* start,
             {
                 const char* last_start = ranges.back()._first;
 
-                ranges.back()._second = iter->second.get();
+                ranges.back()._second = end->first.get();
 
                 if (last_start == iter->first.get())
                 {
