@@ -51,7 +51,7 @@ struct insert_cmd
 {
     std::string _text;
 
-    insert_cmd(const std::string& text) :
+    explicit insert_cmd(const std::string& text) :
         _text(text)
     {
     }
@@ -74,7 +74,7 @@ struct replace_cmd
 {
     std::string _text;
 
-    replace_cmd(const std::string& text) :
+    explicit replace_cmd(const std::string& text) :
         _text(text)
     {
     }
@@ -189,8 +189,8 @@ struct config
 {
     match_type _type;
     std::string _param;
-    bool _negate;
-    bool _all;
+    bool _negate = false;
+    bool _all = false;
 
     config(const match_type type, const std::string& param, const bool negate,
         const bool all) :
@@ -211,9 +211,9 @@ struct config_parser
 
 struct match
 {
-    const char* _first;
-    const char* _second;
-    const char* _eoi;
+    const char* _first = nullptr;
+    const char* _second = nullptr;
+    const char* _eoi = nullptr;
 
     match(const char* first, const char* second, const char* eoi) :
         _first(first),
@@ -302,19 +302,21 @@ struct config_state
                     catch (const std::exception& e)
                     {
                         std::ostringstream ss;
-                        const auto idx = _results.production_size(g_config_parser.
-                            _gsm, _results.entry.param) - 1;
-                        const auto& token = _results.dollar(g_config_parser._gsm,
-                            idx, _productions);
+                        const auto idx =
+                            _results.production_size(g_config_parser._gsm,
+                                _results.entry.param) - 1;
+                        const auto& token =
+                            _results.dollar(idx, g_config_parser._gsm,
+                                _productions);
 
-                        ss << e.what() << "\nLine " << 1 + std::count(_mf.data(),
-                            token.first, '\n');
+                        ss << e.what() << "\nLine " <<
+                            1 + std::count(_mf.data(), token.first, '\n');
                         throw std::runtime_error(ss.str());
                     }
                 }
             }
 
-            parsertl::lookup(g_config_parser._gsm, iter, _results,
+            parsertl::lookup(iter, g_config_parser._gsm, _results,
                 _productions);
         }
 
@@ -482,12 +484,13 @@ void process_action(const parser& p, const char* start,
                     p._gsm._rules[item.first].second.size() + cmd._param1];
                 const auto& param2 = productions[productions.size() -
                     p._gsm._rules[item.first].second.size() + cmd._param2];
-                const auto index1 = (cmd._second1 ? param1.second : param1.first) -
-                    start;
-                const auto index2 = (cmd._second2 ? param2.second : param2.first) -
-                    start;
+                const auto index1 =
+                    (cmd._second1 ? param1.second : param1.first) - start;
+                const auto index2 =
+                    (cmd._second2 ? param2.second : param2.first) - start;
 
-                replacements[std::pair(index1, index2 - index1)] = std::string();
+                replacements[std::pair(index1, index2 - index1)] =
+                    std::string();
             }
 
             break;
@@ -516,10 +519,10 @@ void process_action(const parser& p, const char* start,
                     p._gsm._rules[item.first].second.size();
                 const auto& param1 = productions[size + cmd._param1];
                 const auto& param2 = productions[size + cmd._param2];
-                const auto index1 = (cmd._second1 ? param1.second : param1.first) -
-                    start;
-                const auto index2 = (cmd._second2 ? param2.second : param2.first) -
-                    start;
+                const auto index1 =
+                    (cmd._second1 ? param1.second : param1.first) - start;
+                const auto index2 =
+                    (cmd._second2 ? param2.second : param2.first) - start;
 
                 replacements[std::pair(index1, index2 - index1)] = c._text;
             }
@@ -537,7 +540,8 @@ void process_action(const parser& p, const char* start,
                 const auto index2 = param.second - start;
                 auto pair = std::pair(index1, index2 - index1);
                 auto iter = replacements.find(pair);
-                const std::string text = std::regex_replace(iter == replacements.end() ?
+                const std::string text =
+                    std::regex_replace(iter == replacements.end() ?
                     std::string(param.first, param.second) : iter->second,
                     c._rx, c._text);
 
@@ -553,13 +557,22 @@ void process_action(const parser& p, const char* start,
 
 bool process_parser(const parser& p, const char* start,
     std::vector<match>& ranges, std::stack<std::string>& matches,
-    std::map<std::pair<std::size_t, std::size_t>, std::string>& replacements)
+    std::map<std::pair<std::size_t, std::size_t>, std::string>& replacements,
+    std::vector<std::string>& captures)
 {
+    using results = std::vector<std::vector<std::pair
+        <const char*, const char*>>>;
     lexertl::criterator iter(ranges.back()._first,
         ranges.back()._eoi, p._lsm);
     lexertl::criterator end;
     std::multimap<uint16_t, token::token_vector> prod_map;
-    bool success = parsertl::search(p._gsm, iter, end, &prod_map);
+    results cap;
+    bool success = false;
+
+    if (p._gsm._captures.empty())
+        success = parsertl::search(iter, end, p._gsm, &prod_map);
+    else
+        success = parsertl::search(iter, end, p._gsm, cap);
 
     if (success)
     {
@@ -576,13 +589,13 @@ bool process_parser(const parser& p, const char* start,
                 if (last_start == iter->first)
                 {
                     // The match is right at the beginning, so skip.
-                    ranges.push_back(match(iter->second,
-                        iter->second, iter->second));
+                    ranges.emplace_back(iter->second, iter->second,
+                        iter->second);
                     success = false;
                 }
                 else
-                    ranges.push_back(match(ranges.back()._first,
-                        iter->first, iter->first));
+                    ranges.emplace_back(ranges.back()._first, iter->first,
+                        iter->first);
             }
         }
         else
@@ -590,12 +603,32 @@ bool process_parser(const parser& p, const char* start,
             if (!p._actions.empty())
                 matches.push(std::string());
 
-            // Store start of match
-            ranges.back()._first = iter->first;
-            // Store end of match
-            ranges.back()._second = end->first;
-            ranges.push_back(match(iter->first, end->first,
-                end->first));
+            // Only care about grammar captures with a positive match
+            if (p._gsm._captures.empty())
+            {
+                // Store start of match
+                ranges.back()._first = iter->first;
+                // Store end of match
+                ranges.back()._second = end->first;
+                ranges.emplace_back(iter->first, end->first, end->first);
+            }
+            else
+            {
+                // Store start of match
+                ranges.back()._first = cap[0][0].first;
+                // Store end of match
+                ranges.back()._second = cap[0][0].second;
+
+                for (std::size_t idx = 1, size = cap.size();
+                    idx < size; ++idx)
+                {
+                    for (const auto& pair : cap[idx])
+                    {
+                        ranges.emplace_back(pair.first, pair.second,
+                            pair.second);
+                    }
+                }
+            }
 
             if (!p._reduce_set.empty())
             {
@@ -640,9 +673,27 @@ bool process_parser(const parser& p, const char* start,
         if (ranges.back()._first != ranges.back()._eoi)
         {
             ranges.back()._second = iter->first;
-            ranges.push_back(match(ranges.back()._first,
-                iter->first, iter->first));
+            ranges.emplace_back(ranges.back()._first, iter->first,
+                iter->first);
             success = true;
+        }
+    }
+
+    if (success)
+    {
+        captures.clear();
+
+        if (p._negate)
+            captures.emplace_back(ranges.back()._first, ranges.back()._second);
+        else
+        {
+            for (const auto& v : cap)
+            {
+                if (v.empty())
+                    captures.emplace_back();
+                else
+                    captures.emplace_back(v.front().first, v.front().second);
+            }
         }
     }
 
@@ -651,13 +702,15 @@ bool process_parser(const parser& p, const char* start,
 
 void process_action(const uparser& p, const char* start,
     const std::map<uint16_t, std::vector<cmd>>::const_iterator& action_iter,
-    const std::pair<uint16_t, parsertl::token<crutf8iterator>::token_vector>& item,
+    const std::pair<uint16_t,
+    parsertl::token<crutf8iterator>::token_vector>& item,
     std::stack<std::string>& matches,
     std::map<std::pair<std::size_t, std::size_t>, std::string>& replacements)
 {
     for (const auto& cmd : action_iter->second)
     {
-        const parsertl::token<crutf8iterator>::token_vector& productions = item.second;
+        const parsertl::token<crutf8iterator>::token_vector& productions =
+            item.second;
 
         switch (cmd._type)
         {
@@ -729,7 +782,8 @@ void process_action(const uparser& p, const char* start,
                 const auto index2 = (cmd._second2 ? param2.second.get() :
                     param2.first.get()) - start;
 
-                replacements[std::pair(index1, index2 - index1)] = std::string();
+                replacements[std::pair(index1, index2 - index1)] =
+                    std::string();
             }
 
             break;
@@ -779,8 +833,10 @@ void process_action(const uparser& p, const char* start,
                 const auto index2 = param.second.get() - start;
                 auto pair = std::pair(index1, index2 - index1);
                 auto iter = replacements.find(pair);
-                const std::string text = std::regex_replace(iter == replacements.end() ?
-                    std::string(param.first.get(), param.second.get()) : iter->second,
+                const std::string text =
+                    std::regex_replace(iter == replacements.end() ?
+                    std::string(param.first.get(), param.second.get()) :
+                        iter->second,
                     c._rx, c._text);
 
                 replacements[pair] = text;
@@ -795,13 +851,23 @@ void process_action(const uparser& p, const char* start,
 
 bool process_parser(const uparser& p, const char* start,
     std::vector<match>& ranges, std::stack<std::string>& matches,
-    std::map<std::pair<std::size_t, std::size_t>, std::string>& replacements)
+    std::map<std::pair<std::size_t, std::size_t>, std::string>& replacements,
+    std::vector<std::string>& captures)
 {
+    using results = std::vector<std::vector<std::pair
+        <utf8_iterator, utf8_iterator>>>;
     crutf8iterator iter(utf8_iterator(ranges.back()._first, ranges.back()._eoi),
         utf8_iterator(ranges.back()._eoi, ranges.back()._eoi), p._lsm);
     crutf8iterator end;
-    std::multimap<uint16_t, parsertl::token<crutf8iterator>::token_vector> prod_map;
-    bool success = parsertl::search(p._gsm, iter, end, &prod_map);
+    std::multimap<uint16_t,
+        parsertl::token<crutf8iterator>::token_vector> prod_map;
+    results cap;
+    bool success = false;
+
+    if (p._gsm._captures.empty())
+        success = parsertl::search(iter, end, p._gsm, &prod_map);
+    else
+        success = parsertl::search(iter, end, p._gsm, cap);
 
     if (success)
     {
@@ -818,13 +884,13 @@ bool process_parser(const uparser& p, const char* start,
                 if (last_start == iter->first.get())
                 {
                     // The match is right at the beginning, so skip.
-                    ranges.push_back(match(iter->second.get(),
-                        iter->second.get(), iter->second.get()));
+                    ranges.emplace_back(iter->second.get(), iter->second.get(),
+                        iter->second.get());
                     success = false;
                 }
                 else
-                    ranges.push_back(match(ranges.back()._first,
-                        iter->first.get(), iter->first.get()));
+                    ranges.emplace_back(ranges.back()._first,
+                        iter->first.get(), iter->first.get());
             }
         }
         else
@@ -832,12 +898,33 @@ bool process_parser(const uparser& p, const char* start,
             if (!p._actions.empty())
                 matches.push(std::string());
 
-            // Store start of match
-            ranges.back()._first = iter->first.get();
-            // Store end of match
-            ranges.back()._second = end->first.get();
-            ranges.push_back(match(iter->first.get(), end->first.get(),
-                end->first.get()));
+            // Only care about grammar captures with a positive match
+            if (p._gsm._captures.empty())
+            {
+                // Store start of match
+                ranges.back()._first = iter->first.get();
+                // Store end of match
+                ranges.back()._second = end->first.get();
+                ranges.emplace_back(iter->first.get(), end->first.get(),
+                    end->first.get());
+            }
+            else
+            {
+                // Store start of match
+                ranges.back()._first = cap[0][0].first.get();
+                // Store end of match
+                ranges.back()._second = cap[0][0].second.get();
+
+                for (std::size_t idx = 1, size = cap.size();
+                    idx < size; ++idx)
+                {
+                    for (const auto& pair : cap[idx])
+                    {
+                        ranges.emplace_back(pair.first.get(),
+                            pair.second.get(), pair.second.get());
+                    }
+                }
+            }
 
             if (!p._reduce_set.empty())
             {
@@ -882,16 +969,33 @@ bool process_parser(const uparser& p, const char* start,
         if (ranges.back()._first != ranges.back()._eoi)
         {
             ranges.back()._second = iter->first.get();
-            ranges.push_back(match(ranges.back()._first,
-                iter->first.get(), iter->first.get()));
+            ranges.emplace_back(ranges.back()._first, iter->first.get(),
+                iter->first.get());
             success = true;
+        }
+    }
+
+    if (success)
+    {
+        captures.clear();
+
+        if (p._negate)
+            captures.emplace_back(ranges.back()._first, ranges.back()._second);
+        else
+        {
+            for (const auto& v : cap)
+            {
+                captures.emplace_back(v.front().first.get(),
+                    v.front().second.get());
+            }
         }
     }
 
     return success;
 }
 
-bool process_lexer(const lexer& l, std::vector<match>& ranges, std::vector<std::string>& captures)
+bool process_lexer(const lexer& l, std::vector<match>& ranges,
+    std::vector<std::string>& captures)
 {
     lexertl::criterator iter(ranges.back()._first,
         ranges.back()._eoi, l._sm);
@@ -912,13 +1016,13 @@ bool process_lexer(const lexer& l, std::vector<match>& ranges, std::vector<std::
                 if (last_start == iter->first)
                 {
                     // The match is right at the beginning, so skip.
-                    ranges.push_back(match(iter->second,
-                        iter->second, iter->second));
+                    ranges.emplace_back(iter->second, iter->second,
+                        iter->second);
                     success = false;
                 }
                 else
-                    ranges.push_back(match(ranges.back()._first,
-                        iter->first, iter->first));
+                    ranges.emplace_back(ranges.back()._first, iter->first,
+                        iter->first);
             }
         }
         else
@@ -927,8 +1031,7 @@ bool process_lexer(const lexer& l, std::vector<match>& ranges, std::vector<std::
             ranges.back()._first = iter->first;
             // Store end of match
             ranges.back()._second = iter->second;
-            ranges.push_back(match(iter->first, iter->first,
-                iter->second));
+            ranges.emplace_back(iter->first, iter->first, iter->second);
         }
     }
     else if (l._negate)
@@ -936,8 +1039,7 @@ bool process_lexer(const lexer& l, std::vector<match>& ranges, std::vector<std::
         if (ranges.back()._first != ranges.back()._eoi)
         {
             ranges.back()._second = iter->first;
-            ranges.push_back(match(ranges.back()._first,
-                iter->first, iter->first));
+            ranges.emplace_back(ranges.back()._first, iter->first, iter->first);
             success = true;
         }
     }
@@ -945,17 +1047,19 @@ bool process_lexer(const lexer& l, std::vector<match>& ranges, std::vector<std::
     if (success)
     {
         captures.clear();
-        captures.push_back(std::string(ranges.back()._first, ranges.back()._eoi));
+        captures.emplace_back(ranges.back()._first, ranges.back()._eoi);
     }
 
     return success;
 }
 
-bool process_lexer(const ulexer& l, std::vector<match>& ranges, std::vector<std::string>& captures)
+bool process_lexer(const ulexer& l, std::vector<match>& ranges,
+    std::vector<std::string>& captures)
 {
     crutf8iterator iter(utf8_iterator(ranges.back()._first, ranges.back()._eoi),
         utf8_iterator(ranges.back()._eoi, ranges.back()._eoi), l._sm);
-    bool success = iter->first != utf8_iterator(ranges.back()._eoi, ranges.back()._eoi);
+    bool success =
+        iter->first != utf8_iterator(ranges.back()._eoi, ranges.back()._eoi);
 
     if (success)
     {
@@ -972,13 +1076,13 @@ bool process_lexer(const ulexer& l, std::vector<match>& ranges, std::vector<std:
                 if (last_start == iter->first.get())
                 {
                     // The match is right at the beginning, so skip.
-                    ranges.push_back(match(iter->second.get(),
-                        iter->second.get(), iter->second.get()));
+                    ranges.emplace_back(iter->second.get(), iter->second.get(),
+                        iter->second.get());
                     success = false;
                 }
                 else
-                    ranges.push_back(match(ranges.back()._first,
-                        iter->first.get(), iter->first.get()));
+                    ranges.emplace_back(ranges.back()._first, iter->first.get(),
+                        iter->first.get());
             }
         }
         else
@@ -987,8 +1091,8 @@ bool process_lexer(const ulexer& l, std::vector<match>& ranges, std::vector<std:
             ranges.back()._first = iter->first.get();
             // Store end of match
             ranges.back()._second = iter->second.get();
-            ranges.push_back(match(iter->first.get(), iter->first.get(),
-                iter->second.get()));
+            ranges.emplace_back(iter->first.get(), iter->first.get(),
+                iter->second.get());
         }
     }
     else if (l._negate)
@@ -996,8 +1100,8 @@ bool process_lexer(const ulexer& l, std::vector<match>& ranges, std::vector<std:
         if (ranges.back()._first != ranges.back()._eoi)
         {
             ranges.back()._second = iter->first.get();
-            ranges.push_back(match(ranges.back()._first,
-                iter->first.get(), iter->first.get()));
+            ranges.emplace_back(ranges.back()._first, iter->first.get(),
+                iter->first.get());
             success = true;
         }
     }
@@ -1005,13 +1109,14 @@ bool process_lexer(const ulexer& l, std::vector<match>& ranges, std::vector<std:
     if (success)
     {
         captures.clear();
-        captures.push_back(std::string(ranges.back()._first, ranges.back()._eoi));
+        captures.emplace_back(ranges.back()._first, ranges.back()._eoi);
     }
 
     return success;
 }
 
-bool process_regex(const regex& r, std::vector<match>& ranges, std::vector<std::string>& captures)
+bool process_regex(const regex& r, std::vector<match>& ranges,
+    std::vector<std::string>& captures)
 {
     std::cregex_iterator iter(ranges.back()._first,
         ranges.back()._eoi, r._rx);
@@ -1033,13 +1138,13 @@ bool process_regex(const regex& r, std::vector<match>& ranges, std::vector<std::
                 if (last_start == (*iter)[0].first)
                 {
                     // The match is right at the beginning, so skip.
-                    ranges.push_back(match((*iter)[0].second,
-                        (*iter)[0].second, (*iter)[0].second));
+                    ranges.emplace_back((*iter)[0].second, (*iter)[0].second,
+                        (*iter)[0].second);
                     success = false;
                 }
                 else
-                    ranges.push_back(match(ranges.back()._first,
-                        (*iter)[0].first, (*iter)[0].first));
+                    ranges.emplace_back(ranges.back()._first, (*iter)[0].first,
+                        (*iter)[0].first);
             }
         }
         else
@@ -1048,8 +1153,8 @@ bool process_regex(const regex& r, std::vector<match>& ranges, std::vector<std::
             ranges.back()._first = (*iter)[0].first;
             // Store end of match
             ranges.back()._second = (*iter)[0].second;
-            ranges.push_back(match((*iter)[0].first,
-                (*iter)[0].first, (*iter)[0].second));
+            ranges.emplace_back((*iter)[0].first, (*iter)[0].first,
+                (*iter)[0].second);
         }
     }
     else if (r._negate)
@@ -1057,8 +1162,8 @@ bool process_regex(const regex& r, std::vector<match>& ranges, std::vector<std::
         if (ranges.back()._first != ranges.back()._eoi)
         {
             ranges.back()._second = ranges.back()._eoi;
-            ranges.push_back(match(ranges.back()._first,
-                ranges.back()._eoi, ranges.back()._eoi));
+            ranges.emplace_back(ranges.back()._first, ranges.back()._eoi,
+                ranges.back()._eoi);
             success = true;
         }
     }
@@ -1068,7 +1173,7 @@ bool process_regex(const regex& r, std::vector<match>& ranges, std::vector<std::
         captures.clear();
 
         if (r._negate)
-            captures.push_back(std::string(ranges.back()._first, ranges.back()._second));
+            captures.emplace_back(ranges.back()._first, ranges.back()._second);
         else
         {
             for (const auto& m : *iter)
@@ -1115,7 +1220,8 @@ file_type fetch_file_type(const char* data, std::size_t size)
 }
 
 file_type load_file(std::vector<unsigned char>& utf8,
-    const char*& data_first, const char*& data_second, std::vector<match>& ranges)
+    const char*& data_first, const char*& data_second,
+    std::vector<match>& ranges)
 {
     const std::size_t size = data_second - data_first;
     file_type type = fetch_file_type(data_first, size);
@@ -1124,7 +1230,8 @@ file_type load_file(std::vector<unsigned char>& utf8,
     {
     case file_type::utf16:
     {
-        using in_iter = lexertl::basic_utf16_in_iterator<const uint16_t*, int32_t>;
+        using in_iter =
+            lexertl::basic_utf16_in_iterator<const uint16_t*, int32_t>;
         using out_iter = lexertl::basic_utf8_out_iterator<in_iter>;
         const uint16_t* first =
             reinterpret_cast<const uint16_t*>(data_first + 2);
@@ -1144,7 +1251,7 @@ file_type load_file(std::vector<unsigned char>& utf8,
 
         data_first = reinterpret_cast<const char*>(&utf8.front());
         data_second = data_first + utf8.size();
-        ranges.push_back(match(data_first, data_first, data_second));
+        ranges.emplace_back(data_first, data_first, data_second);
         break;
     }
     case file_type::utf16_flip:
@@ -1170,15 +1277,15 @@ file_type load_file(std::vector<unsigned char>& utf8,
 
         data_first = reinterpret_cast<const char*>(&utf8.front());
         data_second = data_first + utf8.size();
-        ranges.push_back(match(data_first, data_first, data_second));
+        ranges.emplace_back(data_first, data_first, data_second);
         break;
     }
     case file_type::utf8:
         data_first += 3;
-        ranges.push_back(match(data_first, data_first, data_second));
+        ranges.emplace_back(data_first, data_first, data_second);
         break;
     default:
-        ranges.push_back(match(data_first, data_first, data_second));
+        ranges.emplace_back(data_first, data_first, data_second);
         break;
     }
 
@@ -1205,7 +1312,7 @@ std::pair<bool, bool> search(std::vector<match>& ranges, const char* data_first,
             const auto& p = std::get<parser>(v);
 
             success = process_parser(p, data_first, ranges, matches,
-                replacements);
+                replacements, captures);
             negate = p._negate;
             break;
         }
@@ -1214,7 +1321,7 @@ std::pair<bool, bool> search(std::vector<match>& ranges, const char* data_first,
             const auto& p = std::get<uparser>(v);
 
             success = process_parser(p, data_first, ranges, matches,
-                replacements);
+                replacements, captures);
             negate = p._negate;
             break;
         }
@@ -1253,8 +1360,9 @@ std::pair<bool, bool> search(std::vector<match>& ranges, const char* data_first,
 }
 
 bool process_matches(const std::vector<match>& ranges,
-    std::map<std::pair<std::size_t, std::size_t>, std::string> &replacements,
-    std::map<std::pair<std::size_t, std::size_t>, std::string> &temp_replacements,
+    std::map<std::pair<std::size_t, std::size_t>, std::string>& replacements,
+    std::map<std::pair<std::size_t, std::size_t>,
+    std::string>& temp_replacements,
     const bool negate, const std::vector<std::string>& captures,
     const char* data_first, const char* data_second,
     lexertl::state_machine& cap_sm, const std::string& pathname,
@@ -1314,7 +1422,8 @@ bool process_matches(const std::vector<match>& ranges,
                             replace += captures[idx];
                         else
                         {
-                            std::cerr << "Capture $" << idx << " is out of range.\n";
+                            std::cerr << "Capture $" << idx <<
+                                " is out of range.\n";
                             skip = true;
                         }
                     }
@@ -1490,7 +1599,8 @@ void perform_output(const std::size_t hits, const std::string& pathname,
                     for (; out_iter != out_end; ++out_iter)
                     {
                         uint16_t flip = *out_iter;
-                        lexertl::basic_flip_iterator<uint16_t*> flip_iter(&flip);
+                        lexertl::basic_flip_iterator<uint16_t*>
+                            flip_iter(&flip);
 
                         utf16.push_back(*flip_iter);
                     }
@@ -1579,12 +1689,15 @@ void process_file(const std::string& pathname, std::string* cin = nullptr)
 
     do
     {
-        std::map<std::pair<std::size_t, std::size_t>, std::string> temp_replacements;
-        auto [success, negate] = search(ranges, data_first, matches, temp_replacements, captures);
+        std::map<std::pair<std::size_t, std::size_t>, std::string>
+            temp_replacements;
+        auto [success, negate] =
+            search(ranges, data_first, matches, temp_replacements, captures);
 
         if (success)
-            finished = process_matches(ranges, replacements, temp_replacements, negate,
-                captures, data_first, data_second, cap_sm, pathname, hits);
+            finished = process_matches(ranges, replacements, temp_replacements,
+                negate, captures, data_first, data_second, cap_sm, pathname,
+                hits);
 
         const auto& old = ranges.back();
 
@@ -1600,7 +1713,8 @@ void process_file(const std::string& pathname, std::string* cin = nullptr)
             if (!matches.empty() && (old._first < curr._first ||
                 old._first > curr._eoi))
             {
-                while (!matches.empty() && old._first >= matches.top().c_str() &&
+                while (!matches.empty() &&
+                    old._first >= matches.top().c_str() &&
                     old._eoi <= matches.top().c_str() + matches.top().size())
                 {
                     matches.pop();
@@ -1733,8 +1847,8 @@ void build_config_parser()
     parsertl::rules grules;
     lexertl::rules lrules;
 
-    grules.token("Charset ExitState Index Integer Literal Macro MacroName Name NL "
-        "Number Repeat ScriptString StartState String");
+    grules.token("Charset ExitState Index Integer Literal Macro MacroName "
+        "Name NL Number Repeat ScriptString StartState String");
 
     grules.push("start", "file");
     grules.push("file",
@@ -1743,21 +1857,28 @@ void build_config_parser()
         "| directives directive");
     grules.push("directive", "NL");
 
+    // Read and set %captures
+    g_config_parser._actions[grules.push("directive", "'%captures' NL")] =
+        [](config_state& state, config_parser&)
+    {
+        state._grules.flags(parsertl::enable_captures);
+    };
     // Read and store %left entries
     g_config_parser._actions[grules.push("directive", "'%left' tokens NL")] =
         [](config_state& state, config_parser& parser)
     {
-        const auto& token = state._results.dollar(parser._gsm, 1,
+        const auto& token = state._results.dollar(1, parser._gsm,
             state._productions);
         const std::string tokens = token.str();
 
         state._grules.left(tokens.c_str());
     };
     // Read and store %nonassoc entries
-    g_config_parser._actions[grules.push("directive", "'%nonassoc' tokens NL")] =
+    g_config_parser._actions[grules.push("directive",
+        "'%nonassoc' tokens NL")] =
         [](config_state& state, config_parser& parser)
     {
-        const auto& token = state._results.dollar(parser._gsm, 1,
+        const auto& token = state._results.dollar(1, parser._gsm,
             state._productions);
         const std::string tokens = token.str();
 
@@ -1768,7 +1889,7 @@ void build_config_parser()
         "'%precedence' tokens NL")] =
         [](config_state& state, config_parser& parser)
     {
-        const auto& token = state._results.dollar(parser._gsm, 1,
+        const auto& token = state._results.dollar(1, parser._gsm,
             state._productions);
         const std::string tokens = token.str();
 
@@ -1778,7 +1899,7 @@ void build_config_parser()
     g_config_parser._actions[grules.push("directive", "'%right' tokens NL")] =
         [](config_state& state, config_parser& parser)
     {
-        const auto& token = state._results.dollar(parser._gsm, 1,
+        const auto& token = state._results.dollar(1, parser._gsm,
             state._productions);
         const std::string tokens = token.str();
 
@@ -1788,7 +1909,7 @@ void build_config_parser()
     g_config_parser._actions[grules.push("directive", "'%start' Name NL")] =
         [](config_state& state, config_parser& parser)
     {
-        const auto& token = state._results.dollar(parser._gsm, 1,
+        const auto& token = state._results.dollar(1, parser._gsm,
             state._productions);
         const std::string name = token.str();
 
@@ -1798,7 +1919,7 @@ void build_config_parser()
     g_config_parser._actions[grules.push("directive", "'%token' tokens NL")] =
         [](config_state& state, config_parser& parser)
     {
-        const auto& token = state._results.dollar(parser._gsm, 1,
+        const auto& token = state._results.dollar(1, parser._gsm,
             state._productions);
         const std::string tokens = token.str();
 
@@ -1808,7 +1929,8 @@ void build_config_parser()
         "| tokens token");
     grules.push("token", "Literal | Name");
     // Read and store %option caseless
-    g_config_parser._actions[grules.push("directive", "'%option' 'caseless' NL")] =
+    g_config_parser._actions[grules.push("directive",
+        "'%option' 'caseless' NL")] =
         [](config_state& state, config_parser&)
     {
         if (g_force_unicode)
@@ -1820,7 +1942,7 @@ void build_config_parser()
     g_config_parser._actions[grules.push("directive", "'%x' names NL")] =
         [](config_state& state, config_parser& parser)
     {
-        const auto& names = state._results.dollar(parser._gsm, 1,
+        const auto& names = state._results.dollar(1, parser._gsm,
             state._productions);
         const char* start = names.first;
         const char* curr = start;
@@ -1837,7 +1959,8 @@ void build_config_parser()
                 do
                 {
                     ++curr;
-                } while (curr != names.second && (*curr == ' ' || *curr == '\t'));
+                } while (curr != names.second &&
+                    (*curr == ' ' || *curr == '\t'));
 
                 start = curr;
             }
@@ -1861,12 +1984,13 @@ void build_config_parser()
         "Name ':' production opt_script ';'")] =
         [](config_state& state, config_parser& parser)
     {
-        const auto& lhs = state._results.dollar(parser._gsm, 0,
+        const auto& lhs = state._results.dollar(0, parser._gsm,
             state._productions);
-        const auto& prod = state._results.dollar(parser._gsm, 2,
+        const auto& prod = state._results.dollar(2, parser._gsm,
             state._productions);
         const uint16_t prod_index = state._grules.push(lhs.str(), prod.str());
-        auto iter = g_force_unicode ? g_curr_uparser->_actions.find(prod_index) :
+        auto iter = g_force_unicode ?
+            g_curr_uparser->_actions.find(prod_index) :
             g_curr_parser->_actions.find(prod_index);
 
         if (iter != (g_force_unicode ? g_curr_uparser->_actions.end() :
@@ -1874,7 +1998,8 @@ void build_config_parser()
         {
             for (const auto& cmd : iter->second)
             {
-                if (cmd._param1 >= state._grules.grammar().back()._rhs.first.size())
+                if (cmd._param1 >=
+                    state._grules.grammar().back()._rhs.first.size())
                 {
                     std::ostringstream ss;
 
@@ -1882,7 +2007,8 @@ void build_config_parser()
                     throw std::runtime_error(ss.str());
                 }
 
-                if (cmd._param2 >= state._grules.grammar().back()._rhs.first.size())
+                if (cmd._param2 >=
+                    state._grules.grammar().back()._rhs.first.size())
                 {
                     std::ostringstream ss;
 
@@ -1922,7 +2048,10 @@ void build_config_parser()
     g_config_parser._actions[grules.push("opt_script", "'{' cmd_list '}'")] =
         [](config_state& state, config_parser& parser)
     {
-        const auto& token = state._results.dollar(parser._gsm, 1,
+        if (!parser._gsm._captures.empty())
+            throw std::runtime_error("Cannot mix %captures and actions.");
+
+        const auto& token = state._results.dollar(1, parser._gsm,
             state._productions);
 
         if (token.first == token.second)
@@ -1950,18 +2079,18 @@ void build_config_parser()
         "'erase' '(' Index ')'")] =
         [](config_state& state, config_parser& parser)
     {
-        const auto& token = state._results.dollar(parser._gsm, 2,
+        const auto& token = state._results.dollar(2, parser._gsm,
             state._productions);
         const uint16_t rule_idx = static_cast<uint16_t>(state._grules.
             grammar().size());
         const uint16_t index = static_cast<uint16_t>(atoi(token.first + 1) - 1);
 
         if (g_force_unicode)
-            g_curr_uparser->_actions[rule_idx].emplace_back(cmd(cmd_type::erase,
-                index, erase_cmd()));
+            g_curr_uparser->_actions[rule_idx].emplace_back(cmd_type::erase,
+                index, erase_cmd());
         else
-            g_curr_parser->_actions[rule_idx].emplace_back(cmd(cmd_type::erase,
-                index, erase_cmd()));
+            g_curr_parser->_actions[rule_idx].emplace_back(cmd_type::erase,
+                index, erase_cmd());
     };
     g_config_parser._actions[grules.push("mod_cmd",
         "'erase' '(' Index ',' Index ')'")] =
@@ -1969,19 +2098,21 @@ void build_config_parser()
     {
         const uint16_t rule_idx = static_cast<uint16_t>(state._grules.
             grammar().size());
-        const auto& token2 = state._results.dollar(parser._gsm, 2,
+        const auto& token2 = state._results.dollar(2, parser._gsm,
             state._productions);
-        const auto& token4 = state._results.dollar(parser._gsm, 4,
+        const auto& token4 = state._results.dollar(4, parser._gsm,
             state._productions);
-        const uint16_t index1 = static_cast<uint16_t>(atoi(token2.first + 1) - 1);
-        const uint16_t index2 = static_cast<uint16_t>(atoi(token4.first + 1) - 1);
+        const uint16_t index1 =
+            static_cast<uint16_t>(atoi(token2.first + 1) - 1);
+        const uint16_t index2 =
+            static_cast<uint16_t>(atoi(token4.first + 1) - 1);
 
         if (g_force_unicode)
-            g_curr_uparser->_actions[rule_idx].emplace_back(cmd(cmd_type::erase,
-                index1, index2, erase_cmd()));
+            g_curr_uparser->_actions[rule_idx].emplace_back(cmd_type::erase,
+                index1, index2, erase_cmd());
         else
-            g_curr_parser->_actions[rule_idx].emplace_back(cmd(cmd_type::erase,
-                index1, index2, erase_cmd()));
+            g_curr_parser->_actions[rule_idx].emplace_back(cmd_type::erase,
+                index1, index2, erase_cmd());
     };
     g_config_parser._actions[grules.push("mod_cmd",
         "'erase' '(' Index '.' first_second ',' Index '.' first_second ')'")] =
@@ -1989,23 +2120,25 @@ void build_config_parser()
     {
         const uint16_t rule_idx = static_cast<uint16_t>(state._grules.
             grammar().size());
-        const auto& token2 = state._results.dollar(parser._gsm, 2,
+        const auto& token2 = state._results.dollar(2, parser._gsm,
             state._productions);
-        const bool second1 = *state._results.dollar(parser._gsm, 4,
+        const bool second1 = *state._results.dollar(4, parser._gsm,
             state._productions).first == 's';
-        const auto& token6 = state._results.dollar(parser._gsm, 6,
+        const auto& token6 = state._results.dollar(6, parser._gsm,
             state._productions);
-        const bool second2 = *state._results.dollar(parser._gsm, 8,
+        const bool second2 = *state._results.dollar(8, parser._gsm,
             state._productions).first == 's';
-        const uint16_t index1 = static_cast<uint16_t>(atoi(token2.first + 1) - 1);
-        const uint16_t index2 = static_cast<uint16_t>(atoi(token6.first + 1) - 1);
+        const uint16_t index1 =
+            static_cast<uint16_t>(atoi(token2.first + 1) - 1);
+        const uint16_t index2 =
+            static_cast<uint16_t>(atoi(token6.first + 1) - 1);
 
         if (g_force_unicode)
-            g_curr_uparser->_actions[rule_idx].emplace_back(cmd(cmd_type::erase,
-                index1, second1, index2, second2, erase_cmd()));
+            g_curr_uparser->_actions[rule_idx].emplace_back(cmd_type::erase,
+                index1, second1, index2, second2, erase_cmd());
         else
-            g_curr_parser->_actions[rule_idx].emplace_back(cmd(cmd_type::erase,
-                index1, second1, index2, second2, erase_cmd()));
+            g_curr_parser->_actions[rule_idx].emplace_back(cmd_type::erase,
+                index1, second1, index2, second2, erase_cmd());
     };
     g_config_parser._actions[grules.push("mod_cmd",
         "'insert' '(' Index ',' ScriptString ')'")] =
@@ -2013,19 +2146,21 @@ void build_config_parser()
     {
         const uint16_t rule_idx = static_cast<uint16_t>(state._grules.
             grammar().size());
-        const auto& token2 = state._results.dollar(parser._gsm, 2,
+        const auto& token2 = state._results.dollar(2, parser._gsm,
             state._productions);
-        const uint16_t index = static_cast<uint16_t>(atoi(token2.first + 1) - 1);
-        const auto& token4 = state._results.dollar(parser._gsm, 4,
+        const uint16_t index =
+            static_cast<uint16_t>(atoi(token2.first + 1) - 1);
+        const auto& token4 = state._results.dollar(4, parser._gsm,
             state._productions);
-        const std::string text = unescape_str(token4.first + 1, token4.second - 1);
+        const std::string text =
+            unescape_str(token4.first + 1, token4.second - 1);
 
         if (g_force_unicode)
-            g_curr_uparser->_actions[rule_idx].emplace_back(cmd(cmd_type::insert,
-                index, insert_cmd(text)));
+            g_curr_uparser->_actions[rule_idx].
+            emplace_back(cmd_type::insert, index, insert_cmd(text));
         else
-            g_curr_parser->_actions[rule_idx].emplace_back(cmd(cmd_type::insert,
-                index, insert_cmd(text)));
+            g_curr_parser->_actions[rule_idx].emplace_back(cmd_type::insert,
+                index, insert_cmd(text));
     };
     g_config_parser._actions[grules.push("mod_cmd",
         "'insert' '(' Index '.' 'second' ',' ScriptString ')'")] =
@@ -2033,35 +2168,37 @@ void build_config_parser()
     {
         const uint16_t rule_idx = static_cast<uint16_t>(state._grules.
             grammar().size());
-        const auto& token2 = state._results.dollar(parser._gsm, 2,
+        const auto& token2 = state._results.dollar(2, parser._gsm,
             state._productions);
-        const uint16_t index = static_cast<uint16_t>(atoi(token2.first + 1) - 1);
-        const auto& token6 = state._results.dollar(parser._gsm, 6,
+        const uint16_t index =
+            static_cast<uint16_t>(atoi(token2.first + 1) - 1);
+        const auto& token6 = state._results.dollar(6, parser._gsm,
             state._productions);
-        const std::string text = unescape_str(token6.first + 1, token6.second - 1);
+        const std::string text =
+            unescape_str(token6.first + 1, token6.second - 1);
 
         if (g_force_unicode)
-            g_curr_uparser->_actions[rule_idx].emplace_back(cmd(cmd_type::insert,
-                index, true, insert_cmd(text)));
+            g_curr_uparser->_actions[rule_idx].
+            emplace_back(cmd_type::insert, index, true, insert_cmd(text));
         else
-            g_curr_parser->_actions[rule_idx].emplace_back(cmd(cmd_type::insert,
-                index, true, insert_cmd(text)));
+            g_curr_parser->_actions[rule_idx].emplace_back(cmd_type::insert,
+                index, true, insert_cmd(text));
     };
     g_config_parser._actions[grules.push("cmd", "'match' '=' Index")] =
         [](config_state& state, config_parser& parser)
     {
         const uint16_t rule_idx = static_cast<uint16_t>(state._grules.
             grammar().size());
-        const auto& token = state._results.dollar(parser._gsm, 2,
+        const auto& token = state._results.dollar(2, parser._gsm,
             state._productions);
         const uint16_t index = static_cast<uint16_t>(atoi(token.first + 1) - 1);
 
         if (g_force_unicode)
-            g_curr_uparser->_actions[rule_idx].emplace_back(cmd(cmd_type::assign,
-                index, match_cmd(0, 0)));
+            g_curr_uparser->_actions[rule_idx].
+            emplace_back(cmd_type::assign, index, match_cmd(0, 0));
         else
-            g_curr_parser->_actions[rule_idx].emplace_back(cmd(cmd_type::assign,
-                index, match_cmd(0, 0)));
+            g_curr_parser->_actions[rule_idx].emplace_back(cmd_type::assign,
+                index, match_cmd(0, 0));
     };
     g_config_parser._actions[grules.push("cmd",
         "'match' '=' 'substr' '(' Index ',' Integer ',' Integer ')'")] =
@@ -2069,38 +2206,40 @@ void build_config_parser()
     {
         const uint16_t rule_idx = static_cast<uint16_t>(state._grules.
             grammar().size());
-        const auto& token4 = state._results.dollar(parser._gsm, 4,
+        const auto& token4 = state._results.dollar(4, parser._gsm,
             state._productions);
-        const uint16_t index = static_cast<uint16_t>(atoi(token4.first + 1) - 1);
-        const auto& token6 = state._results.dollar(parser._gsm, 6,
+        const uint16_t index =
+            static_cast<uint16_t>(atoi(token4.first + 1) - 1);
+        const auto& token6 = state._results.dollar(6, parser._gsm,
             state._productions);
-        const auto& token8 = state._results.dollar(parser._gsm, 8,
+        const auto& token8 = state._results.dollar(8, parser._gsm,
             state._productions);
 
         if (g_force_unicode)
-            g_curr_uparser->_actions[rule_idx].emplace_back(cmd(cmd_type::assign,
-                index, match_cmd(static_cast<uint16_t>(atoi(token6.first)),
-                    static_cast<uint16_t>(atoi(token8.first)))));
+            g_curr_uparser->_actions[rule_idx].
+            emplace_back(cmd_type::assign, index,
+                match_cmd(static_cast<uint16_t>(atoi(token6.first)),
+                    static_cast<uint16_t>(atoi(token8.first))));
         else
-            g_curr_parser->_actions[rule_idx].emplace_back(cmd(cmd_type::assign,
+            g_curr_parser->_actions[rule_idx].emplace_back(cmd_type::assign,
                 index, match_cmd(static_cast<uint16_t>(atoi(token6.first)),
-                    static_cast<uint16_t>(atoi(token8.first)))));
+                    static_cast<uint16_t>(atoi(token8.first))));
     };
     g_config_parser._actions[grules.push("cmd", "'match' '+=' Index")] =
         [](config_state& state, config_parser& parser)
     {
         const uint16_t rule_idx = static_cast<uint16_t>(state._grules.
             grammar().size());
-        const auto& token = state._results.dollar(parser._gsm, 2,
+        const auto& token = state._results.dollar(2, parser._gsm,
             state._productions);
         const uint16_t index = static_cast<uint16_t>(atoi(token.first + 1) - 1);
 
         if (g_force_unicode)
-            g_curr_uparser->_actions[rule_idx].emplace_back(cmd(cmd_type::append,
-                index, match_cmd(0, 0)));
+            g_curr_uparser->_actions[rule_idx].
+            emplace_back(cmd_type::append, index, match_cmd(0, 0));
         else
-            g_curr_parser->_actions[rule_idx].emplace_back(cmd(cmd_type::append,
-                index, match_cmd(0, 0)));
+            g_curr_parser->_actions[rule_idx].emplace_back(cmd_type::append,
+                index, match_cmd(0, 0));
     };
     g_config_parser._actions[grules.push("cmd",
         "'match' '+=' 'substr' '(' Index ',' Integer ',' Integer ')'")] =
@@ -2108,22 +2247,24 @@ void build_config_parser()
     {
         const uint16_t rule_idx = static_cast<uint16_t>(state._grules.
             grammar().size());
-        const auto& token4 = state._results.dollar(parser._gsm, 4,
+        const auto& token4 = state._results.dollar(4, parser._gsm,
             state._productions);
-        const uint16_t index = static_cast<uint16_t>(atoi(token4.first + 1) - 1);
-        const auto& token6 = state._results.dollar(parser._gsm, 6,
+        const uint16_t index =
+            static_cast<uint16_t>(atoi(token4.first + 1) - 1);
+        const auto& token6 = state._results.dollar(6, parser._gsm,
             state._productions);
-        const auto& token8 = state._results.dollar(parser._gsm, 8,
+        const auto& token8 = state._results.dollar(8, parser._gsm,
             state._productions);
 
         if (g_force_unicode)
-            g_curr_uparser->_actions[rule_idx].emplace_back(cmd(cmd_type::append,
-                index, match_cmd(static_cast<uint16_t>(atoi(token6.first)),
-                    static_cast<uint16_t>(atoi(token8.first)))));
+            g_curr_uparser->_actions[rule_idx].
+            emplace_back(cmd_type::append, index,
+                match_cmd(static_cast<uint16_t>(atoi(token6.first)),
+                    static_cast<uint16_t>(atoi(token8.first))));
         else
-            g_curr_parser->_actions[rule_idx].emplace_back(cmd(cmd_type::append,
+            g_curr_parser->_actions[rule_idx].emplace_back(cmd_type::append,
                 index, match_cmd(static_cast<uint16_t>(atoi(token6.first)),
-                    static_cast<uint16_t>(atoi(token8.first)))));
+                    static_cast<uint16_t>(atoi(token8.first))));
     };
     g_config_parser._actions[grules.push("mod_cmd",
         "'replace' '(' Index ',' ScriptString ')'")] =
@@ -2131,19 +2272,21 @@ void build_config_parser()
     {
         const uint16_t rule_idx = static_cast<uint16_t>(state._grules.
             grammar().size());
-        const auto& token2 = state._results.dollar(parser._gsm, 2,
+        const auto& token2 = state._results.dollar(2, parser._gsm,
             state._productions);
-        const uint16_t index = static_cast<uint16_t>(atoi(token2.first + 1) - 1);
-        const auto& token4 = state._results.dollar(parser._gsm, 4,
+        const uint16_t index =
+            static_cast<uint16_t>(atoi(token2.first + 1) - 1);
+        const auto& token4 = state._results.dollar(4, parser._gsm,
             state._productions);
-        const std::string text = unescape_str(token4.first + 1, token4.second - 1);
+        const std::string text =
+            unescape_str(token4.first + 1, token4.second - 1);
 
         if (g_force_unicode)
-            g_curr_uparser->_actions[rule_idx].emplace_back(cmd(cmd_type::replace,
-                index, replace_cmd(text)));
+            g_curr_uparser->_actions[rule_idx].
+            emplace_back(cmd_type::replace, index, replace_cmd(text));
         else
-            g_curr_parser->_actions[rule_idx].emplace_back(cmd(cmd_type::replace,
-                index, replace_cmd(text)));
+            g_curr_parser->_actions[rule_idx].
+            emplace_back(cmd_type::replace, index, replace_cmd(text));
     };
     g_config_parser._actions[grules.push("mod_cmd",
         "'replace' '(' Index ',' Index ',' ScriptString ')'")] =
@@ -2151,22 +2294,27 @@ void build_config_parser()
     {
         const uint16_t rule_idx = static_cast<uint16_t>(state._grules.
             grammar().size());
-        const auto& token2 = state._results.dollar(parser._gsm, 2,
+        const auto& token2 = state._results.dollar(2, parser._gsm,
             state._productions);
-        const uint16_t index1 = static_cast<uint16_t>(atoi(token2.first + 1) - 1);
-        const auto& token4 = state._results.dollar(parser._gsm, 4,
+        const uint16_t index1 =
+            static_cast<uint16_t>(atoi(token2.first + 1) - 1);
+        const auto& token4 = state._results.dollar(4, parser._gsm,
             state._productions);
-        const uint16_t index2 = static_cast<uint16_t>(atoi(token4.first + 1) - 1);
-        const auto& token6 = state._results.dollar(parser._gsm, 6,
+        const uint16_t index2 =
+            static_cast<uint16_t>(atoi(token4.first + 1) - 1);
+        const auto& token6 = state._results.dollar(6, parser._gsm,
             state._productions);
-        const std::string text = unescape_str(token6.first + 1, token6.second - 1);
+        const std::string text =
+            unescape_str(token6.first + 1, token6.second - 1);
 
         if (g_force_unicode)
-            g_curr_uparser->_actions[rule_idx].emplace_back(cmd(cmd_type::replace,
-                index1, index2, replace_cmd(text)));
+            g_curr_uparser->_actions[rule_idx].
+            emplace_back(cmd_type::replace, index1, index2,
+                replace_cmd(text));
         else
-            g_curr_parser->_actions[rule_idx].emplace_back(cmd(cmd_type::replace,
-                index1, index2, replace_cmd(text)));
+            g_curr_parser->_actions[rule_idx].
+            emplace_back(cmd_type::replace, index1, index2,
+                replace_cmd(text));
     };
     g_config_parser._actions[grules.push("mod_cmd",
         "'replace' '(' Index '.' first_second ',' "
@@ -2175,26 +2323,31 @@ void build_config_parser()
     {
         const uint16_t rule_idx = static_cast<uint16_t>(state._grules.
             grammar().size());
-        const auto& token2 = state._results.dollar(parser._gsm, 2,
+        const auto& token2 = state._results.dollar(2, parser._gsm,
             state._productions);
-        const uint16_t index1 = static_cast<uint16_t>(atoi(token2.first + 1) - 1);
-        const bool second1 = *state._results.dollar(parser._gsm, 4,
+        const uint16_t index1 =
+            static_cast<uint16_t>(atoi(token2.first + 1) - 1);
+        const bool second1 = *state._results.dollar(4, parser._gsm,
             state._productions).first == 's';
-        const auto& token6 = state._results.dollar(parser._gsm, 6,
+        const auto& token6 = state._results.dollar(6, parser._gsm,
             state._productions);
-        const uint16_t index2 = static_cast<uint16_t>(atoi(token6.first + 1) - 1);
-        const bool second2 = *state._results.dollar(parser._gsm, 8,
+        const uint16_t index2 =
+            static_cast<uint16_t>(atoi(token6.first + 1) - 1);
+        const bool second2 = *state._results.dollar(8, parser._gsm,
             state._productions).first == 's';
-        const auto& token10 = state._results.dollar(parser._gsm, 10,
+        const auto& token10 = state._results.dollar(10, parser._gsm,
             state._productions);
-        const std::string text = unescape_str(token10.first + 1, token10.second - 1);
+        const std::string text =
+            unescape_str(token10.first + 1, token10.second - 1);
 
         if (g_force_unicode)
-            g_curr_uparser->_actions[rule_idx].emplace_back(cmd(cmd_type::replace,
-                index1, second1, index2, second2, replace_cmd(text)));
+            g_curr_uparser->_actions[rule_idx].
+            emplace_back(cmd_type::replace, index1, second1, index2,
+                second2, replace_cmd(text));
         else
-            g_curr_parser->_actions[rule_idx].emplace_back(cmd(cmd_type::replace,
-                index1, second1, index2, second2, replace_cmd(text)));
+            g_curr_parser->_actions[rule_idx].
+            emplace_back(cmd_type::replace, index1, second1, index2,
+                second2, replace_cmd(text));
     };
     g_config_parser._actions[grules.push("mod_cmd",
         "'replace_all' '(' Index ',' ScriptString ',' ScriptString ')'")] =
@@ -2202,34 +2355,40 @@ void build_config_parser()
     {
         const uint16_t rule_idx = static_cast<uint16_t>(state._grules.
             grammar().size());
-        const auto& token2 = state._results.dollar(parser._gsm, 2,
+        const auto& token2 = state._results.dollar(2, parser._gsm,
             state._productions);
-        const uint16_t index = static_cast<uint16_t>(atoi(token2.first + 1) - 1);
-        const auto& token4 = state._results.dollar(parser._gsm, 4,
+        const uint16_t index =
+            static_cast<uint16_t>(atoi(token2.first + 1) - 1);
+        const auto& token4 = state._results.dollar(4, parser._gsm,
             state._productions);
-        const std::string text1 = unescape_str(token4.first + 1, token4.second - 1);
-        const auto& token6 = state._results.dollar(parser._gsm, 6,
+        const std::string text1 =
+            unescape_str(token4.first + 1, token4.second - 1);
+        const auto& token6 = state._results.dollar(6, parser._gsm,
             state._productions);
-        const std::string text2 = unescape_str(token6.first + 1, token6.second - 1);
+        const std::string text2 =
+            unescape_str(token6.first + 1, token6.second - 1);
 
         if (g_force_unicode)
-            g_curr_uparser->_actions[rule_idx].emplace_back(cmd(cmd_type::replace_all,
-                index, replace_all_cmd(text1, text2)));
+            g_curr_uparser->_actions[rule_idx].
+            emplace_back(cmd_type::replace_all, index,
+                replace_all_cmd(text1, text2));
         else
-            g_curr_parser->_actions[rule_idx].emplace_back(cmd(cmd_type::replace_all,
-                index, replace_all_cmd(text1, text2)));
+            g_curr_parser->_actions[rule_idx].
+            emplace_back(cmd_type::replace_all, index,
+                replace_all_cmd(text1, text2));
     };
     grules.push("first_second", "'first' | 'second'");
 
     // Token regex macros
     grules.push("rx_macros", "%empty");
-    g_config_parser._actions[grules.push("rx_macros", "rx_macros MacroName regex")] =
+    g_config_parser._actions[grules.push("rx_macros",
+        "rx_macros MacroName regex")] =
         [](config_state& state, config_parser& parser)
     {
-        const auto& token = state._results.dollar(parser._gsm, 1,
+        const auto& token = state._results.dollar(1, parser._gsm,
             state._productions);
         const std::string name = token.str();
-        const std::string regex = state._results.dollar(parser._gsm, 2,
+        const std::string regex = state._results.dollar(2, parser._gsm,
             state._productions).str();
 
         if (g_force_unicode)
@@ -2243,46 +2402,53 @@ void build_config_parser()
     g_config_parser._actions[grules.push("rx_rules", "rx_rules regex Number")] =
         [](config_state& state, config_parser& parser)
     {
-        const auto& token = state._results.dollar(parser._gsm, 1,
+        const auto& token = state._results.dollar(1, parser._gsm,
             state._productions);
         const std::string regex = token.str();
-        const std::string number = state._results.dollar(parser._gsm, 2,
+        const std::string number = state._results.dollar(2, parser._gsm,
             state._productions).str();
 
         if (g_force_unicode)
-            state._lurules.push(regex, static_cast<uint16_t>(atoi(number.c_str())));
+            state._lurules.push(regex,
+                static_cast<uint16_t>(atoi(number.c_str())));
         else
-            state._lrules.push(regex, static_cast<uint16_t>(atoi(number.c_str())));
+            state._lrules.push(regex,
+                static_cast<uint16_t>(atoi(number.c_str())));
     };
     g_config_parser._actions[grules.push("rx_rules",
         "rx_rules StartState regex ExitState Number")] =
         [](config_state& state, config_parser& parser)
     {
-        const auto& start_state = state._results.dollar(parser._gsm, 1,
+        const auto& start_state = state._results.dollar(1, parser._gsm,
             state._productions);
-        const std::string regex = state._results.dollar(parser._gsm, 2,
+        const std::string regex = state._results.dollar(2, parser._gsm,
             state._productions).str();
-        const auto& exit_state = state._results.dollar(parser._gsm, 3,
+        const auto& exit_state = state._results.dollar(3, parser._gsm,
             state._productions);
-        const std::string number = state._results.dollar(parser._gsm, 4,
+        const std::string number = state._results.dollar(4, parser._gsm,
             state._productions).str();
 
         if (g_force_unicode)
-            state._lurules.push(std::string(start_state.first + 1, start_state.second - 1).c_str(),
+            state._lurules.push(std::string(start_state.first + 1,
+                start_state.second - 1).c_str(),
                 regex, static_cast<uint16_t>(atoi(number.c_str())),
-                std::string(exit_state.first + 1, exit_state.second - 1).c_str());
+                std::string(exit_state.first + 1,
+                    exit_state.second - 1).c_str());
         else
-            state._lrules.push(std::string(start_state.first + 1, start_state.second - 1).c_str(),
+            state._lrules.push(std::string(start_state.first + 1,
+                start_state.second - 1).c_str(),
                 regex, static_cast<uint16_t>(atoi(number.c_str())),
-                std::string(exit_state.first + 1, exit_state.second - 1).c_str());
+                std::string(exit_state.first + 1,
+                    exit_state.second - 1).c_str());
     };
-    g_config_parser._actions[grules.push("rx_rules", "rx_rules regex Literal")] =
+    g_config_parser._actions[grules.push("rx_rules",
+        "rx_rules regex Literal")] =
         [](config_state& state, config_parser& parser)
     {
-        const auto& token = state._results.dollar(parser._gsm, 1,
+        const auto& token = state._results.dollar(1, parser._gsm,
             state._productions);
         const std::string regex = token.str();
-        const std::string literal = state._results.dollar(parser._gsm, 2,
+        const std::string literal = state._results.dollar(2, parser._gsm,
             state._productions).str();
 
         if (g_force_unicode)
@@ -2294,31 +2460,35 @@ void build_config_parser()
         "rx_rules StartState regex ExitState Literal")] =
         [](config_state& state, config_parser& parser)
     {
-        const auto& start_state = state._results.dollar(parser._gsm, 1,
+        const auto& start_state = state._results.dollar(1, parser._gsm,
             state._productions);
-        const std::string regex = state._results.dollar(parser._gsm, 2,
+        const std::string regex = state._results.dollar(2, parser._gsm,
             state._productions).str();
-        const auto& exit_state = state._results.dollar(parser._gsm, 3,
+        const auto& exit_state = state._results.dollar(3, parser._gsm,
             state._productions);
-        const std::string literal = state._results.dollar(parser._gsm, 4,
+        const std::string literal = state._results.dollar(4, parser._gsm,
             state._productions).str();
 
         if (g_force_unicode)
-            state._lurules.push(std::string(start_state.first + 1, start_state.second - 1).c_str(),
+            state._lurules.push(std::string(start_state.first + 1,
+                start_state.second - 1).c_str(),
                 regex, state._grules.token_id(literal.c_str()),
-                std::string(exit_state.first + 1, exit_state.second - 1).c_str());
+                std::string(exit_state.first + 1,
+                    exit_state.second - 1).c_str());
         else
-            state._lrules.push(std::string(start_state.first + 1, start_state.second - 1).c_str(),
+            state._lrules.push(std::string(start_state.first + 1,
+                start_state.second - 1).c_str(),
                 regex, state._grules.token_id(literal.c_str()),
-                std::string(exit_state.first + 1, exit_state.second - 1).c_str());
+                std::string(exit_state.first + 1,
+                    exit_state.second - 1).c_str());
     };
     g_config_parser._actions[grules.push("rx_rules", "rx_rules regex Name")] =
         [](config_state& state, config_parser& parser)
     {
-        const auto& token = state._results.dollar(parser._gsm, 1,
+        const auto& token = state._results.dollar(1, parser._gsm,
             state._productions);
         const std::string regex = token.str();
-        const std::string name = state._results.dollar(parser._gsm, 2,
+        const std::string name = state._results.dollar(2, parser._gsm,
             state._productions).str();
 
         if (g_force_unicode)
@@ -2330,28 +2500,33 @@ void build_config_parser()
         "rx_rules StartState regex ExitState Name")] =
         [](config_state& state, config_parser& parser)
     {
-        const auto& start_state = state._results.dollar(parser._gsm, 1,
+        const auto& start_state = state._results.dollar(1, parser._gsm,
             state._productions);
-        const std::string regex = state._results.dollar(parser._gsm, 2,
+        const std::string regex = state._results.dollar(2, parser._gsm,
             state._productions).str();
-        const auto& exit_state = state._results.dollar(parser._gsm, 3,
+        const auto& exit_state = state._results.dollar(3, parser._gsm,
             state._productions);
-        const std::string name = state._results.dollar(parser._gsm, 4,
+        const std::string name = state._results.dollar(4, parser._gsm,
             state._productions).str();
 
         if (g_force_unicode)
-            state._lurules.push(std::string(start_state.first + 1, start_state.second - 1).c_str(),
+            state._lurules.push(std::string(start_state.first + 1,
+                start_state.second - 1).c_str(),
                 regex, state._grules.token_id(name.c_str()),
-                std::string(exit_state.first + 1, exit_state.second - 1).c_str());
+                std::string(exit_state.first + 1,
+                    exit_state.second - 1).c_str());
         else
-            state._lrules.push(std::string(start_state.first + 1, start_state.second - 1).c_str(),
+            state._lrules.push(std::string(start_state.first + 1,
+                start_state.second - 1).c_str(),
                 regex, state._grules.token_id(name.c_str()),
-                std::string(exit_state.first + 1, exit_state.second - 1).c_str());
+                std::string(exit_state.first + 1,
+                    exit_state.second - 1).c_str());
     };
-    g_config_parser._actions[grules.push("rx_rules", "rx_rules regex 'skip()'")] =
+    g_config_parser._actions[grules.push("rx_rules",
+        "rx_rules regex 'skip()'")] =
         [](config_state& state, config_parser& parser)
     {
-        const auto& token = state._results.dollar(parser._gsm, 1,
+        const auto& token = state._results.dollar(1, parser._gsm,
             state._productions);
         const std::string regex = token.str();
 
@@ -2364,21 +2539,25 @@ void build_config_parser()
         "rx_rules StartState regex ExitState 'skip()'")] =
         [](config_state& state, config_parser& parser)
     {
-        const auto& start_state = state._results.dollar(parser._gsm, 1,
+        const auto& start_state = state._results.dollar(1, parser._gsm,
             state._productions);
-        const std::string regex = state._results.dollar(parser._gsm, 2,
+        const std::string regex = state._results.dollar(2, parser._gsm,
             state._productions).str();
-        const auto& exit_state = state._results.dollar(parser._gsm, 3,
+        const auto& exit_state = state._results.dollar(3, parser._gsm,
             state._productions);
 
         if (g_force_unicode)
-            state._lurules.push(std::string(start_state.first + 1, start_state.second - 1).c_str(),
+            state._lurules.push(std::string(start_state.first + 1,
+                start_state.second - 1).c_str(),
                 regex, state._lurules.skip(),
-                std::string(exit_state.first + 1, exit_state.second - 1).c_str());
+                std::string(exit_state.first + 1,
+                    exit_state.second - 1).c_str());
         else
-            state._lrules.push(std::string(start_state.first + 1, start_state.second - 1).c_str(),
+            state._lrules.push(std::string(start_state.first + 1,
+                start_state.second - 1).c_str(),
                 regex, state._lrules.skip(),
-                std::string(exit_state.first + 1, exit_state.second - 1).c_str());
+                std::string(exit_state.first + 1,
+                    exit_state.second - 1).c_str());
     };
 
     // Regex
@@ -2428,6 +2607,7 @@ void build_config_parser()
 
     lrules.push("INITIAL,OPTION", "[ \t]+", lrules.skip(), ".");
     lrules.push("\n|\r\n", grules.token_id("NL"));
+    lrules.push("%captures", grules.token_id("'%captures'"));
     lrules.push("%left", grules.token_id("'%left'"));
     lrules.push("%nonassoc", grules.token_id("'%nonassoc'"));
     lrules.push("%precedence", grules.token_id("'%precedence'"));
@@ -2517,9 +2697,11 @@ void build_config_parser()
 
     lrules.push("RULE,ID", "[ \t]+({c_comment}([ \t]+|{c_comment})*)?",
         lrules.skip(), "ID");
-    lrules.push("RULE", "<([.]|<|>?{state_name})>", grules.token_id("ExitState"), "ID");
+    lrules.push("RULE", "<([.]|<|>?{state_name})>",
+        grules.token_id("ExitState"), "ID");
     lrules.push("RULE,ID", "\n|\r\n", lrules.skip(), "RULE");
-    lrules.push("ID", "skip\\s*[(]\\s*[)]", grules.token_id("'skip()'"), "RULE");
+    lrules.push("ID", "skip\\s*[(]\\s*[)]",
+        grules.token_id("'skip()'"), "RULE");
     lexertl::generator::build(lrules, g_config_parser._lsm);
 }
 
@@ -2558,6 +2740,7 @@ void show_help()
         "<regexes>\n"
         "%%\n\n"
         "Grammar Directives:\n\n"
+        "%captures\n"
         "%option caseless\n"
         "%token\n"
         "%left\n"
@@ -2636,10 +2819,9 @@ void add_pathname(std::string pn,
     }
 
     if (negate)
-        pair.second.emplace_back(wildcardtl::
-            wildcard(&pn[1], pn.c_str() + pn.size(), is_windows()));
+        pair.second.emplace_back(&pn[1], pn.c_str() + pn.size(), is_windows());
     else
-        pair.first.emplace_back(wildcardtl::wildcard(pn, is_windows()));
+        pair.first.emplace_back(pn, is_windows());
 }
 
 std::vector<std::string_view> split(const char* str, const char c)
@@ -2655,7 +2837,7 @@ std::vector<std::string_view> split(const char* str, const char c)
             count = str - first;
 
             if (count > 0)
-                ret.emplace_back(std::string_view(first, count));
+                ret.emplace_back(first, count);
 
             first = str + 1;
         }
@@ -2664,7 +2846,7 @@ std::vector<std::string_view> split(const char* str, const char c)
     count = str - first;
 
     if (count > 0)
-        ret.emplace_back(std::string_view(first, count));
+        ret.emplace_back(first, count);
 
     return ret;
 }
@@ -2689,7 +2871,8 @@ void read_switches(const int argc, const char* const argv[],
                 g_checkout = param;
             }
             else
-                throw std::runtime_error("Missing pathname following -checkout.");
+                throw std::runtime_error("Missing pathname "
+                    "following -checkout.");
         }
         else if (strcmp("-dump", param) == 0)
         {
@@ -2702,7 +2885,8 @@ void read_switches(const int argc, const char* const argv[],
             param = argv[i];
 
             if (i < argc)
-                configs.push_back(config(match_type::dfa_regex, param, false, false));
+                configs.emplace_back(match_type::dfa_regex, param,
+                    false, false);
             else
                 throw std::runtime_error("Missing regex following -E.");
         }
@@ -2719,15 +2903,17 @@ void read_switches(const int argc, const char* const argv[],
                     param = p.data();
 
                     if (*param == '!')
-                        g_exclude.second.emplace_back(wildcardtl::
-                            wildcard(&param[1], param + p.size(), is_windows()));
+                        g_exclude.second.
+                        emplace_back(&param[1],
+                            param + p.size(), is_windows());
                     else
-                        g_exclude.first.emplace_back(wildcardtl::
-                            wildcard(param, param + p.size(), is_windows()));
+                        g_exclude.first.emplace_back(param, param + p.size(),
+                            is_windows());
                 }
             }
             else
-                throw std::runtime_error("Missing wildcard following -exclude.");
+                throw std::runtime_error("Missing wildcard "
+                    "following -exclude.");
         }
         else if (strcmp("-f", param) == 0)
         {
@@ -2740,8 +2926,8 @@ void read_switches(const int argc, const char* const argv[],
                 for (const auto& p : pathnames)
                 {
                     param = p.data();
-                    configs.push_back(config(match_type::parser,
-                        std::string(param, param + p.size()), false, false));
+                    configs.emplace_back(match_type::parser,
+                        std::string(param, param + p.size()), false, false);
                 }
             }
             else
@@ -2767,7 +2953,7 @@ void read_switches(const int argc, const char* const argv[],
             param = argv[i];
 
             if (i < argc)
-                configs.push_back(config(match_type::regex, param, false, false));
+                configs.emplace_back(match_type::regex, param, false, false);
             else
                 throw std::runtime_error("Missing regex following -P.");
         }
@@ -2784,7 +2970,8 @@ void read_switches(const int argc, const char* const argv[],
             if (i < argc)
                 g_replace = param;
             else
-                throw std::runtime_error("Missing text following -replacement.");
+                throw std::runtime_error("Missing text "
+                    "following -replacement.");
         }
         else if (strcmp("-shutdown", param) == 0)
         {
@@ -2798,7 +2985,8 @@ void read_switches(const int argc, const char* const argv[],
                 g_shutdown = param;
             }
             else
-                throw std::runtime_error("Missing pathname following -shutdown.");
+                throw std::runtime_error("Missing pathname "
+                    "following -shutdown.");
         }
         else if (strcmp("-startup", param) == 0)
         {
@@ -2813,7 +3001,8 @@ void read_switches(const int argc, const char* const argv[],
                 g_startup = param;
             }
             else
-                throw std::runtime_error("Missing pathname following -startup.");
+                throw std::runtime_error("Missing pathname "
+                    "following -startup.");
         }
         else if (strcmp("-vE", param) == 0)
         {
@@ -2822,7 +3011,7 @@ void read_switches(const int argc, const char* const argv[],
             param = argv[i];
 
             if (i < argc)
-                configs.push_back(config(match_type::dfa_regex, param, true, false));
+                configs.emplace_back(match_type::dfa_regex, param, true, false);
             else
                 throw std::runtime_error("Missing regex following -vE.");
         }
@@ -2833,7 +3022,7 @@ void read_switches(const int argc, const char* const argv[],
             param = argv[i];
 
             if (i < argc)
-                configs.push_back(config(match_type::dfa_regex, param, true, true));
+                configs.emplace_back(match_type::dfa_regex, param, true, true);
             else
                 throw std::runtime_error("Missing regex following -VE.");
         }
@@ -2848,8 +3037,8 @@ void read_switches(const int argc, const char* const argv[],
                 for (const auto& p : pathnames)
                 {
                     param = p.data();
-                    configs.push_back(config(match_type::parser,
-                        std::string(param, param + p.size()), true, false));
+                    configs.emplace_back(match_type::parser,
+                        std::string(param, param + p.size()), true, false);
                 }
             }
             else
@@ -2866,8 +3055,8 @@ void read_switches(const int argc, const char* const argv[],
                 for (const auto& p : pathnames)
                 {
                     param = p.data();
-                    configs.push_back(config(match_type::parser,
-                        std::string(param, param + p.size()), true, true));
+                    configs.emplace_back(match_type::parser,
+                        std::string(param, param + p.size()), true, true);
                 }
             }
             else
@@ -2880,7 +3069,7 @@ void read_switches(const int argc, const char* const argv[],
             param = argv[i];
 
             if (i < argc)
-                configs.push_back(config(match_type::regex, param, true, false));
+                configs.emplace_back(match_type::regex, param, true, false);
             else
                 throw std::runtime_error("Missing regex following -vP.");
         }
@@ -2891,7 +3080,7 @@ void read_switches(const int argc, const char* const argv[],
             param = argv[i];
 
             if (i < argc)
-                configs.push_back(config(match_type::regex, param, true, true));
+                configs.emplace_back(match_type::regex, param, true, true);
             else
                 throw std::runtime_error("Missing regex following -VP.");
         }
@@ -3084,8 +3273,8 @@ int main(int argc, char* argv[])
             throw std::runtime_error("Cannot combine stdin with -o.");
 
         if (!g_replace.empty() && g_modify)
-            throw std::runtime_error("Cannot combine -replace with grammar actions "
-                "that modify the input.");
+            throw std::runtime_error("Cannot combine -replace with grammar "
+                "actions that modify the input.");
 
         if (!g_startup.empty())
         {
@@ -3113,8 +3302,8 @@ int main(int argc, char* argv[])
                 std::cerr << "Failed to execute " << g_shutdown << ".\n";
 
         if (!g_pathname_only)
-            std::cout << "Matches: " << g_hits << "    Matching files: " << g_files <<
-                "    Total files searched: " << g_searched << std::endl;
+            std::cout << "Matches: " << g_hits << "    Matching files: " <<
+            g_files << "    Total files searched: " << g_searched << std::endl;
 
         return 0;
     }
