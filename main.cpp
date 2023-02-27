@@ -227,6 +227,7 @@ config_parser g_config_parser;
 std::vector<std::variant<parser, uparser, lexer, ulexer, regex>> g_pipeline;
 std::pair<std::vector<wildcardtl::wildcard>,
     std::vector<wildcardtl::wildcard>> g_exclude;
+bool g_show_hits = false;
 bool g_icase = false;
 bool g_dump = false;
 bool g_pathname_only = false;
@@ -1447,7 +1448,8 @@ bool process_matches(const std::vector<match>& ranges,
             const char* curr = iter->_first;
             const char* eoi = data_second;
 
-            std::cout << pathname;
+            if (!g_show_hits)
+                std::cout << pathname;
 
             if (g_pathname_only)
             {
@@ -1455,7 +1457,7 @@ bool process_matches(const std::vector<match>& ranges,
                 finished = true;
                 break;
             }
-            else
+            else if (!g_show_hits)
             {
                 const auto count = std::count(data_first, curr, '\n');
 
@@ -1473,8 +1475,12 @@ bool process_matches(const std::vector<match>& ranges,
                 }
             }
 
-            // Flush buffer, to give fast feedback to user
-            std::cout << std::endl;
+            if (!g_show_hits)
+            {
+                // Flush buffer, to give fast feedback to user
+                std::cout << std::endl;
+            }
+
             ++hits;
             break;
         }
@@ -1727,8 +1733,13 @@ void process_file(const std::string& pathname, std::string* cin = nullptr)
     } while (!finished && !ranges.empty());
 
     if (hits)
+    {
         perform_output(hits, pathname, replacements, data_first, data_second,
             mf, type, utf8.size());
+
+        if (g_show_hits)
+            std::cout << pathname << ": " << hits << " hits." << std::endl;
+    }
 
     ++g_searched;
 }
@@ -2713,6 +2724,7 @@ void show_help()
         "-exclude <wildcard>\tExclude pathnames matching wildcard.\n"
         "-f <config file>\tSearch using config file.\n"
         "-force_write\t\tIf a file is read only, force it to be writable.\n"
+        "-hits\t\t\tShow hit count per file.\n"
         "-i\t\t\tCase insensitive searching.\n"
         "-l\t\t\tOutput pathname only.\n"
         "-o\t\t\tOutput changes to matching file.\n"
@@ -2940,6 +2952,8 @@ void read_switches(const int argc, const char* const argv[],
             show_help();
             exit(0);
         }
+        else if (strcmp("-hits", param) == 0)
+            g_show_hits = true;
         else if (strcmp("-i", param) == 0)
             g_icase = true;
         else if (strcmp("-l", param) == 0)
@@ -3268,6 +3282,9 @@ int main(int argc, char* argv[])
 
         if (g_pipeline.empty())
             throw std::runtime_error("No actions have been specified.");
+
+        if (g_pathname_only && g_show_hits)
+            throw std::runtime_error("Cannot combine -l and -hits.");
 
         if (g_output && g_pathnames.empty())
             throw std::runtime_error("Cannot combine stdin with -o.");
