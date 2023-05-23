@@ -1821,7 +1821,8 @@ void process()
     {
         if (g_recursive)
         {
-            for (auto iter = fs::recursive_directory_iterator(pair.first),
+            for (auto iter = fs::recursive_directory_iterator(pair.first,
+                fs::directory_options::skip_permission_denied),
                 end = fs::recursive_directory_iterator(); iter != end; ++iter)
             {
                 process_file(iter->path(), pair.second);
@@ -1829,7 +1830,8 @@ void process()
         }
         else
         {
-            for (auto iter = fs::directory_iterator(pair.first),
+            for (auto iter = fs::directory_iterator(pair.first,
+                fs::directory_options::skip_permission_denied),
                 end = fs::directory_iterator(); iter != end; ++iter)
             {
                 process_file(iter->path(), pair.second);
