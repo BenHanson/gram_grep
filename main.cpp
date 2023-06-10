@@ -63,7 +63,7 @@ struct match_cmd
     uint16_t _back;
 
     match_cmd(const uint16_t front,
-        const uint16_t back) :
+        const uint16_t back) noexcept :
         _front(front),
         _back(back)
     {
@@ -253,9 +253,11 @@ using token = parsertl::token<lexertl::criterator>;
 
 struct config_state
 {
+    using lurules = lexertl::basic_rules<char, char32_t>;
+
     parsertl::rules _grules;
     lexertl::rules _lrules;
-    lexertl::basic_rules<char, char32_t> _lurules;
+    lurules _lurules;
     lexertl::memory_file _mf;
     token::token_vector _productions;
     parsertl::match_results _results;
@@ -268,9 +270,11 @@ struct config_state
         if (g_icase)
         {
             if (g_force_unicode)
-                _lurules.flags(lexertl::icase | lexertl::dot_not_cr_lf);
+                _lurules.flags(*lexertl::regex_flags::icase |
+                    *lexertl::regex_flags::dot_not_cr_lf);
             else
-                _lrules.flags(lexertl::icase | lexertl::dot_not_cr_lf);
+                _lrules.flags(*lexertl::regex_flags::icase |
+                    *lexertl::regex_flags::dot_not_cr_lf);
         }
 
         _mf.open(config_pathname.c_str());
@@ -340,9 +344,9 @@ struct config_state
         if (_grules.grammar().empty())
         {
             if (g_force_unicode)
-                _lurules.push(".{+}[\r\n]", _lurules.skip());
+                _lurules.push(".{+}[\r\n]", lurules::skip());
             else
-                _lrules.push(".{+}[\r\n]", _lrules.skip());
+                _lrules.push(".{+}[\r\n]", lexertl::rules::skip());
         }
         else
         {
@@ -1874,7 +1878,7 @@ void build_config_parser()
     g_config_parser._actions[grules.push("directive", "'%captures' NL")] =
         [](config_state& state, config_parser&)
     {
-        state._grules.flags(parsertl::enable_captures);
+        state._grules.flags(*parsertl::rule_flags::enable_captures);
     };
     // Read and store %left entries
     g_config_parser._actions[grules.push("directive", "'%left' tokens NL")] =
@@ -1947,9 +1951,11 @@ void build_config_parser()
         [](config_state& state, config_parser&)
     {
         if (g_force_unicode)
-            state._lurules.flags(state._lurules.flags() | lexertl::icase);
+            state._lurules.flags(state._lurules.flags() |
+                *lexertl::regex_flags::icase);
         else
-            state._lrules.flags(state._lrules.flags() | lexertl::icase);
+            state._lrules.flags(state._lrules.flags() |
+                *lexertl::regex_flags::icase);
     };
     // Read and store %x entries
     g_config_parser._actions[grules.push("directive", "'%x' names NL")] =
@@ -2544,9 +2550,9 @@ void build_config_parser()
         const std::string regex = token.str();
 
         if (g_force_unicode)
-            state._lurules.push(regex, state._lurules.skip());
+            state._lurules.push(regex, config_state::lurules::skip());
         else
-            state._lrules.push(regex, state._lrules.skip());
+            state._lrules.push(regex, lexertl::rules::skip());
     };
     g_config_parser._actions[grules.push("rx_rules",
         "rx_rules StartState regex ExitState 'skip()'")] =
@@ -2562,13 +2568,13 @@ void build_config_parser()
         if (g_force_unicode)
             state._lurules.push(std::string(start_state.first + 1,
                 start_state.second - 1).c_str(),
-                regex, state._lurules.skip(),
+                regex, config_state::lurules::skip(),
                 std::string(exit_state.first + 1,
                     exit_state.second - 1).c_str());
         else
             state._lrules.push(std::string(start_state.first + 1,
                 start_state.second - 1).c_str(),
-                regex, state._lrules.skip(),
+                regex, lexertl::rules::skip(),
                 std::string(exit_state.first + 1,
                     exit_state.second - 1).c_str());
     };
@@ -2618,7 +2624,7 @@ void build_config_parser()
     lrules.insert_macro("posix", "\\[:{posix_name}:\\]");
     lrules.insert_macro("state_name", "[A-Z_a-z][0-9A-Z_a-z]*");
 
-    lrules.push("INITIAL,OPTION", "[ \t]+", lrules.skip(), ".");
+    lrules.push("INITIAL,OPTION", "[ \t]+", lexertl::rules::skip(), ".");
     lrules.push("\n|\r\n", grules.token_id("NL"));
     lrules.push("%captures", grules.token_id("'%captures'"));
     lrules.push("%left", grules.token_id("'%left'"));
@@ -2660,15 +2666,15 @@ void build_config_parser()
     lrules.push("SCRIPT", "second", grules.token_id("'second'"), ".");
     lrules.push("SCRIPT", "substr", grules.token_id("'substr'"), ".");
     lrules.push("SCRIPT", "\\d+", grules.token_id("Integer"), ".");
-    lrules.push("SCRIPT", "\\s+", lrules.skip(), ".");
+    lrules.push("SCRIPT", "\\s+", lexertl::rules::skip(), ".");
     lrules.push("SCRIPT", "[$][1-9][0-9]*", grules.token_id("Index"), ".");
     lrules.push("SCRIPT", "'(''|[^'])*'", grules.token_id("ScriptString"), ".");
-    lrules.push("GRULE", "[ \t]+|\n|\r\n", lrules.skip(), ".");
+    lrules.push("GRULE", "[ \t]+|\n|\r\n", lexertl::rules::skip(), ".");
     lrules.push("GRULE", "%empty", grules.token_id("'%empty'"), ".");
     lrules.push("GRULE", "%%", grules.token_id("'%%'"), "MACRO");
-    lrules.push("INITIAL,GRULE,SCRIPT", "{c_comment}", lrules.skip(), ".");
+    lrules.push("INITIAL,GRULE,SCRIPT", "{c_comment}", lexertl::rules::skip(), ".");
     // Bison supports single line comments
-    lrules.push("INITIAL,GRULE,SCRIPT", "[/][/].*", lrules.skip(), ".");
+    lrules.push("INITIAL,GRULE,SCRIPT", "[/][/].*", lexertl::rules::skip(), ".");
     lrules.push("INITIAL,GRULE,ID",
         "'(\\\\([^0-9cx]|[0-9]{1,3}|c[@a-zA-Z]|x\\d+)|[^'])+'|"
         "[\"](\\\\([^0-9cx]|[0-9]{1,3}|c[@a-zA-Z]|x\\d+)|[^\"])+[\"]",
@@ -2680,11 +2686,11 @@ void build_config_parser()
     lrules.push("MACRO,RULE", "%%", grules.token_id("'%%'"), "RULE");
     lrules.push("MACRO", "[A-Z_a-z][0-9A-Z_a-z]*",
         grules.token_id("MacroName"), "REGEX");
-    lrules.push("MACRO,REGEX", "\n|\r\n", lrules.skip(), "MACRO");
+    lrules.push("MACRO,REGEX", "\n|\r\n", lexertl::rules::skip(), "MACRO");
 
-    lrules.push("REGEX", "[ \t]+", lrules.skip(), ".");
+    lrules.push("REGEX", "[ \t]+", lexertl::rules::skip(), ".");
     lrules.push("RULE", "^[ \t]+({c_comment}([ \t]+|{c_comment})*)?",
-        lrules.skip(), ".");
+        lexertl::rules::skip(), ".");
     lrules.push("RULE", "^<([*]|{state_name}(,{state_name})*)>",
         grules.token_id("StartState"), ".");
     lrules.push("REGEX,RULE", "\\^", grules.token_id("'^'"), ".");
@@ -2709,10 +2715,10 @@ void build_config_parser()
         grules.token_id("String"), ".");
 
     lrules.push("RULE,ID", "[ \t]+({c_comment}([ \t]+|{c_comment})*)?",
-        lrules.skip(), "ID");
+        lexertl::rules::skip(), "ID");
     lrules.push("RULE", "<([.]|<|>?{state_name})>",
         grules.token_id("ExitState"), "ID");
-    lrules.push("RULE,ID", "\n|\r\n", lrules.skip(), "RULE");
+    lrules.push("RULE,ID", "\n|\r\n", lexertl::rules::skip(), "RULE");
     lrules.push("ID", "skip\\s*[(]\\s*[)]",
         grules.token_id("'skip()'"), "RULE");
     lexertl::generator::build(lrules, g_config_parser._lsm);
@@ -3130,10 +3136,11 @@ void fill_pipeline(const std::vector<config>& configs)
                 lexer._all = tuple._all;
 
                 if (g_icase)
-                    rules.flags(lexertl::icase | lexertl::dot_not_cr_lf);
+                    rules.flags(*lexertl::regex_flags::icase |
+                        *lexertl::regex_flags::dot_not_cr_lf);
 
                 rules.push(tuple._param, 1);
-                rules.push(".{+}[\r\n]", rules.skip());
+                rules.push(".{+}[\r\n]", rules_type::skip());
                 generator::build(rules, lexer._sm);
                 g_pipeline.emplace_back(std::move(lexer));
             }
@@ -3146,10 +3153,11 @@ void fill_pipeline(const std::vector<config>& configs)
                 lexer._all = tuple._all;
 
                 if (g_icase)
-                    rules.flags(lexertl::icase | lexertl::dot_not_cr_lf);
+                    rules.flags(*lexertl::regex_flags::icase |
+                        *lexertl::regex_flags::dot_not_cr_lf);
 
                 rules.push(tuple._param, 1);
-                rules.push(".{+}[\r\n]", rules.skip());
+                rules.push(".{+}[\r\n]", lexertl::rules::skip());
                 lexertl::generator::build(rules, lexer._sm);
                 g_pipeline.emplace_back(std::move(lexer));
             }
