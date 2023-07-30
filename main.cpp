@@ -355,6 +355,7 @@ struct config_state
             const auto& grammar = _grules.grammar();
             const auto& ids = g_force_unicode ? _lurules.ids() : _lrules.ids();
             std::set<std::size_t> used_tokens;
+            std::set<std::size_t> used_prec;
 
             if (g_force_unicode)
                 parsertl::generator::build(_grules, g_curr_uparser->_gsm,
@@ -371,6 +372,20 @@ struct config_state
 
             for (const auto& p : grammar)
             {
+                // Check for %prec TOKEN
+                if (!p._rhs.second.empty())
+                {
+                    const auto pos = std::find(terminals.cbegin(),
+                        terminals.cend(), p._rhs.second);
+
+                    if (pos != terminals.end())
+                    {
+                        const size_t idx = pos - terminals.begin();
+
+                        used_prec.insert(idx);
+                    }
+                }
+
                 for (const auto& rhs : p._rhs.first)
                 {
                     if (rhs._type == parsertl::rules::symbol::type::TERMINAL)
@@ -385,7 +400,8 @@ struct config_state
                 for (const auto& curr_ids : ids)
                 {
                     found_id = std::find(curr_ids.begin(), curr_ids.end(), i) !=
-                        curr_ids.end();
+                        curr_ids.end() ||
+                        used_prec.find(i) != used_prec.end();
 
                     if (found_id) break;
                 }
@@ -394,8 +410,8 @@ struct config_state
                     std::cerr << "Warning: Token \"" << terminals[i] <<
                         "\" does not have a lexer definiton.\n";
 
-                if (std::find(used_tokens.begin(), used_tokens.end(), i) ==
-                    used_tokens.end())
+                if (used_tokens.find(i) == used_tokens.end() &&
+                    used_prec.find(i) == used_tokens.end())
                 {
                     std::cerr << "Warning: Token \"" << terminals[i] <<
                         "\" is not used in the grammar.\n";
@@ -2046,11 +2062,12 @@ void build_config_parser()
             }
         }
     };
-    grules.push("production", "opt_list "
-        "| production '|' opt_list");
+    grules.push("production", "opt_prec_list "
+        "| production '|' opt_prec_list");
+    grules.push("opt_prec_list", "opt_list opt_prec");
     grules.push("opt_list", "%empty "
         "| '%empty' "
-        "| rhs_list opt_prec");
+        "| rhs_list");
     grules.push("rhs_list", "rhs "
         "| rhs_list rhs");
     grules.push("rhs", "Literal "
@@ -2618,10 +2635,10 @@ void build_config_parser()
     lrules.push_state("RULE");
     lrules.push_state("ID");
     lrules.insert_macro("c_comment", "[/][*](?s:.)*?[*][/]");
-    lrules.insert_macro("escape", "\\\\(.|x[0-9A-Fa-f]+|c[@a-zA-Z])");
+    lrules.insert_macro("escape", R"(\\(.|x[0-9A-Fa-f]+|c[@a-zA-Z]))");
     lrules.insert_macro("posix_name", "alnum|alpha|blank|cntrl|digit|graph|"
         "lower|print|punct|space|upper|xdigit");
-    lrules.insert_macro("posix", "\\[:{posix_name}:\\]");
+    lrules.insert_macro("posix", R"(\[:{posix_name}:\])");
     lrules.insert_macro("state_name", "[A-Z_a-z][0-9A-Z_a-z]*");
 
     lrules.push("INITIAL,OPTION", "[ \t]+", lexertl::rules::skip(), ".");
@@ -2647,6 +2664,7 @@ void build_config_parser()
     lrules.push("GRULE", "[*]", grules.token_id("'*'"), ".");
     lrules.push("GRULE", "[+]", grules.token_id("'+'"), ".");
     lrules.push("GRULE", "[|]", grules.token_id("'|'"), ".");
+    lrules.push("GRULE", "%prec", grules.token_id("'%prec'"), ".");
     lrules.push("GRULE", ";", grules.token_id("';'"), ".");
     lrules.push("GRULE", "[{]", grules.token_id("'{'"), "SCRIPT");
     lrules.push("SCRIPT", "[}]", grules.token_id("'}'"), "GRULE");
@@ -2676,8 +2694,8 @@ void build_config_parser()
     // Bison supports single line comments
     lrules.push("INITIAL,GRULE,SCRIPT", "[/][/].*", lexertl::rules::skip(), ".");
     lrules.push("INITIAL,GRULE,ID",
-        "'(\\\\([^0-9cx]|[0-9]{1,3}|c[@a-zA-Z]|x\\d+)|[^'])+'|"
-        "[\"](\\\\([^0-9cx]|[0-9]{1,3}|c[@a-zA-Z]|x\\d+)|[^\"])+[\"]",
+        R"('(\\([^0-9cx]|[0-9]{1,3}|c[@a-zA-Z]|x\d+)|[^'])+'|)"
+        R"(["](\\([^0-9cx]|[0-9]{1,3}|c[@a-zA-Z]|x\d+)|[^"])+["])",
         grules.token_id("Literal"), ".");
     lrules.push("INITIAL,GRULE,ID", "[.A-Z_a-z][-.0-9A-Z_a-z]*",
         grules.token_id("Name"), ".");
@@ -2686,6 +2704,7 @@ void build_config_parser()
     lrules.push("MACRO,RULE", "%%", grules.token_id("'%%'"), "RULE");
     lrules.push("MACRO", "[A-Z_a-z][0-9A-Z_a-z]*",
         grules.token_id("MacroName"), "REGEX");
+    lrules.push("MACRO", "{c_comment}", lexertl::rules::skip(), ".");
     lrules.push("MACRO,REGEX", "\n|\r\n", lexertl::rules::skip(), "MACRO");
 
     lrules.push("REGEX", "[ \t]+", lexertl::rules::skip(), ".");
@@ -2705,13 +2724,14 @@ void build_config_parser()
     lrules.push("REGEX,RULE", "[*][?]", grules.token_id("'*?'"), ".");
     lrules.push("REGEX,RULE", "[+]", grules.token_id("'+'"), ".");
     lrules.push("REGEX,RULE", "[+][?]", grules.token_id("'+?'"), ".");
-    lrules.push("REGEX,RULE", "{escape}|(\\[^?({escape}|{posix}|"
-        "[^\\\\\\]])*\\])|[^\\s]", grules.token_id("Charset"), ".");
+    lrules.push("REGEX,RULE", R"({escape}|(\[^?({escape}|{posix}|)"
+        R"([^\\\]])*\\])|\S)",
+        grules.token_id("Charset"), ".");
     lrules.push("REGEX,RULE", "[{][A-Z_a-z][-0-9A-Z_a-z]*[}]",
         grules.token_id("Macro"), ".");
     lrules.push("REGEX,RULE", "[{][0-9]+(,([0-9]+)?)?[}][?]?",
         grules.token_id("Repeat"), ".");
-    lrules.push("REGEX,RULE", "[\"](\\\\.|[^\r\n\"])*[\"]",
+    lrules.push("REGEX,RULE", R"(["](\\.|[^\r\n"])*["])",
         grules.token_id("String"), ".");
 
     lrules.push("RULE,ID", "[ \t]+({c_comment}([ \t]+|{c_comment})*)?",
@@ -2719,7 +2739,7 @@ void build_config_parser()
     lrules.push("RULE", "<([.]|<|>?{state_name})>",
         grules.token_id("ExitState"), "ID");
     lrules.push("RULE,ID", "\n|\r\n", lexertl::rules::skip(), "RULE");
-    lrules.push("ID", "skip\\s*[(]\\s*[)]",
+    lrules.push("ID", R"(skip\s*[(]\s*[)])",
         grules.token_id("'skip()'"), "RULE");
     lexertl::generator::build(lrules, g_config_parser._lsm);
 }
