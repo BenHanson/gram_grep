@@ -2452,6 +2452,28 @@ void build_config_parser()
                 static_cast<uint16_t>(atoi(number.c_str())));
     };
     g_config_parser._actions[grules.push("rx_rules",
+        "rx_rules StartState regex ExitState")] =
+        [](config_state& state, config_parser& parser)
+    {
+        const auto& start_state = state._results.dollar(1, parser._gsm,
+            state._productions);
+        const std::string regex = state._results.dollar(2, parser._gsm,
+            state._productions).str();
+        const auto& exit_state = state._results.dollar(3, parser._gsm,
+            state._productions);
+
+        if (g_force_unicode)
+            state._lurules.push(std::string(start_state.first + 1,
+                start_state.second - 1).c_str(), regex,
+                std::string(exit_state.first + 1,
+                    exit_state.second - 1).c_str());
+        else
+            state._lrules.push(std::string(start_state.first + 1,
+                start_state.second - 1).c_str(), regex,
+                std::string(exit_state.first + 1,
+                    exit_state.second - 1).c_str());
+    };
+    g_config_parser._actions[grules.push("rx_rules",
         "rx_rules StartState regex ExitState Number")] =
         [](config_state& state, config_parser& parser)
     {
@@ -2725,7 +2747,7 @@ void build_config_parser()
     lrules.push("REGEX,RULE", "[+]", grules.token_id("'+'"), ".");
     lrules.push("REGEX,RULE", "[+][?]", grules.token_id("'+?'"), ".");
     lrules.push("REGEX,RULE", R"({escape}|(\[^?({escape}|{posix}|)"
-        R"([^\\\]])*\\])|\S)",
+        R"([^\\\]])*\])|\S)",
         grules.token_id("Charset"), ".");
     lrules.push("REGEX,RULE", "[{][A-Z_a-z][-0-9A-Z_a-z]*[}]",
         grules.token_id("Macro"), ".");
