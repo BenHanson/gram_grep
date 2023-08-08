@@ -2753,7 +2753,7 @@ void build_config_parser()
         grules.token_id("Macro"), ".");
     lrules.push("REGEX,RULE", "[{][0-9]+(,([0-9]+)?)?[}][?]?",
         grules.token_id("Repeat"), ".");
-    lrules.push("REGEX,RULE", R"(["](\\.|[^\r\n"])*["])",
+    lrules.push("REGEX,RULE", R"(["](\\.|[^\\\r\n"])*["])",
         grules.token_id("String"), ".");
 
     lrules.push("RULE,ID", "[ \t]+({c_comment}([ \t]+|{c_comment})*)?",
