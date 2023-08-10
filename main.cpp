@@ -2717,7 +2717,7 @@ void build_config_parser()
     lrules.push("INITIAL,GRULE,SCRIPT", "[/][/].*", lexertl::rules::skip(), ".");
     lrules.push("INITIAL,GRULE,ID",
         R"('(\\([^0-9cx]|[0-9]{1,3}|c[@a-zA-Z]|x\d+)|[^\\\r\n'])+'|)"
-        R"(["](\\([^0-9cx]|[0-9]{1,3}|c[@a-zA-Z]|x\d+)|[^\\\r\n"])+["])",
+        R"(\"(\\([^0-9cx]|[0-9]{1,3}|c[@a-zA-Z]|x\d+)|[^\\\r\n"])+\")",
         grules.token_id("Literal"), ".");
     lrules.push("INITIAL,GRULE,ID", "[.A-Z_a-z][-.0-9A-Z_a-z]*",
         grules.token_id("Name"), ".");
@@ -2753,7 +2753,7 @@ void build_config_parser()
         grules.token_id("Macro"), ".");
     lrules.push("REGEX,RULE", "[{][0-9]+(,([0-9]+)?)?[}][?]?",
         grules.token_id("Repeat"), ".");
-    lrules.push("REGEX,RULE", R"(["](\\.|[^\\\r\n"])*["])",
+    lrules.push("REGEX,RULE", R"(\"(\\.|[^\\\r\n"])*\")",
         grules.token_id("String"), ".");
 
     lrules.push("RULE,ID", "[ \t]+({c_comment}([ \t]+|{c_comment})*)?",
@@ -2835,13 +2835,13 @@ void show_help()
         "%%\n"
         "ws [ \\t\\r\\n]+\n"
         "%%\n"
-        R"(["]([^"\\]|\\.)*["]                    String)"
+        R"(\"([^"\\\r\n]|\\.)*\"                  String)"
         "\n"
-        R"(R["][(](?s:.)*?[)]["]                  RawString)"
+        R"(R\"\((?s:.)*?\)\"                      RawString)"
         "\n"
-        R"('([^'\\]|\\.)*'                        skip())"
+        R"('([^'\\\r\n]|\\.)*'                    skip())"
         "\n"
-        R"({ws}|[/][/].*|[/][*].{+}[\r\n]*?[*][/] skip())"
+        R"({ws}|"//".*|"/*"(?s:.)*?"*/"           skip())"
         "\n"
         "%%\n\n"
         "Note that you can pipeline searches by using multiple switches.\n"
