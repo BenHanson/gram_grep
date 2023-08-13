@@ -313,9 +313,12 @@ struct config_state
                         const auto& token =
                             _results.dollar(idx, g_config_parser._gsm,
                                 _productions);
-
-                        ss << e.what() << "\nLine " <<
+                        const std::size_t line =
                             1 + std::count(_mf.data(), token.first, '\n');
+
+                        // Column makes no sense here as we are
+                        // already at the end of the line
+                        ss << config_pathname << '(' << line << "): " << e.what();
                         throw std::runtime_error(ss.str());
                     }
                 }
@@ -334,8 +337,7 @@ struct config_state
                 iter->first, endl, endl + 1);
             std::ostringstream ss;
 
-            ss << "Parse error in " << config_pathname << " at line " <<
-                line << ", column " << column;
+            ss << config_pathname << '(' << line << ':' << column << "): Parse error";
             throw std::runtime_error(ss.str());
         }
 
@@ -367,8 +369,8 @@ struct config_state
             _grules.terminals(terminals);
 
             if (!warnings.empty())
-                std::cerr << "Warnings from config " << config_pathname <<
-                    " : " << warnings;
+                std::cerr << "Warnings from config " << config_pathname << " : " <<
+                    warnings;
 
             for (const auto& p : grammar)
             {
@@ -2038,7 +2040,7 @@ void build_config_parser()
                 {
                     std::ostringstream ss;
 
-                    ss << "Index $" << cmd._param1 + 1 << " out of range.";
+                    ss << "Index $" << cmd._param1 + 1 << " is out of range.";
                     throw std::runtime_error(ss.str());
                 }
 
@@ -2047,7 +2049,7 @@ void build_config_parser()
                 {
                     std::ostringstream ss;
 
-                    ss << "Index $" << cmd._param2 + 1 << " out of range.";
+                    ss << "Index $" << cmd._param2 + 1 << " is out of range.";
                     throw std::runtime_error(ss.str());
                 }
 
