@@ -3,21 +3,20 @@
 
 #include "stdafx.h"
 
-//#include "../parsertl14/include/parsertl/debug.hpp"
-#include "../lexertl14/include/lexertl/debug.hpp"
+#include <lexertl/debug.hpp>
 #include <filesystem>
 #include <fstream>
-#include "../parsertl14/include/parsertl/generator.hpp"
-#include "../parsertl14/include/parsertl/lookup.hpp"
+#include <parsertl/generator.hpp>
+#include <parsertl/lookup.hpp>
 #include <iostream>
-#include "../lexertl14/include/lexertl/iterator.hpp"
-#include "../parsertl14/include/parsertl/match_results.hpp"
-#include "../lexertl14/include/lexertl/memory_file.hpp"
+#include <lexertl/iterator.hpp>
+#include <parsertl/match_results.hpp>
+#include <lexertl/memory_file.hpp>
 #include <regex>
-#include "../parsertl14/include/parsertl/search.hpp"
+#include <parsertl/search.hpp>
 #include <variant>
-#include "../lexertl14/include/lexertl/utf_iterators.hpp"
-#include "../wildcardtl/include/wildcardtl/wildcard.hpp"
+#include <lexertl/utf_iterators.hpp>
+#include <wildcardtl/wildcard.hpp>
 
 enum class file_type
 {
@@ -2760,7 +2759,7 @@ void build_config_parser()
 
     lrules.push("RULE,ID", "[ \t]+({c_comment}([ \t]+|{c_comment})*)?",
         lexertl::rules::skip(), "ID");
-    lrules.push("RULE", R"(<(\.|<|>?{state_name})>)",
+    lrules.push("RULE", R"(<(\.|<|{state_name}|>{state_name}(:{state_name})?)>)",
         grules.token_id("ExitState"), "ID");
     lrules.push("RULE,ID", "\n|\r\n", lexertl::rules::skip(), "RULE");
     lrules.push("ID", R"(skip\s*\(\s*\))",
