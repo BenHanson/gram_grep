@@ -1,4 +1,4 @@
-%token Bool CHAR CONST EXTERN INT LONG Name NULLPTR Number
+%token Bool CHAR CONST EXTERN INT LONG Name NULLPTR Number RETURN
 %token SimpleType SIZE_T STATIC STD TYPEDEF UNSIGNED WindowsType
 %%
 start: decl;
@@ -38,16 +38,17 @@ NAME  [_A-Za-z][_0-9A-Za-z]*
 =                                               '='
 ,                                               ','
 ;                                               ';'
-[*]                                             '*'
+\*                                              '*'
 ::                                              '::'
 true|TRUE|false|FALSE                           Bool
 char                                            CHAR
 const                                           CONST
 extern                                          EXTERN
 int((32|64)_t)?                                 INT
-interface\s+{NAME}\s+[{][^}]*[}];               skip()
+interface\s+{NAME}\s+\{[^}]*\};                 skip()
 long                                            LONG
 nullptr                                         NULLPTR
+return                                          RETURN
 size_t                                          SIZE_T
 static                                          STATIC
 std                                             STD
@@ -62,6 +63,6 @@ UWORD|WPARAM                                    WindowsType
 bool|double|float                               SimpleType
 unsigned                                        UNSIGNED
 {NAME}                                          Name
--?\d+([.]\d+)?                                  Number
-[ \t\r\n]+|[/][/].*|[/][*].{+}[\r\n]*?[*][/]    skip()
+-?\d+(\.\d+)?                                   Number
+[ \t\r\n]+|"//".*|"/*"(?s:.)*?"*/"              skip()
 %%

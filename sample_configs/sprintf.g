@@ -1,14 +1,14 @@
-%token format anything
+%token sprintf anything
 %x PREBODY BODY PARENS
 %%
-start: format '(' ')';
+start: sprintf '(' ')';
 %%
 char '([^'\\\r\n]|\\.)+'
 name [A-Z_a-z][0-9A-Z_a-z]*
 string \"([^"\\\r\n]|\\.)*\"
 ws [ \t\r\n]+|"//".*|"/*"(?s:.)*?"*/"
 %%
-<INITIAL>std::format<PREBODY>     format
+<INITIAL>sprintf<PREBODY>     sprintf
 <PREBODY>\(<BODY>        '('
 <PREBODY>(?s:.)<.>       skip()
 <BODY,PARENS>\(<>PARENS> skip()
