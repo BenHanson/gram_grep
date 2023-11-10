@@ -3231,7 +3231,7 @@ void read_switches(const int argc, const char* const argv[],
             param = argv[i];
 
             if (i < argc)
-                configs.emplace_back(match_type::text, param, true, false);
+                configs.emplace_back(match_type::text, param, false, false);
             else
                 throw std::runtime_error("Missing regex following -T.");
         }
