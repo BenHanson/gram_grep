@@ -1251,7 +1251,14 @@ bool process_text(const text& t, std::vector<match>& ranges,
 {
     const std::string text_ = build_text(t._text, captures);
     auto first = text_.empty() ? ranges.back()._eoi :
+        g_icase ?
         std::search(ranges.back()._first,
+            ranges.back()._eoi, &text_.front(), &text_.front() + text_.size(),
+            [](const char lhs, const char rhs)
+            {
+                return ::tolower(lhs) == ::tolower(rhs);
+            })
+        : std::search(ranges.back()._first,
         ranges.back()._eoi, &text_.front(), &text_.front() + text_.size());
     auto second = first + text_.size();
     bool success = first != ranges.back()._eoi;
