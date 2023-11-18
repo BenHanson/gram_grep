@@ -1277,17 +1277,17 @@ bool process_text(const text& t, std::vector<match>& ranges,
                 &text.front() + text.size());
         second = first + text.size();
         success = first != ranges.back()._eoi;
-        whole_word = success && !bow ||
+        whole_word = success && (!bow ||
             !(first == ranges.front()._first ||
             *(first - 1) >= 'A' && *(first - 1) <= 'Z' ||
             *(first - 1) == '_' ||
-            *(first - 1) >= 'a' && *(first - 1) <= 'z') &&
-            !eow ||
+            *(first - 1) >= 'a' && *(first - 1) <= 'z')) &&
+            (!eow ||
             !(second == ranges.front()._second ||
             *second >= 'A' && *second <= 'Z' ||
             *second == '_' ||
             *second >= 'a' && *second <= 'z' ||
-            back_dig && *second >= '0' && *second <= '9');
+            back_dig && *second >= '0' && *second <= '9'));
 
         if (success && !whole_word)
         {
