@@ -1249,19 +1249,54 @@ std::string build_text(const std::string& input, std::vector<std::string>& captu
 bool process_text(const text& t, std::vector<match>& ranges,
     std::vector<std::string>& captures)
 {
-    const std::string text_ = build_text(t._text, captures);
-    auto first = text_.empty() ? ranges.back()._eoi :
-        g_icase ?
-        std::search(ranges.back()._first,
-            ranges.back()._eoi, &text_.front(), &text_.front() + text_.size(),
-            [](const char lhs, const char rhs)
-            {
-                return ::tolower(lhs) == ::tolower(rhs);
-            })
-        : std::search(ranges.back()._first,
-        ranges.back()._eoi, &text_.front(), &text_.front() + text_.size());
-    auto second = first + text_.size();
-    bool success = first != ranges.back()._eoi;
+    const std::string text = build_text(t._text, captures);
+    const bool bow = text.front() >= 'A' && text.front() <= 'Z' ||
+        text.front() == '_' ||
+        text.front() >= 'a' && text.front() <= 'z';
+    const bool back_dig = text.back() >= '0' && text.back() <= '9';
+    const bool eow = bow && back_dig ||
+        text.back() >= 'A' && text.back() <= 'Z' ||
+        text.back() == '_' ||
+        text.back() >= 'a' && text.back() <= 'z';
+    const char* first = ranges.back()._first;
+    const char* second = ranges.back()._eoi;
+    bool success = false;
+    bool whole_word = false;
+
+    do
+    {
+        first = text.empty() ? ranges.back()._eoi :
+            g_icase ?
+            std::search(first, second, &text.front(),
+                &text.front() + text.size(),
+                [](const char lhs, const char rhs)
+                {
+                    return ::tolower(lhs) == ::tolower(rhs);
+                })
+            : std::search(first, second, &text.front(),
+                &text.front() + text.size());
+        second = first + text.size();
+        success = first != ranges.back()._eoi;
+        whole_word = success && !bow ||
+            !(first == ranges.front()._first ||
+            *(first - 1) >= 'A' && *(first - 1) <= 'Z' ||
+            *(first - 1) == '_' ||
+            *(first - 1) >= 'a' && *(first - 1) <= 'z') &&
+            !eow ||
+            !(second == ranges.front()._second ||
+            *second >= 'A' && *second <= 'Z' ||
+            *second == '_' ||
+            *second >= 'a' && *second <= 'z' ||
+            back_dig && *second >= '0' && *second <= '9');
+
+        if (success && !whole_word)
+        {
+            first = second;
+            second = ranges.back()._eoi;
+        }
+    } while (success && !whole_word);
+
+    success &= whole_word;
 
     if (success)
     {
@@ -1273,7 +1308,7 @@ bool process_text(const text& t, std::vector<match>& ranges,
             {
                 const char* last_start = ranges.back()._first;
 
-                ranges.back()._second = first + text_.size();
+                ranges.back()._second = first + text.size();
 
                 if (last_start == first)
                 {
@@ -3477,12 +3512,12 @@ void fill_pipeline(const std::vector<config>& configs)
         }
         case match_type::text:
         {
-            text text_;
+            text text;
 
-            text_._negate = config._negate;
-            text_._all = config._all;
-            text_._text = config._param;
-            g_pipeline.emplace_back(std::move(text_));
+            text._negate = config._negate;
+            text._all = config._all;
+            text._text = config._param;
+            g_pipeline.emplace_back(std::move(text));
         }
         default:
             break;
