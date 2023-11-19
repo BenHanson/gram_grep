@@ -1246,8 +1246,8 @@ std::string build_text(const std::string& input, std::vector<std::string>& captu
     return output;
 }
 
-bool process_text(const text& t, std::vector<match>& ranges,
-    std::vector<std::string>& captures)
+bool process_text(const text& t, const char* data_first,
+    std::vector<match>& ranges, std::vector<std::string>& captures)
 {
     const std::string text = build_text(t._text, captures);
     const bool bow = text.front() >= 'A' && text.front() <= 'Z' ||
@@ -1278,12 +1278,12 @@ bool process_text(const text& t, std::vector<match>& ranges,
         second = first + text.size();
         success = first != ranges.back()._eoi;
         whole_word = success && (!bow ||
-            !(first == ranges.front()._first ||
+            !(first == data_first ||
             *(first - 1) >= 'A' && *(first - 1) <= 'Z' ||
             *(first - 1) == '_' ||
             *(first - 1) >= 'a' && *(first - 1) <= 'z')) &&
             (!eow ||
-            !(second == ranges.front()._second ||
+            !(second == ranges.front()._eoi ||
             *second >= 'A' && *second <= 'Z' ||
             *second == '_' ||
             *second >= 'a' && *second <= 'z' ||
@@ -1517,7 +1517,7 @@ std::pair<bool, bool> search(std::vector<match>& ranges, const char* data_first,
         {
             const auto& t = std::get<text>(v);
 
-            success = process_text(t, ranges, captures);
+            success = process_text(t, data_first, ranges, captures);
             negate = t._negate;
             break;
         }
