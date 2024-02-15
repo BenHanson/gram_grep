@@ -186,7 +186,7 @@ void build_config_parser()
                 for (const auto& cmd : iter->second)
                 {
                     if (cmd._param1 >=
-                        state._grules.grammar().back()._rhs.first.size())
+                        state._grules.grammar().back()._rhs._symbols.size())
                     {
                         std::ostringstream ss;
 
@@ -195,7 +195,7 @@ void build_config_parser()
                     }
 
                     if (cmd._param2 >=
-                        state._grules.grammar().back()._rhs.first.size())
+                        state._grules.grammar().back()._rhs._symbols.size())
                     {
                         std::ostringstream ss;
 

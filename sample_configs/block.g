@@ -1,7 +1,7 @@
 // Locate a top level braced block (i.e. function bodies)
 // Note that we filter out class, struct and namespace
 // in order to match any embeded blocks inside those constructs.
-%token Name anything
+%token anything
 %x BODY BRACES
 %%
 start: '{' '}';

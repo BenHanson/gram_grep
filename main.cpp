@@ -669,7 +669,9 @@ static void show_help()
         "-vP <regex>\t\tSearch using std::regex (negated).\n"
         "-VP <regex>\t\tSearch using std::regex (all negated).\n"
         "-vT <text>\t\tSearch for plain text with support for capture ($n) syntax (negated).\n"
+        "-vTw <text>\t\tAs -vT but with whole word matching.\n"
         "-VT <text>\t\tSearch for plain text with support for capture ($n) syntax (all negated).\n"
+        "-VTw <text>\t\tAs -VT but with whole word matching.\n"
         "-writable\t\tOnly process files that are writable.\n"
         "<pathname>...\t\tFiles to search (wildcards supported).\n\n"
         "Config file format:\n\n"
@@ -1099,7 +1101,6 @@ static void read_switches(const int argc, const char* const argv[],
         }
         else if (strcmp("-vT", param) == 0)
         {
-            // Perl style regex
             ++i;
             param = argv[i];
 
@@ -1109,14 +1110,36 @@ static void read_switches(const int argc, const char* const argv[],
             else
                 throw gg_error("Missing regex following -vT.");
         }
-        else if (strcmp("-VT", param) == 0)
+        else if (strcmp("-vTw", param) == 0)
         {
-            // Perl style regex
             ++i;
             param = argv[i];
 
             if (i < argc)
                 configs.emplace_back(match_type::text, param,
+                    config_flags::whole_word | config_flags::negate);
+            else
+                throw gg_error("Missing regex following -vT.");
+        }
+        else if (strcmp("-VT", param) == 0)
+        {
+            ++i;
+            param = argv[i];
+
+            if (i < argc)
+                configs.emplace_back(match_type::text, param,
+                    config_flags::negate | config_flags::negate_all);
+            else
+                throw gg_error("Missing regex following -VT.");
+        }
+        else if (strcmp("-VTw", param) == 0)
+        {
+            ++i;
+            param = argv[i];
+
+            if (i < argc)
+                configs.emplace_back(match_type::text, param,
+                    config_flags::whole_word |
                     config_flags::negate | config_flags::negate_all);
             else
                 throw gg_error("Missing regex following -VT.");

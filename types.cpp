@@ -125,9 +125,9 @@ void config_state::parse(const std::string& config_pathname)
         for (const auto& p : grammar)
         {
             // Check for %prec TOKEN
-            if (!p._rhs.second.empty())
+            if (!p._rhs._prec.empty())
             {
-                const auto pos = std::ranges::find(terminals, p._rhs.second);
+                const auto pos = std::ranges::find(terminals, p._rhs._prec);
 
                 if (pos != terminals.end())
                 {
@@ -137,7 +137,7 @@ void config_state::parse(const std::string& config_pathname)
                 }
             }
 
-            for (const auto& rhs : p._rhs.first)
+            for (const auto& rhs : p._rhs._symbols)
             {
                 if (rhs._type == parsertl::rules::symbol::type::TERMINAL)
                     used_tokens.insert(rhs._id);

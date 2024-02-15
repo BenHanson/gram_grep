@@ -25,7 +25,7 @@ static void process_action(const parser& p, const char* start,
         {
             const auto& c = std::get<match_cmd>(cmd._action);
             std::string temp = productions[productions.size() -
-                p._gsm._rules[item.first].second.size() + cmd._param1].str();
+                p._gsm._rules[item.first]._rhs.size() + cmd._param1].str();
             const uint16_t size = c._front + c._back;
 
             if (c._front == 0 && c._back == 0)
@@ -51,7 +51,7 @@ static void process_action(const parser& p, const char* start,
         {
             const auto& c = std::get<match_cmd>(cmd._action);
             std::string temp = productions[productions.size() -
-                p._gsm._rules[item.first].second.size() + cmd._param1].str();
+                p._gsm._rules[item.first]._rhs.size() + cmd._param1].str();
 
             if (c._front == 0 && c._back == 0)
                 matches.top() = std::move(temp);
@@ -79,9 +79,9 @@ static void process_action(const parser& p, const char* start,
             if (g_output)
             {
                 const auto& param1 = productions[productions.size() -
-                    p._gsm._rules[item.first].second.size() + cmd._param1];
+                    p._gsm._rules[item.first]._rhs.size() + cmd._param1];
                 const auto& param2 = productions[productions.size() -
-                    p._gsm._rules[item.first].second.size() + cmd._param2];
+                    p._gsm._rules[item.first]._rhs.size() + cmd._param2];
                 const auto index1 =
                     (cmd._second1 ? param1.second : param1.first) - start;
                 const auto index2 =
@@ -99,7 +99,7 @@ static void process_action(const parser& p, const char* start,
             {
                 const auto& c = std::get<insert_cmd>(cmd._action);
                 const auto& param = productions[productions.size() -
-                    p._gsm._rules[item.first].second.size() + cmd._param1];
+                    p._gsm._rules[item.first]._rhs.size() + cmd._param1];
                 const auto index = (cmd._second1 ? param.second : param.first) -
                     start;
 
@@ -114,7 +114,7 @@ static void process_action(const parser& p, const char* start,
             {
                 const auto& c = std::get<replace_cmd>(cmd._action);
                 const auto size = productions.size() -
-                    p._gsm._rules[item.first].second.size();
+                    p._gsm._rules[item.first]._rhs.size();
                 const auto& param1 = productions[size + cmd._param1];
                 const auto& param2 = productions[size + cmd._param2];
                 const auto index1 =
@@ -132,7 +132,7 @@ static void process_action(const parser& p, const char* start,
             {
                 const auto& c = std::get<replace_all_cmd>(cmd._action);
                 const auto size = productions.size() -
-                    p._gsm._rules[item.first].second.size();
+                    p._gsm._rules[item.first]._rhs.size();
                 const auto& param = productions[size + cmd._param1];
                 const auto index1 = param.first - start;
                 const auto index2 = param.second - start;
@@ -171,7 +171,7 @@ static void process_action(const uparser& p, const char* start,
         {
             const auto& c = std::get<match_cmd>(cmd._action);
             auto& token = productions[productions.size() -
-                p._gsm._rules[item.first].second.size() + cmd._param1];
+                p._gsm._rules[item.first]._rhs.size() + cmd._param1];
             std::string temp(token.first.get(), token.second.get());
             const uint16_t size = c._front + c._back;
 
@@ -198,7 +198,7 @@ static void process_action(const uparser& p, const char* start,
         {
             const auto& c = std::get<match_cmd>(cmd._action);
             auto& token = productions[productions.size() -
-                p._gsm._rules[item.first].second.size() + cmd._param1];
+                p._gsm._rules[item.first]._rhs.size() + cmd._param1];
             std::string temp(token.first.get(), token.second.get());
 
             if (c._front == 0 && c._back == 0)
@@ -227,9 +227,9 @@ static void process_action(const uparser& p, const char* start,
             if (g_output)
             {
                 const auto& param1 = productions[productions.size() -
-                    p._gsm._rules[item.first].second.size() + cmd._param1];
+                    p._gsm._rules[item.first]._rhs.size() + cmd._param1];
                 const auto& param2 = productions[productions.size() -
-                    p._gsm._rules[item.first].second.size() + cmd._param2];
+                    p._gsm._rules[item.first]._rhs.size() + cmd._param2];
                 const auto index1 = (cmd._second1 ? param1.second.get() :
                     param1.first.get()) - start;
                 const auto index2 = (cmd._second2 ? param2.second.get() :
@@ -247,7 +247,7 @@ static void process_action(const uparser& p, const char* start,
             {
                 const auto& c = std::get<insert_cmd>(cmd._action);
                 const auto& param = productions[productions.size() -
-                    p._gsm._rules[item.first].second.size() + cmd._param1];
+                    p._gsm._rules[item.first]._rhs.size() + cmd._param1];
                 const auto index = (cmd._second1 ? param.second.get() :
                     param.first.get()) - start;
 
@@ -262,7 +262,7 @@ static void process_action(const uparser& p, const char* start,
             {
                 const auto& c = std::get<replace_cmd>(cmd._action);
                 const auto size = productions.size() -
-                    p._gsm._rules[item.first].second.size();
+                    p._gsm._rules[item.first]._rhs.size();
                 const auto& param1 = productions[size + cmd._param1];
                 const auto& param2 = productions[size + cmd._param2];
                 const auto index1 = (cmd._second1 ? param1.second.get() :
@@ -280,7 +280,7 @@ static void process_action(const uparser& p, const char* start,
             {
                 const auto& c = std::get<replace_all_cmd>(cmd._action);
                 const auto size = productions.size() -
-                    p._gsm._rules[item.first].second.size();
+                    p._gsm._rules[item.first]._rhs.size();
                 const auto& param = productions[size + cmd._param1];
                 const auto index1 = param.first.get() - start;
                 const auto index2 = param.second.get() - start;
