@@ -900,8 +900,8 @@ void build_config_parser()
     // Bison supports single line comments
     lrules.push("INITIAL,GRULE,SCRIPT", R"("//".*)", lexertl::rules::skip(), ".");
     lrules.push("INITIAL,GRULE,ID",
-        R"('(\\([^0-9cx]|\d{1,3}|c[@a-zA-Z]|x\d+)|[^\\\r\n'])+'|)"
-        R"(\"(\\([^0-9cx]|\d{1,3}|c[@a-zA-Z]|x\d+)|[^\\\r\n"])+\")",
+        R"('(\\([^0-9cx]|\d{1,3}|c[@a-zA-Z]|x[0-9A-Fa-f]+)|[^\\\r\n'])+'|)"
+        R"(\"(\\([^0-9cx]|\d{1,3}|c[@a-zA-Z]|x[0-9A-Fa-f]+)|[^\\\r\n"])+\")",
         grules.token_id("Literal"), ".");
     lrules.push("INITIAL,GRULE,ID", "[.A-Z_a-z][-.0-9A-Z_a-z]*",
         grules.token_id("Name"), ".");
