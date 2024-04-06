@@ -1,9 +1,9 @@
-// Note that we don't filter anything else
-// out here, because in the case you are
-// doing -vf you don't want to silently
-// exclude other things.
+// Note that this lexer is now targeted at C++ only.
+// Previously it also worked for C# code.
 %%
 %%
 %%
-"//".*|"/*"(?s:.)*?"*/" 1
+\/\/.*|\/\*(?s:.)*?\*\/ 1
+\"([^"\\]|\\.)*\"       skip()
+R\"\((?s:.)*?\)\"       skip()
 %%
