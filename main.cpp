@@ -590,7 +590,7 @@ static void process_file(const fs::path& path,
 
         for (const auto& wc : include.second)
         {
-            if (wc.match(pathname))
+            if (!wc.match(pathname))
             {
                 process = false;
                 break;
@@ -763,7 +763,7 @@ void add_pathname(std::string pn,
     }
 
     if (negate)
-        pair.second.emplace_back(&pn[1], pn.c_str() + pn.size(), is_windows());
+        pair.second.emplace_back(pn, is_windows());
     else
         pair.first.emplace_back(pn, is_windows());
 }
@@ -858,9 +858,8 @@ static void read_switches(const int argc, const char* const argv[],
                     param = p.data();
 
                     if (*param == '!')
-                        g_exclude.second.
-                        emplace_back(&param[1],
-                            param + p.size(), is_windows());
+                        g_exclude.second.emplace_back(param, param + p.size(),
+                            is_windows());
                     else
                         g_exclude.first.emplace_back(param, param + p.size(),
                             is_windows());
