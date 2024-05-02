@@ -842,6 +842,7 @@ void build_config_parser()
     lrules.push_state("ID");
     lrules.insert_macro("c_comment", R"("/*"(?s:.)*?"*/")");
     lrules.insert_macro("escape", R"(\\(.|x[0-9A-Fa-f]+|c[@a-zA-Z]))");
+    lrules.insert_macro("macro_name", R"([A-Z_a-z][-\w]*)");
     lrules.insert_macro("posix_name", "alnum|alpha|blank|cntrl|digit|graph|"
         "lower|print|punct|space|upper|xdigit");
     lrules.insert_macro("posix", R"(\[:{posix_name}:\])");
@@ -908,8 +909,7 @@ void build_config_parser()
     lrules.push("ID", R"([1-9]\d*)", grules.token_id("Number"), ".");
 
     lrules.push("MACRO,RULE", "%%", grules.token_id("'%%'"), "RULE");
-    lrules.push("MACRO", R"([A-Z_a-z]\w*)",
-        grules.token_id("MacroName"), "REGEX");
+    lrules.push("MACRO", "{macro_name}", grules.token_id("MacroName"), "REGEX");
     lrules.push("MACRO", "{c_comment}", lexertl::rules::skip(), ".");
     lrules.push("MACRO,REGEX", "\n|\r\n", lexertl::rules::skip(), "MACRO");
 
@@ -933,7 +933,7 @@ void build_config_parser()
     lrules.push("REGEX,RULE", R"({escape}|(\[^?({escape}|{posix}|)"
         R"([^\\\]])*\])|\S)",
         grules.token_id("Charset"), ".");
-    lrules.push("REGEX,RULE", R"(\{[A-Z_a-z][-0-9A-Z_a-z]*\})",
+    lrules.push("REGEX,RULE", R"(\{{macro_name}\})",
         grules.token_id("Macro"), ".");
     lrules.push("REGEX,RULE", R"(\{\d+(,(\d+)?)?\}[?]?)",
         grules.token_id("Repeat"), ".");
