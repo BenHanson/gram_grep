@@ -547,70 +547,78 @@ static void process_file(const fs::path& path,
     const std::pair<std::vector<wildcardtl::wildcard>,
     std::vector<wildcardtl::wildcard>>& include)
 {
-    // Skip directories
-    if (fs::is_directory(path) ||
-        (g_writable && (fs::status(path).permissions() &
-            fs::perms::owner_write) == fs::perms::none))
+    try
     {
-        return;
-    }
-
-    const auto pathname = path.string();
-
-    // Skip zero length files
-    if (fs::file_size(pathname) == 0)
-        return;
-
-    bool skip = !g_exclude.second.empty();
-
-    for (const auto& wc : g_exclude.second)
-    {
-        if (!wc.match(pathname))
+        // Skip directories
+        if (fs::is_directory(path) ||
+            (g_writable && (fs::status(path).permissions() &
+                fs::perms::owner_write) == fs::perms::none))
         {
-            skip = false;
-            break;
+            return;
         }
-    }
 
-    if (!skip)
-    {
-        for (const auto& wc : g_exclude.first)
-        {
-            if (wc.match(pathname))
-            {
-                skip = true;
-                break;
-            }
-        }
-    }
+        // Skip zero length files
+        if (fs::file_size(path) == 0)
+            return;
 
-    if (!skip)
-    {
-        bool process = !include.second.empty();
+        // Don't throw if there is a Unicode pathname
+        const std::string pathname =
+            reinterpret_cast<const char*>(path.u8string().c_str());
+        bool skip = !g_exclude.second.empty();
 
-        for (const auto& wc : include.second)
+        for (const auto& wc : g_exclude.second)
         {
             if (!wc.match(pathname))
             {
-                process = false;
+                skip = false;
                 break;
             }
         }
 
-        if (!process)
+        if (!skip)
         {
-            for (const auto& wc : include.first)
+            for (const auto& wc : g_exclude.first)
             {
                 if (wc.match(pathname))
                 {
-                    process = true;
+                    skip = true;
                     break;
                 }
             }
         }
 
-        if (process)
-            process_file(pathname);
+        if (!skip)
+        {
+            bool process = !include.second.empty();
+
+            for (const auto& wc : include.second)
+            {
+                if (!wc.match(pathname))
+                {
+                    process = false;
+                    break;
+                }
+            }
+
+            if (!process)
+            {
+                for (const auto& wc : include.first)
+                {
+                    if (wc.match(pathname))
+                    {
+                        process = true;
+                        break;
+                    }
+                }
+            }
+
+            if (process)
+                process_file(pathname);
+        }
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << e.what() << '\n';
     }
 }
 
