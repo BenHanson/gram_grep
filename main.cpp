@@ -769,6 +769,12 @@ void add_pathname(std::string pn,
             pn.insert(negate ? 1 : 0, path +
                 static_cast<char>(fs::path::preferred_separator));
     }
+    else if (g_recursive)
+    {
+        pn = std::string(1, '*') +
+            static_cast<char>(fs::path::preferred_separator) +
+            pn.substr(sep_idx + 1);
+    }
 
     if (negate)
         pair.second.emplace_back(pn, is_windows());
