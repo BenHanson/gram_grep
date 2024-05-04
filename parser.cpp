@@ -841,15 +841,19 @@ void build_config_parser()
     lrules.push_state("RULE");
     lrules.push_state("ID");
     lrules.insert_macro("c_comment", R"("/*"(?s:.)*?"*/")");
-    lrules.insert_macro("escape", R"(\\(.|x[0-9A-Fa-f]+|c[@a-zA-Z]))");
+    lrules.insert_macro("control_char", "c[@A-Za-z]");
+    lrules.insert_macro("hex", "x[0-9A-Fa-f]+");
+    lrules.insert_macro("escape", R"(\\([^0-9cx]|\d{1,3}|{hex}|{control_char}))");
     lrules.insert_macro("macro_name", R"([A-Z_a-z][-\w]*)");
+    lrules.insert_macro("nl", "\r?\n");
     lrules.insert_macro("posix_name", "alnum|alpha|blank|cntrl|digit|graph|"
         "lower|print|punct|space|upper|xdigit");
     lrules.insert_macro("posix", R"(\[:{posix_name}:\])");
+    lrules.insert_macro("spc_tab", "[ \t]+");
     lrules.insert_macro("state_name", R"([A-Z_a-z]\w*)");
 
-    lrules.push("INITIAL,OPTION", "[ \t]+", lexertl::rules::skip(), ".");
-    lrules.push("\n|\r\n", grules.token_id("NL"));
+    lrules.push("INITIAL,OPTION", "{spc_tab}", lexertl::rules::skip(), ".");
+    lrules.push("{nl}", grules.token_id("NL"));
     lrules.push("%captures", grules.token_id("'%captures'"));
     lrules.push("%left", grules.token_id("'%left'"));
     lrules.push("%nonassoc", grules.token_id("'%nonassoc'"));
@@ -894,15 +898,14 @@ void build_config_parser()
     lrules.push("SCRIPT", R"(\s+)", lexertl::rules::skip(), ".");
     lrules.push("SCRIPT", R"(\$[1-9]\d*)", grules.token_id("Index"), ".");
     lrules.push("SCRIPT", "'(''|[^'])*'", grules.token_id("ScriptString"), ".");
-    lrules.push("GRULE", "[ \t]+|\n|\r\n", lexertl::rules::skip(), ".");
+    lrules.push("GRULE", "{spc_tab}|{nl}", lexertl::rules::skip(), ".");
     lrules.push("GRULE", "%empty", grules.token_id("'%empty'"), ".");
     lrules.push("GRULE", "%%", grules.token_id("'%%'"), "MACRO");
     lrules.push("INITIAL,GRULE,SCRIPT", "{c_comment}", lexertl::rules::skip(), ".");
     // Bison supports single line comments
     lrules.push("INITIAL,GRULE,SCRIPT", R"("//".*)", lexertl::rules::skip(), ".");
     lrules.push("INITIAL,GRULE,ID",
-        R"('(\\([^0-9cx]|\d{1,3}|c[@a-zA-Z]|x[0-9A-Fa-f]+)|[^\\\r\n'])+'|)"
-        R"(\"(\\([^0-9cx]|\d{1,3}|c[@a-zA-Z]|x[0-9A-Fa-f]+)|[^\\\r\n"])+\")",
+        R"('({escape}|[^\\\r\n'])+'|\"({escape}|[^\\\r\n"])+\")",
         grules.token_id("Literal"), ".");
     lrules.push("INITIAL,GRULE,ID", "[.A-Z_a-z][-.0-9A-Z_a-z]*",
         grules.token_id("Name"), ".");
@@ -911,18 +914,17 @@ void build_config_parser()
     lrules.push("MACRO,RULE", "%%", grules.token_id("'%%'"), "RULE");
     lrules.push("MACRO", "{macro_name}", grules.token_id("MacroName"), "REGEX");
     lrules.push("MACRO", "{c_comment}", lexertl::rules::skip(), ".");
-    lrules.push("MACRO,REGEX", "\n|\r\n", lexertl::rules::skip(), "MACRO");
+    lrules.push("MACRO,REGEX", "{nl}", lexertl::rules::skip(), "MACRO");
 
-    lrules.push("REGEX", "[ \t]+", lexertl::rules::skip(), ".");
-    lrules.push("RULE", "^[ \t]+({c_comment}([ \t]+|{c_comment})*)?",
+    lrules.push("REGEX", "{spc_tab}", lexertl::rules::skip(), ".");
+    lrules.push("RULE", "^{spc_tab}({c_comment}({spc_tab}|{c_comment})*)?",
         lexertl::rules::skip(), ".");
     lrules.push("RULE", R"(^<(\*|{state_name}(,{state_name})*)>)",
         grules.token_id("StartState"), ".");
     lrules.push("REGEX,RULE", R"(\^)", grules.token_id("'^'"), ".");
     lrules.push("REGEX,RULE", R"(\$)", grules.token_id("'$'"), ".");
     lrules.push("REGEX,RULE", R"(\|)", grules.token_id("'|'"), ".");
-    lrules.push("REGEX,RULE", R"(\((\?(-?[is])*:)?)",
-        grules.token_id("'('"), ".");
+    lrules.push("REGEX,RULE", R"(\((\?(-?[is])*:)?)", grules.token_id("'('"), ".");
     lrules.push("REGEX,RULE", R"(\))", grules.token_id("')'"), ".");
     lrules.push("REGEX,RULE", R"(\?)", grules.token_id("'?'"), ".");
     lrules.push("REGEX,RULE", R"(\?\?)", grules.token_id("'\?\?'"), ".");
@@ -930,22 +932,19 @@ void build_config_parser()
     lrules.push("REGEX,RULE", R"(\*\?)", grules.token_id("'*?'"), ".");
     lrules.push("REGEX,RULE", R"(\+)", grules.token_id("'+'"), ".");
     lrules.push("REGEX,RULE", R"(\+\?)", grules.token_id("'+?'"), ".");
-    lrules.push("REGEX,RULE", R"({escape}|(\[^?({escape}|{posix}|)"
-        R"([^\\\]])*\])|\S)",
+    lrules.push("REGEX,RULE", R"({escape}|(\[^?({escape}|{posix}|[^\\\]])*\])|\S)",
         grules.token_id("Charset"), ".");
-    lrules.push("REGEX,RULE", R"(\{{macro_name}\})",
-        grules.token_id("Macro"), ".");
+    lrules.push("REGEX,RULE", R"(\{{macro_name}\})", grules.token_id("Macro"), ".");
     lrules.push("REGEX,RULE", R"(\{\d+(,(\d+)?)?\}[?]?)",
         grules.token_id("Repeat"), ".");
     lrules.push("REGEX,RULE", R"(\"(\\.|[^\\\r\n"])*\")",
         grules.token_id("String"), ".");
 
-    lrules.push("RULE,ID", "[ \t]+({c_comment}([ \t]+|{c_comment})*)?",
+    lrules.push("RULE,ID", "{spc_tab}({c_comment}({spc_tab}|{c_comment})*)?",
         lexertl::rules::skip(), "ID");
-    lrules.push("RULE", R"(<(\.|<|{state_name}|>{state_name}(:{state_name})?)>)",
+    lrules.push("RULE", R"(<([.<]|{state_name}|>{state_name}(:{state_name})?)>)",
         grules.token_id("ExitState"), "ID");
-    lrules.push("RULE,ID", "\n|\r\n", lexertl::rules::skip(), "RULE");
-    lrules.push("ID", R"(skip\s*\(\s*\))",
-        grules.token_id("'skip()'"), "RULE");
+    lrules.push("RULE,ID", "{nl}", lexertl::rules::skip(), "RULE");
+    lrules.push("ID", R"(skip\s*\(\s*\))", grules.token_id("'skip()'"), "RULE");
     lexertl::generator::build(lrules, g_config_parser._lsm);
 }
