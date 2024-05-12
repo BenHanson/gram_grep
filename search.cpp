@@ -75,7 +75,6 @@ static void process_action(const parser& p, const char* start,
             break;
         }
         case cmd_type::erase:
-        {
             if (g_output)
             {
                 const auto& param1 = productions[productions.size() -
@@ -92,9 +91,7 @@ static void process_action(const parser& p, const char* start,
             }
 
             break;
-        }
         case cmd_type::insert:
-        {
             if (g_output)
             {
                 const auto& c = std::get<insert_cmd>(cmd._action);
@@ -107,9 +104,33 @@ static void process_action(const parser& p, const char* start,
             }
 
             break;
-        }
-        case cmd_type::replace:
+        case cmd_type::print:
         {
+            const auto& c = std::get<print_cmd>(cmd._action);
+            std::string output;
+            const char* last = c._text.c_str();
+            std::cregex_iterator iter(c._text.c_str(),
+                c._text.c_str() + c._text.size(), g_capture_rx);
+            std::cregex_iterator end;
+
+            for (; iter != end; ++iter)
+            {
+                const std::size_t idx =
+                    static_cast<std::size_t>(atoi((*iter)[0].first + 1)) - 1;
+
+                output.append(last, (*iter)[0].first);
+                output += idx >= item.second.size() ?
+                    std::string() :
+                    item.second[idx].str();
+                last = (*iter)[0].second;
+            }
+
+            output.append(last, c._text.c_str() + c._text.size());
+            std::cout << output;
+            break;
+        }
+
+        case cmd_type::replace:
             if (g_output)
             {
                 const auto& c = std::get<replace_cmd>(cmd._action);
@@ -126,7 +147,6 @@ static void process_action(const parser& p, const char* start,
             }
 
             break;
-        }
         case cmd_type::replace_all:
             if (g_output)
             {
@@ -302,7 +322,8 @@ static void process_action(const uparser& p, const char* start,
     }
 }
 
-static std::string build_text(const std::string& input, std::vector<std::string>& captures)
+std::string build_text(const std::string& input,
+    const std::vector<std::string>& captures)
 {
     std::string output;
     const char* last = input.c_str();

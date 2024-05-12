@@ -74,6 +74,16 @@ struct match_cmd
     }
 };
 
+struct print_cmd
+{
+    std::string _text;
+
+    explicit print_cmd(const std::string& text) :
+        _text(text)
+    {
+    }
+};
+
 struct replace_cmd
 {
     std::string _text;
@@ -98,19 +108,25 @@ struct replace_all_cmd
 
 enum class cmd_type
 {
-    unknown, assign, append, erase, insert, replace, replace_all
+    unknown, assign, append, erase, insert, print, replace, replace_all
 };
 
 struct cmd
 {
-    using action = std::variant<erase_cmd, insert_cmd, match_cmd, replace_cmd,
-        replace_all_cmd>;
+    using action = std::variant<erase_cmd, insert_cmd, match_cmd, print_cmd,
+        replace_cmd, replace_all_cmd>;
     cmd_type _type = cmd_type::unknown;
-    uint16_t _param1;
+    uint16_t _param1 = 0;
     bool _second1 = false;
-    uint16_t _param2;
+    uint16_t _param2 = 0;
     bool _second2 = true;
     action _action;
+
+    cmd(const cmd_type type, const action& action) :
+        _type(type),
+        _action(action)
+    {
+    }
 
     cmd(const cmd_type type, const uint16_t param, const action& action) :
         _type(type),
@@ -202,6 +218,7 @@ struct config_state
     lexertl::memory_file _mf;
     token::token_vector _productions;
     parsertl::match_results _results;
+    bool _print = false;
 
     void parse(const std::string& config_pathname);
 };

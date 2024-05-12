@@ -12,6 +12,10 @@
 #include "search.hpp"
 #include <wildcardtl/wildcard.hpp>
 
+extern std::string build_text(const std::string& input,
+    const std::vector<std::string>& captures);
+extern std::string unescape(const std::string_view& vw);
+
 enum class file_type
 {
     ansi, utf8, utf16, utf16_flip
@@ -45,6 +49,8 @@ bool g_force_unicode = false;
 bool g_modify = false; // Set when grammar has modifying operations
 bool g_output = false;
 bool g_recursive = false;
+bool g_rule_print = false;
+std::string g_print;
 std::string g_replace;
 std::string g_checkout;
 parser* g_curr_parser = nullptr;
@@ -251,7 +257,7 @@ static bool process_matches(const std::vector<match>& ranges,
             const char* curr = iter->_first;
             const char* eoi = data_second;
 
-            if (!g_show_hits)
+            if (!g_show_hits && g_print.empty() && !g_rule_print)
                 std::cout << pathname;
 
             if (g_pathname_only)
@@ -260,7 +266,11 @@ static bool process_matches(const std::vector<match>& ranges,
                 finished = true;
                 break;
             }
-            else if (!g_show_hits)
+            else if (!g_print.empty())
+            {
+                std::cout << build_text(g_print, captures);
+            }
+            else if (!g_show_hits && !g_rule_print)
             {
                 const auto count = std::count(data_first, curr, '\n');
 
@@ -278,7 +288,7 @@ static bool process_matches(const std::vector<match>& ranges,
                 }
             }
 
-            if (!g_show_hits)
+            if (!g_show_hits && g_print.empty() && !g_rule_print)
             {
                 // Flush buffer, to give fast feedback to user
                 std::cout << std::endl;
@@ -663,6 +673,7 @@ static void show_help()
         "-o\t\t\tOutput changes to matching file.\n"
         "-P <regex>\t\tSearch using std::regex.\n"
         "-Pe <regex>\t\tAs -P but continue search following match.\n"
+        "-print <text>\t\tPrint text instead of line of match.\n"
         "-r, -R, --recursive\tRecurse subdirectories.\n"
         "-replace\t\tReplacement literal text.\n"
         "-shutdown\t\t<command to run when exiting>.\n"
@@ -711,6 +722,7 @@ static void show_help()
         "match += $n;\n"
         "match = substr($n, <omit from left>, <omit from right>);\n"
         "match += substr($n, <omit from left>, <omit from right>);\n"
+        "print('text');\n"
         "replace($n, 'text');\n"
         "replace($from, $to, 'text');\n"
         "replace($from.second, $to.first, 'text');\n"
@@ -757,7 +769,7 @@ void add_pathname(std::string pn,
     const bool negate = pn[0] == '!';
     const std::string path = sep_idx == std::string::npos ? "." :
         pn.substr(negate ? 1 : 0, sep_idx + 1);
-    auto& pair = map[path];
+    auto& [positive, negative] = map[path];
 
     if (sep_idx == std::string::npos &&
         !((!negate && wc_idx == 0) || (negate && wc_idx == 1)))
@@ -777,9 +789,9 @@ void add_pathname(std::string pn,
     }
 
     if (negate)
-        pair.second.emplace_back(pn, is_windows());
+        negative.emplace_back(pn, is_windows());
     else
-        pair.first.emplace_back(pn, is_windows());
+        positive.emplace_back(pn, is_windows());
 }
 
 std::vector<std::string_view> split(const char* str, const char c)
@@ -958,6 +970,17 @@ static void read_switches(const int argc, const char* const argv[],
             else
                 throw gg_error("Missing regex following -Pe.");
         }
+        else if (strcmp("-print", param) == 0)
+        {
+            // Perl style regex
+            ++i;
+            param = argv[i];
+
+            if (i < argc)
+                g_print = unescape(param);
+            else
+                throw gg_error("Missing string following -print.");
+        }
         else if (strcmp("-r", param) == 0 || strcmp("-R", param) == 0 ||
             strcmp("--recursive", param) == 0)
         {
@@ -969,7 +992,7 @@ static void read_switches(const int argc, const char* const argv[],
             param = argv[i];
 
             if (i < argc)
-                g_replace = param;
+                g_replace = unescape(param);
             else
                 throw gg_error("Missing text "
                     "following -replacement.");
@@ -1239,6 +1262,7 @@ static void fill_pipeline(const std::vector<config>& configs)
                     build_config_parser();
 
                 state.parse(config._param);
+                g_rule_print |= state._print;
 
                 if (parser._gsm.empty())
                 {
@@ -1263,6 +1287,7 @@ static void fill_pipeline(const std::vector<config>& configs)
                     build_config_parser();
 
                 state.parse(config._param);
+                g_rule_print |= state._print;
 
                 if (parser._gsm.empty())
                 {
@@ -1376,7 +1401,7 @@ int main(int argc, char* argv[])
             if (::system(g_shutdown.c_str()))
                 std::cerr << "Failed to execute " << g_shutdown << ".\n";
 
-        if (!g_pathname_only)
+        if (!g_pathname_only && g_print.empty() && !g_rule_print)
             std::cout << "Matches: " << g_hits << "    Matching files: " <<
             g_files << "    Total files searched: " << g_searched << std::endl;
 

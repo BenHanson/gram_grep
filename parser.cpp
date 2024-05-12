@@ -12,16 +12,44 @@ extern bool g_force_unicode;
 extern bool g_icase;
 extern bool g_modify;
 
-static std::string unescape_str(const char* first, const char* second)
+std::string unescape(const std::string_view& vw)
 {
     std::string ret;
+    bool escape = false;
 
-    for (; first != second; ++first)
+    for (const char& c : vw)
     {
-        ret += *first;
+        if (c == '\\')
+            escape = true;
+        else
+        {
+            if (escape)
+            {
+                lexertl::detail::basic_re_tokeniser_state
+                    <char, uint16_t> state(&c, &vw.back() + 1, 1, 0,
+                        std::locale(), nullptr);
 
-        if (*first == '\'' && (first + 1) != second)
-            ++first;
+                ret += lexertl::detail::basic_re_tokeniser_helper
+                    <char, char, uint16_t>::chr(state);
+                escape = false;
+            }
+            else
+                ret += c;
+        }
+    }
+
+    return ret;
+}
+
+static std::string unescape_str(const char* first, const char* second)
+{
+    std::string ret = unescape(std::string_view(first, second));
+
+    for (std::size_t idx = ret.find('\''); idx != std::string::npos;
+        idx = ret.find('\'', idx + 1))
+    {
+        if (ret[idx + 1] == '\'')
+            ret.replace(idx, 2, 1, '\'');
     }
 
     return ret;
@@ -483,6 +511,30 @@ void build_config_parser()
             }
         };
     g_config_parser._actions[grules.push("mod_cmd",
+        "'print' '(' ScriptString ')'")] =
+        [](config_state& state, const config_parser& parser)
+        {
+            const auto rule_idx = static_cast<uint16_t>
+                (state._grules.grammar().size());
+            const auto& token2 = state._results.dollar(2, parser._gsm,
+                state._productions);
+            const std::string text =
+                unescape_str(token2.first + 1, token2.second - 1);
+
+            if (g_force_unicode)
+            {
+                g_curr_uparser->_actions[rule_idx].
+                    emplace_back(cmd_type::print, print_cmd(text));
+            }
+            else
+            {
+                g_curr_parser->_actions[rule_idx].
+                    emplace_back(cmd_type::print, print_cmd(text));
+            }
+
+            state._print = true;
+        };
+    g_config_parser._actions[grules.push("mod_cmd",
         "'replace' '(' Index ',' ScriptString ')'")] =
         [](config_state& state, const config_parser& parser)
         {
@@ -890,6 +942,7 @@ void build_config_parser()
     lrules.push("SCRIPT", "first", grules.token_id("'first'"), ".");
     lrules.push("SCRIPT", "insert", grules.token_id("'insert'"), ".");
     lrules.push("SCRIPT", "match", grules.token_id("'match'"), ".");
+    lrules.push("SCRIPT", "print", grules.token_id("'print'"), ".");
     lrules.push("SCRIPT", "replace", grules.token_id("'replace'"), ".");
     lrules.push("SCRIPT", "replace_all", grules.token_id("'replace_all'"), ".");
     lrules.push("SCRIPT", "second", grules.token_id("'second'"), ".");
