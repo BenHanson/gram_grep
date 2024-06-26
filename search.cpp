@@ -670,7 +670,7 @@ static bool process_parser(const parser& p, const char* start,
     lexertl::criterator iter(ranges.back()._first,
         ranges.back()._eoi, p._lsm);
     lexertl::criterator end;
-    std::multimap<uint16_t, token::token_vector> prod_map;
+    std::vector<std::pair<uint16_t, token::token_vector>> prod_map;
     results cap;
     bool success = false;
 
@@ -830,8 +830,8 @@ static bool process_parser(const uparser& p, const char* start,
     crutf8iterator iter(utf8_iterator(ranges.back()._first, ranges.back()._eoi),
         utf8_iterator(ranges.back()._eoi, ranges.back()._eoi), p._lsm);
     crutf8iterator end;
-    std::multimap<uint16_t,
-        parsertl::token<crutf8iterator>::token_vector> prod_map;
+    std::vector<std::pair<uint16_t,
+        parsertl::token<crutf8iterator>::token_vector>> prod_map;
     results cap;
     bool success = false;
 
