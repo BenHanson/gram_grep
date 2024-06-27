@@ -23,7 +23,7 @@ stars: '*'
   | stars '*';
 list: item
   | list ',' item;
-item: Name {};
+item: Name {}
 item: Name '=' value;
 list2: item2
   | list2 ',' item2;

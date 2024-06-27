@@ -3,11 +3,11 @@
 start: string Name '=' '""' ';'
 {
   erase($2.second, $5.first);
-};
+}
 start: string Name '(' '""' ')' ';'
 {
   erase($2.second, $6.first);
-};
+}
 string: 'string' | 'CString';
 %%
 ws [ \t\r\n]+

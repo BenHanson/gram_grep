@@ -195,9 +195,8 @@ void build_config_parser()
     // Grammar rules
     grules.push("grules", "%empty "
         "| grules grule");
-    g_config_parser._actions[grules.push("grule",
-        "Name ':' production opt_script ';'")] =
-        [](config_state& state, const config_parser& parser)
+
+    auto production_lambda = [](config_state& state, const config_parser& parser)
         {
             const auto& lhs = state._results.dollar(0, parser._gsm,
                 state._productions);
@@ -242,6 +241,11 @@ void build_config_parser()
                 }
             }
         };
+
+    g_config_parser._actions[grules.push("grule",
+        "Name ':' production ';'")] = production_lambda;
+    g_config_parser._actions[grules.push("grule",
+        "Name ':' production script")] = production_lambda;
     grules.push("production", "opt_prec_list "
         "| production '|' opt_prec_list");
     grules.push("opt_prec_list", "opt_list opt_prec");
@@ -260,8 +264,7 @@ void build_config_parser()
     grules.push("opt_prec", "%empty "
         "| '%prec' Literal "
         "| '%prec' Name");
-    grules.push("opt_script", "%empty");
-    g_config_parser._actions[grules.push("opt_script", "'{' cmd_list '}'")] =
+    g_config_parser._actions[grules.push("script", "'{' cmd_list '}'")] =
         [](config_state& state, const config_parser& parser)
         {
             if (!parser._gsm._captures.empty())

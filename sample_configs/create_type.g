@@ -7,7 +7,7 @@ type: Name;
 type: Name Name;
 type: Name '(' Integer ')';
 type: Name '(' Integer ',' Integer ')';
-type: NVARCHAR '(' Integer ')' {};
+type: NVARCHAR '(' Integer ')' {}
 opt_null: %empty | NULL;
 %%
 %%

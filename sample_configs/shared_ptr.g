@@ -5,7 +5,7 @@ start: '=' 'std' '::' 'shared_ptr' '<' name '>'
 	{
 		replace($4, 'make_shared');
 		erase($9, $10);
-	};
+	}
 name: Name | name '::' Name;
 %%
 %%

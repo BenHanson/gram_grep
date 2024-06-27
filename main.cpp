@@ -679,7 +679,7 @@ static void show_help()
         "-shutdown\t\t<command to run when exiting>.\n"
         "-startup\t\t<command to run at startup>.\n"
         "-T <text>\t\tSearch for plain text with support for capture ($n) syntax.\n"
-        "-Tw <text>\t\tAs -Tw but with whole word matching.\n"
+        "-Tw <text>\t\tAs -T but with whole word matching.\n"
         "-utf8\t\t\tIn the absence of a BOM assume UTF-8\n"
         "-vE <regex>\t\tSearch using DFA regex (negated).\n"
         "-VE <regex>\t\tSearch using DFA regex (all negated).\n"
