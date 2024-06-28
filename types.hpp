@@ -218,6 +218,7 @@ struct config_state
     lexertl::memory_file _mf;
     token::token_vector _productions;
     parsertl::match_results _results;
+    std::string _lhs;
     bool _print = false;
 
     void parse(const std::string& config_pathname);

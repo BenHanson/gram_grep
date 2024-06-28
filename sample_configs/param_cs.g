@@ -3,7 +3,7 @@
 param: Code '=' Param;
 param: GUID '=' Param;
 param: EntityRef '=' Param;
-param: Name '=' Param {}
+param: Name '=' Param {};
 %%
 ws [ \t\r\n]+
 %%

@@ -7,7 +7,7 @@ param: Param type;
 type: Name;
 type: Name Name;
 type: Name '(' Integer ')';
-type: NVARCHAR '(' Integer ')' {}
+type: NVARCHAR '(' Integer ')' {};
 %%
 %%
 \.                        '.'

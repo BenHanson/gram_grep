@@ -3,19 +3,19 @@
 start: 'const' 'char' '*' '>)'
 {
   replace($1.first, $4.first, 'LPCTSTR');
-}
+};
 start: 'const' 'char' '*' opt_amp Name
 {
   replace($1.first, $4.first, 'LPCTSTR ');
-}
+};
 start: 'const' 'char' '*' 'const'
 {
   replace($1.first, $4.first, 'LPCTSTR ');
-}
+};
 start: 'const' 'char' Name '[' ']'
 {
   replace($2, 'TCHAR');
-}
+};
 opt_amp: %empty | '&';
 %%
 ws [ \t\r\n]+

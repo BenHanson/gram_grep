@@ -8,10 +8,10 @@ an extreme case)!
 start: 'exec' '(' string_or_name ',' '&';
 
 string_or_name: string | Name;
-string: String { match = substr($1, 1, 1); }
-string: RawString { match = substr($1, 3, 2); }
-string: string String { match += substr($2, 1, 1); }
-string: string RawString { match += substr($2, 3, 2); }
+string: String { match = substr($1, 1, 1); };
+string: RawString { match = substr($1, 3, 2); };
+string: string String { match += substr($2, 1, 1); };
+string: string RawString { match += substr($2, 3, 2); };
 %%
 ws [ \t\r\n]+
 %%

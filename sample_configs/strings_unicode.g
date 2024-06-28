@@ -5,11 +5,11 @@ str: '_T' '(' String ')'
   erase($1);
   replace($2, 'L');
   erase($4);
-}
+};
 str: 'L' String;
 str: 'L' 'R' String;
-str: String { insert($1, 'L'); }
-str: 'R' RawString { insert($1, 'L'); }
+str: String { insert($1, 'L'); };
+str: 'R' RawString { insert($1, 'L'); };
 str: 'TRACE' '(' String;
 str: 'TRACE0' '(' String;
 %%

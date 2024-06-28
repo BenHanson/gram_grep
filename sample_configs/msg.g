@@ -5,7 +5,7 @@ start: 'AfxMessageBox' '(' 'e.what' opt_flags ')'
     replace($1, 'tfb::exceptionWait');
 	insert($3, '"", ');
 	erase($4);
-}
+};
 opt_flags: %empty | ',' flags;
 flags: FLAG
      | flags '|' FLAG;

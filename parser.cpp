@@ -196,13 +196,25 @@ void build_config_parser()
     grules.push("grules", "%empty "
         "| grules grule");
 
-    auto production_lambda = [](config_state& state, const config_parser& parser)
+    grules.push("grule", "lhs ':' production ';'");
+    g_config_parser._actions[grules.push("lhs", "Name")] =
+        [](config_state& state, const config_parser& parser)
         {
-            const auto& lhs = state._results.dollar(0, parser._gsm,
+            state._lhs = state._results.dollar(0, parser._gsm,
+                state._productions).str();
+        };
+    grules.push("production", "opt_prec_list "
+        "| production '|' opt_prec_list");
+    g_config_parser._actions[grules.push("opt_prec_list",
+        "opt_list opt_prec opt_script")] =
+        [](config_state& state, const config_parser& parser)
+        {
+            const auto& item1 = state._results.dollar(0, parser._gsm,
                 state._productions);
-            const auto& prod = state._results.dollar(2, parser._gsm,
+            const auto& item2 = state._results.dollar(1, parser._gsm,
                 state._productions);
-            const uint16_t prod_index = state._grules.push(lhs.str(), prod.str());
+            const auto rhs = std::string(item1.first, item2.second);
+            const uint16_t prod_index = state._grules.push(state._lhs, rhs);
             auto iter = g_force_unicode ?
                 g_curr_uparser->_actions.find(prod_index) :
                 g_curr_parser->_actions.find(prod_index);
@@ -241,14 +253,6 @@ void build_config_parser()
                 }
             }
         };
-
-    g_config_parser._actions[grules.push("grule",
-        "Name ':' production ';'")] = production_lambda;
-    g_config_parser._actions[grules.push("grule",
-        "Name ':' production script")] = production_lambda;
-    grules.push("production", "opt_prec_list "
-        "| production '|' opt_prec_list");
-    grules.push("opt_prec_list", "opt_list opt_prec");
     grules.push("opt_list", "%empty "
         "| '%empty' "
         "| rhs_list");
@@ -264,7 +268,8 @@ void build_config_parser()
     grules.push("opt_prec", "%empty "
         "| '%prec' Literal "
         "| '%prec' Name");
-    g_config_parser._actions[grules.push("script", "'{' cmd_list '}'")] =
+    grules.push("opt_script", "%empty");
+    g_config_parser._actions[grules.push("opt_script", "'{' cmd_list '}'")] =
         [](config_state& state, const config_parser& parser)
         {
             if (!parser._gsm._captures.empty())

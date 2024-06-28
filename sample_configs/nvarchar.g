@@ -1,7 +1,7 @@
 %token DECLARE Error NVARCHAR
 %%
 nvarchar: DECLARE Error NVARCHAR;
-nvarchar: NVARCHAR {}
+nvarchar: NVARCHAR {};
 %%
 %%
 (?i:DECLARE)              DECLARE
