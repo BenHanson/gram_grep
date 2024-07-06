@@ -177,6 +177,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="args.hpp" />
     <ClInclude Include="gg_error.hpp" />
     <ClInclude Include="parser.hpp" />
     <ClInclude Include="pch.h" />
@@ -184,6 +185,7 @@
     <ClInclude Include="types.hpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="args.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="parser.cpp" />
     <ClCompile Include="pch.cpp">

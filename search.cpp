@@ -1,5 +1,6 @@
 #include "pch.h"
 
+#include <format>
 #include "gg_error.hpp"
 #include <parsertl/search.hpp>
 #include "search.hpp"
@@ -24,8 +25,8 @@ static void process_action(const parser& p, const char* start,
         case cmd_type::append:
         {
             const auto& c = std::get<match_cmd>(cmd._action);
-            std::string temp = productions[productions.size() -
-                p._gsm._rules[item.first]._rhs.size() + cmd._param1].str();
+            const std::string_view temp = productions[productions.size() -
+                p._gsm._rules[item.first]._rhs.size() + cmd._param1].view();
             const uint16_t size = c._front + c._back;
 
             if (c._front == 0 && c._back == 0)
@@ -34,12 +35,12 @@ static void process_action(const parser& p, const char* start,
             {
                 if (c._front >= temp.size() || size > temp.size())
                 {
-                    std::ostringstream ss;
-
-                    ss << "substr($" << cmd._param1 + 1 << ", " <<
-                        c._front << ", " << c._back <<
-                        ") out of range for string '" << temp << "'.";
-                    throw gg_error(ss.str());
+                    throw gg_error(std::format("substr(${}, {}, {}) out of "
+                        "range for string '{}'.",
+                        cmd._param1 + 1,
+                        c._front,
+                        c._back,
+                        temp));
                 }
 
                 matches.top() += temp.substr(c._front, temp.size() - size);
@@ -61,12 +62,12 @@ static void process_action(const parser& p, const char* start,
 
                 if (c._front >= temp.size() || size > temp.size())
                 {
-                    std::ostringstream ss;
-
-                    ss << "substr($" << cmd._param1 + 1 << ", " <<
-                        c._front << ", " << c._back <<
-                        ") out of range for string '" << temp << "'.";
-                    throw gg_error(ss.str());
+                    throw gg_error(std::format("substr(${}, {}, {}) out of "
+                        "range for string '{}'.",
+                        cmd._param1 + 1,
+                        c._front,
+                        c._back,
+                        temp));
                 }
 
                 matches.top() = temp.substr(c._front, temp.size() - size);
@@ -201,12 +202,12 @@ static void process_action(const uparser& p, const char* start,
             {
                 if (c._front >= temp.size() || size > temp.size())
                 {
-                    std::ostringstream ss;
-
-                    ss << "substr($" << cmd._param1 + 1 << ", " <<
-                        c._front << ", " << c._back <<
-                        ") out of range for string '" << temp << "'.";
-                    throw gg_error(ss.str());
+                    throw gg_error(std::format("substr(${}, {}, {}) out of "
+                        "range for string '{}'.",
+                        cmd._param1 + 1,
+                        c._front,
+                        c._back,
+                        temp));
                 }
 
                 matches.top() += temp.substr(c._front, temp.size() - size);
@@ -229,12 +230,12 @@ static void process_action(const uparser& p, const char* start,
 
                 if (c._front >= temp.size() || size > temp.size())
                 {
-                    std::ostringstream ss;
-
-                    ss << "substr($" << cmd._param1 + 1 << ", " <<
-                        c._front << ", " << c._back <<
-                        ") out of range for string '" << temp << "'.";
-                    throw gg_error(ss.str());
+                    throw gg_error(std::format("substr(${}, {}, {}) out of "
+                        "range for string '{}'.",
+                        cmd._param1 + 1,
+                        c._front,
+                        c._back,
+                        temp));
                 }
 
                 matches.top() = temp.substr(c._front, temp.size() - size);
@@ -332,7 +333,7 @@ std::string build_text(const std::string& input,
 
     for (; iter != end; ++iter)
     {
-        const std::size_t idx = static_cast<std::size_t>(atoi((*iter)[0].first + 1));
+        const auto idx = static_cast<std::size_t>(atoi((*iter)[0].first + 1));
 
         output.append(last, (*iter)[0].first);
         output += idx >= captures.size() ? std::string() : captures[idx];
@@ -427,14 +428,12 @@ static bool process_text(const text& t, const char* data_first,
                 second);
         }
     }
-    else if (t._flags & config_flags::negate)
+    else if (t._flags & config_flags::negate &&
+        ranges.back()._first != ranges.back()._eoi)
     {
-        if (ranges.back()._first != ranges.back()._eoi)
-        {
-            ranges.back()._second = first;
-            ranges.emplace_back(ranges.back()._first, first, first);
-            success = true;
-        }
+        ranges.back()._second = first;
+        ranges.emplace_back(ranges.back()._first, first, first);
+        success = true;
     }
 
     if (success)
@@ -495,15 +494,13 @@ static bool process_regex(const regex& r, std::vector<match>& ranges,
                 (*iter)[0].second);
         }
     }
-    else if (r._flags & config_flags::negate)
+    else if (r._flags & config_flags::negate &&
+        ranges.back()._first != ranges.back()._eoi)
     {
-        if (ranges.back()._first != ranges.back()._eoi)
-        {
-            ranges.back()._second = ranges.back()._eoi;
-            ranges.emplace_back(ranges.back()._first, ranges.back()._eoi,
-                ranges.back()._eoi);
-            success = true;
-        }
+        ranges.back()._second = ranges.back()._eoi;
+        ranges.emplace_back(ranges.back()._first, ranges.back()._eoi,
+            ranges.back()._eoi);
+        success = true;
     }
 
     if (success)
@@ -572,14 +569,12 @@ static bool process_lexer(const lexer& l, std::vector<match>& ranges,
                 iter->second);
         }
     }
-    else if (l._flags & config_flags::negate)
+    else if (l._flags & config_flags::negate &&
+        ranges.back()._first != ranges.back()._eoi)
     {
-        if (ranges.back()._first != ranges.back()._eoi)
-        {
-            ranges.back()._second = iter->first;
-            ranges.emplace_back(ranges.back()._first, iter->first, iter->first);
-            success = true;
-        }
+        ranges.back()._second = iter->first;
+        ranges.emplace_back(ranges.back()._first, iter->first, iter->first);
+        success = true;
     }
 
     if (success)
@@ -640,15 +635,13 @@ static bool process_lexer(const ulexer& l, std::vector<match>& ranges,
                 iter->second.get());
         }
     }
-    else if (l._flags & config_flags::negate)
+    else if (l._flags & config_flags::negate &&
+        ranges.back()._first != ranges.back()._eoi)
     {
-        if (ranges.back()._first != ranges.back()._eoi)
-        {
-            ranges.back()._second = iter->first.get();
-            ranges.emplace_back(ranges.back()._first, iter->first.get(),
-                iter->first.get());
-            success = true;
-        }
+        ranges.back()._second = iter->first.get();
+        ranges.emplace_back(ranges.back()._first, iter->first.get(),
+            iter->first.get());
+        success = true;
     }
 
     if (success)
@@ -788,15 +781,13 @@ static bool process_parser(const parser& p, const char* start,
             }
         }
     }
-    else if (p._flags & config_flags::negate)
+    else if ((p._flags & config_flags::negate) &&
+        ranges.back()._first != ranges.back()._eoi)
     {
-        if (ranges.back()._first != ranges.back()._eoi)
-        {
-            ranges.back()._second = iter->first;
-            ranges.emplace_back(ranges.back()._first, iter->first,
-                iter->first);
-            success = true;
-        }
+        ranges.back()._second = iter->first;
+        ranges.emplace_back(ranges.back()._first, iter->first,
+            iter->first);
+        success = true;
     }
 
     if (success)
@@ -949,15 +940,13 @@ static bool process_parser(const uparser& p, const char* start,
             }
         }
     }
-    else if (p._flags & config_flags::negate)
+    else if (p._flags & config_flags::negate &&
+        ranges.back()._first != ranges.back()._eoi)
     {
-        if (ranges.back()._first != ranges.back()._eoi)
-        {
-            ranges.back()._second = iter->first.get();
-            ranges.emplace_back(ranges.back()._first, iter->first.get(),
-                iter->first.get());
-            success = true;
-        }
+        ranges.back()._second = iter->first.get();
+        ranges.emplace_back(ranges.back()._first, iter->first.get(),
+            iter->first.get());
+        success = true;
     }
 
     if (success)

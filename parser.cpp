@@ -1,5 +1,6 @@
 #include "pch.h"
 
+#include <format>
 #include <parsertl/generator.hpp>
 #include "gg_error.hpp"
 #include <lexertl/memory_file.hpp>
@@ -227,28 +228,22 @@ void build_config_parser()
                     if (cmd._param1 >=
                         state._grules.grammar().back()._rhs._symbols.size())
                     {
-                        std::ostringstream ss;
-
-                        ss << "Index $" << cmd._param1 + 1 << " is out of range.";
-                        throw gg_error(ss.str());
+                        throw gg_error(std::format("Index ${} is out of range.",
+                            cmd._param1 + 1));
                     }
 
                     if (cmd._param2 >=
                         state._grules.grammar().back()._rhs._symbols.size())
                     {
-                        std::ostringstream ss;
-
-                        ss << "Index $" << cmd._param2 + 1 << " is out of range.";
-                        throw gg_error(ss.str());
+                        throw gg_error(std::format("Index ${} is out of range.",
+                            cmd._param2 + 1));
                     }
 
                     if (cmd._param1 == cmd._param2 && cmd._second1 > cmd._second2)
                     {
-                        std::ostringstream ss;
-
-                        ss << "Index $" << cmd._param2 + 1 <<
-                            " cannot have first following second.";
-                        throw gg_error(ss.str());
+                        throw gg_error(std::format("Index ${} cannot have "
+                            "first following second.",
+                            cmd._param2 + 1));
                     }
                 }
             }

@@ -1,5 +1,5 @@
 CXX = g++
-CXXFLAGS = -O -std=c++20 -Wall -I ../lexertl14/include -I ../parsertl14/include -I ../wildcardtl/include
+CXXFLAGS = -O -std=c++20 -Wall -I ../lexertl17/include -I ../parsertl17/include -I ../wildcardtl/include
 
 LDFLAGS = -O
 
@@ -7,8 +7,11 @@ LIBS =
 
 all: gram_grep
 
-gram_grep: main.o parser.o search.o types.o
-	$(CXX) $(LDFLAGS) -o gram_grep main.o parser.o search.o types.o $(LIBS)
+gram_grep: args.o main.o parser.o search.o types.o
+	$(CXX) $(LDFLAGS) -o gram_grep args.o main.o parser.o search.o types.o $(LIBS)
+
+args.o: args.cpp
+	$(CXX) $(CXXFLAGS) -o args.o -c args.cpp
 
 main.o: main.cpp
 	$(CXX) $(CXXFLAGS) -o main.o -c main.cpp

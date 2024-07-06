@@ -1,5 +1,6 @@
 #include "pch.h"
 
+#include <format>
 #include <lexertl/generator.hpp>
 #include <parsertl/generator.hpp>
 #include "gg_error.hpp"
@@ -31,10 +32,7 @@ void config_state::parse(const std::string& config_pathname)
 
     if (!_mf.data())
     {
-        std::ostringstream ss;
-
-        ss << "Unable to open " << config_pathname;
-        throw gg_error(ss.str());
+        throw gg_error(std::format("Unable to open {}", config_pathname));
     }
 
     iter = lexertl::citerator(_mf.data(), _mf.data() + _mf.size(),
@@ -56,7 +54,6 @@ void config_state::parse(const std::string& config_pathname)
                 }
                 catch (const std::exception& e)
                 {
-                    std::ostringstream ss;
                     const auto idx =
                         _results.production_size(g_config_parser._gsm,
                             _results.entry.param) - 1;
@@ -68,8 +65,10 @@ void config_state::parse(const std::string& config_pathname)
 
                     // Column makes no sense here as we are
                     // already at the end of the line
-                    ss << config_pathname << '(' << line << "): " << e.what();
-                    throw gg_error(ss.str());
+                    throw gg_error(std::format("{}({}): {}",
+                        config_pathname,
+                        line,
+                        e.what()));
                 }
             }
         }
@@ -85,10 +84,11 @@ void config_state::parse(const std::string& config_pathname)
         const char endl[] = { '\n' };
         const std::size_t column = iter->first - std::find_end(_mf.data(),
             iter->first, endl, endl + 1);
-        std::ostringstream ss;
 
-        ss << config_pathname << '(' << line << ':' << column << "): Parse error";
-        throw gg_error(ss.str());
+        throw gg_error(std::format("{}({}:{}): Parse error",
+            config_pathname,
+            line,
+            column));
     }
 
     _mf.close();

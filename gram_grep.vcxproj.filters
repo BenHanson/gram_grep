@@ -30,6 +30,9 @@
     <ClInclude Include="parser.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="args.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -45,6 +48,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="types.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="args.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -20,6 +20,28 @@ enum config_flags
     extend_search = 8
 };
 
+enum class match_type
+{
+    // Must match order of variant in g_pipeline
+    // Note that dfa_regex always goes on the end
+    // as it is converted to lexer or ulexer
+    text, regex, lexer, ulexer, parser, uparser, dfa_regex
+};
+
+struct config
+{
+    match_type _type;
+    std::string _param;
+    unsigned int _flags = config_flags::none;
+
+    config(const match_type type, const std::string& param, const unsigned int flags) :
+        _type(type),
+        _param(param),
+        _flags(flags)
+    {
+    }
+};
+
 struct base
 {
     unsigned int _flags = config_flags::none;
@@ -196,14 +218,6 @@ struct match
         _eoi(eoi)
     {
     }
-};
-
-enum class match_type
-{
-    // Must match order of variant in g_pipeline
-    // Note that dfa_regex always goes on the end
-    // as it is converted to lexer or ulexer
-    text, regex, lexer, ulexer, parser, uparser, dfa_regex
 };
 
 using token = parsertl::token<lexertl::criterator>;
