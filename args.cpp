@@ -291,8 +291,7 @@ static void process_long(int &i, const int argc, const char* const argv[],
         if (i < argc)
         {
             configs.emplace_back(match_type::text, argv[i],
-                config_flags::whole_word | config_flags::negate |
-                config_flags::all);
+                config_flags::negate | config_flags::all);
         }
         else
             throw gg_error(std::format("Missing regex following {}.",
@@ -781,7 +780,7 @@ void show_help()
 {
     std::cout << "-h, --help\t\t\t\t\tShows help.\n"
         "-a, --replace <text>\t\t\t\tReplace matching text.\n"
-        "-c, --checkout <cmd>\t\t\t\tcheckout command (include $1 for pathname).\n"
+        "-c, --checkout <cmd>\t\t\t\tCheckout command (include $1 for pathname).\n"
         "-d, --dump\t\t\t\t\tDump DFA regexp.\n"
         "-E, --extended-regexp <regexp>\t\t\tSearch using DFA regexp.\n"
         "-Ee, --extended-regexp-ext <regexp>\t\t"
