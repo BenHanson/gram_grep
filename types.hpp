@@ -16,7 +16,7 @@ enum config_flags
     none = 0,
     whole_word = 1,
     negate = 2,
-    negate_all = 4,
+    all = 4,
     extend_search = 8
 };
 

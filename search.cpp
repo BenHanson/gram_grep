@@ -393,7 +393,7 @@ static bool process_text(const text& t, const char* data_first,
     {
         if (t._flags & config_flags::negate)
         {
-            if (t._flags & config_flags::negate_all)
+            if (t._flags & config_flags::all)
                 success = false;
             else
             {
@@ -457,7 +457,7 @@ static bool process_regex(const regex& r, std::vector<match>& ranges,
     {
         if (r._flags & config_flags::negate)
         {
-            if (r._flags & config_flags::negate_all)
+            if (r._flags & config_flags::all)
                 success = false;
             else
             {
@@ -532,7 +532,7 @@ static bool process_lexer(const lexer& l, std::vector<match>& ranges,
     {
         if (l._flags & config_flags::negate)
         {
-            if (l._flags & config_flags::negate_all)
+            if (l._flags & config_flags::all)
                 success = false;
             else
             {
@@ -598,7 +598,7 @@ static bool process_lexer(const ulexer& l, std::vector<match>& ranges,
     {
         if (l._flags & config_flags::negate)
         {
-            if (l._flags & config_flags::negate_all)
+            if (l._flags & config_flags::all)
                 success = false;
             else
             {
@@ -676,7 +676,7 @@ static bool process_parser(const parser& p, const char* start,
     {
         if (p._flags & config_flags::negate)
         {
-            if (p._flags & config_flags::negate_all)
+            if (p._flags & config_flags::all)
                 success = false;
             else
             {
@@ -835,7 +835,7 @@ static bool process_parser(const uparser& p, const char* start,
     {
         if (p._flags & config_flags::negate)
         {
-            if (p._flags & config_flags::negate_all)
+            if (p._flags & config_flags::all)
                 success = false;
             else
             {
