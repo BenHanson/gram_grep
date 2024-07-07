@@ -703,7 +703,10 @@ static void fill_pipeline(const std::vector<config>& configs)
                         *lexertl::regex_flags::dot_not_cr_lf);
 
                 rules.push(config._param, 1);
-                rules.push(".{+}[\r\n]", rules_type::skip());
+
+                if (!g_dump)
+                    rules.push(".{+}[\r\n]", rules_type::skip());
+
                 generator::build(rules, lexer._sm);
                 g_pipeline.emplace_back(std::move(lexer));
             }
@@ -719,7 +722,10 @@ static void fill_pipeline(const std::vector<config>& configs)
                         *lexertl::regex_flags::dot_not_cr_lf);
 
                 rules.push(config._param, 1);
-                rules.push(".{+}[\r\n]", lexertl::rules::skip());
+
+                if (!g_dump)
+                    rules.push(".{+}[\r\n]", lexertl::rules::skip());
+
                 lexertl::generator::build(rules, lexer._sm);
                 g_pipeline.emplace_back(std::move(lexer));
             }
@@ -851,6 +857,8 @@ int main(int argc, char* argv[])
                     lexertl::debug::dump(l._sm, std::cout);
                 }
             }
+
+            return 0;
         }
 
         if (g_pipeline.empty())
