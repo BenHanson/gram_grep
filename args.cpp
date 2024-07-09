@@ -67,7 +67,7 @@ static void process_long(int &i, const int argc, const char* const argv[],
     // Skip over "--"
     const char* param = argv[i] + 2;
 
-    if (strcmp("--checkout", param) == 0)
+    if (strcmp("checkout", param) == 0)
     {
         ++i;
 
@@ -80,9 +80,9 @@ static void process_long(int &i, const int argc, const char* const argv[],
             throw gg_error(std::format("Missing pathname following {}.",
                 param));
     }
-    else if (strcmp("--dump", param) == 0)
+    else if (strcmp("dump", param) == 0)
         g_dump = true;
-    else if (strcmp("--exclude", param) == 0)
+    else if (strcmp("exclude", param) == 0)
     {
         ++i;
 
@@ -106,7 +106,7 @@ static void process_long(int &i, const int argc, const char* const argv[],
             throw gg_error(std::format("Missing wildcard following {}.",
                 param));
     }
-    else if (strcmp("--extended-regexp", param) == 0)
+    else if (strcmp("extended-regexp", param) == 0)
     {
         // DFA regex
         ++i;
@@ -117,7 +117,7 @@ static void process_long(int &i, const int argc, const char* const argv[],
         else
             throw gg_error(std::format("Missing regex following {}.", param));
     }
-    else if (strcmp("--extended-regexp-ext", param) == 0)
+    else if (strcmp("extended-regexp-ext", param) == 0)
     {
         // DFA regex
         ++i;
@@ -128,7 +128,7 @@ static void process_long(int &i, const int argc, const char* const argv[],
         else
             throw gg_error(std::format("Missing regex following {}.", param));
     }
-    else if (strcmp("--file", param) == 0)
+    else if (strcmp("file", param) == 0)
     {
         ++i;
 
@@ -149,7 +149,7 @@ static void process_long(int &i, const int argc, const char* const argv[],
             throw gg_error(std::format("Missing pathname following {}.",
                 param));
     }
-    else if (strcmp("--file-ext", param) == 0)
+    else if (strcmp("file-ext", param) == 0)
     {
         ++i;
 
@@ -170,20 +170,20 @@ static void process_long(int &i, const int argc, const char* const argv[],
             throw gg_error(std::format("Missing pathname following {}.",
                 param));
     }
-    else if (strcmp("--files-with-matches", param) == 0)
+    else if (strcmp("files-with-matches", param) == 0)
         g_pathname_only = true;
-    else if (strcmp("--force-write", param) == 0)
+    else if (strcmp("force-write", param) == 0)
         g_force_write = true;
-    else if (strcmp("--help", param) == 0)
+    else if (strcmp("help", param) == 0)
     {
         show_help();
         exit(0);
     }
-    else if (strcmp("--hits", param) == 0)
+    else if (strcmp("hits", param) == 0)
         g_show_hits = true;
-    else if (strcmp("--ignore-case", param) == 0)
+    else if (strcmp("ignore-case", param) == 0)
         g_icase = true;
-    else if (strcmp("--invert-extended-regexp", param) == 0)
+    else if (strcmp("invert-extended-regexp", param) == 0)
     {
         // DFA regex
         ++i;
@@ -195,7 +195,7 @@ static void process_long(int &i, const int argc, const char* const argv[],
             throw gg_error(std::format("Missing regex following {}.",
                 param));
     }
-    else if (strcmp("--invert-file", param) == 0)
+    else if (strcmp("invert-file", param) == 0)
     {
         ++i;
 
@@ -216,7 +216,7 @@ static void process_long(int &i, const int argc, const char* const argv[],
             throw gg_error(std::format("Missing regex following {}.",
                 param));
     }
-    else if (strcmp("--invert-perl-regexp", param) == 0)
+    else if (strcmp("invert-perl-regexp", param) == 0)
     {
         // Perl style regex
         ++i;
@@ -228,7 +228,7 @@ static void process_long(int &i, const int argc, const char* const argv[],
             throw gg_error(std::format("Missing regex following {}.",
                 param));
     }
-    else if (strcmp("--invert-text", param) == 0)
+    else if (strcmp("invert-text", param) == 0)
     {
         ++i;
 
@@ -239,7 +239,7 @@ static void process_long(int &i, const int argc, const char* const argv[],
             throw gg_error(std::format("Missing regex following {}.",
                 param));
     }
-    else if (strcmp("--invert-all-extended-regexp", param) == 0)
+    else if (strcmp("invert-all-extended-regexp", param) == 0)
     {
         // DFA regex
         ++i;
@@ -251,7 +251,7 @@ static void process_long(int &i, const int argc, const char* const argv[],
             throw gg_error(std::format("Missing regex following {}.",
                 param));
     }
-    else if (strcmp("--invert-all-file", param) == 0)
+    else if (strcmp("invert-all-file", param) == 0)
     {
         ++i;
 
@@ -272,7 +272,7 @@ static void process_long(int &i, const int argc, const char* const argv[],
             throw gg_error(std::format("Missing regex following {}.",
                 param));
     }
-    else if (strcmp("--invert-all-perl-regexp", param) == 0)
+    else if (strcmp("invert-all-perl-regexp", param) == 0)
     {
         // Perl style regex
         ++i;
@@ -284,7 +284,7 @@ static void process_long(int &i, const int argc, const char* const argv[],
             throw gg_error(std::format("Missing regex following {}.",
                 param));
     }
-    else if (strcmp("--invert-all-text", param) == 0)
+    else if (strcmp("invert-all-text", param) == 0)
     {
         ++i;
 
@@ -297,7 +297,7 @@ static void process_long(int &i, const int argc, const char* const argv[],
             throw gg_error(std::format("Missing regex following {}.",
                 param));
     }
-    else if (strcmp("--invert-all-text-whole", param) == 0)
+    else if (strcmp("invert-all-text-whole", param) == 0)
     {
         ++i;
 
@@ -309,9 +309,9 @@ static void process_long(int &i, const int argc, const char* const argv[],
             throw gg_error(std::format("Missing regex following {}.",
                 param));
     }
-    else if (strcmp("--perform-output", param) == 0)
+    else if (strcmp("perform-output", param) == 0)
         g_output = true;
-    else if (strcmp("--perl-regexp", param) == 0)
+    else if (strcmp("perl-regexp", param) == 0)
     {
         // Perl style regex
         ++i;
@@ -323,7 +323,7 @@ static void process_long(int &i, const int argc, const char* const argv[],
             throw gg_error(std::format("Missing regex following {}.",
                 param));
     }
-    else if (strcmp("--print", param) == 0)
+    else if (strcmp("print", param) == 0)
     {
         ++i;
 
@@ -333,9 +333,9 @@ static void process_long(int &i, const int argc, const char* const argv[],
             throw gg_error(std::format("Missing string following {}.",
                 param));
     }
-    else if (strcmp("--recursive", param) == 0)
+    else if (strcmp("recursive", param) == 0)
         g_recursive = true;
-    else if (strcmp("--replace", param) == 0)
+    else if (strcmp("replace", param) == 0)
     {
         ++i;
 
@@ -344,7 +344,7 @@ static void process_long(int &i, const int argc, const char* const argv[],
         else
             throw gg_error(std::format("Missing text following {}.", param));
     }
-    else if (strcmp("--shutdown", param) == 0)
+    else if (strcmp("shutdown", param) == 0)
     {
         ++i;
 
@@ -356,7 +356,7 @@ static void process_long(int &i, const int argc, const char* const argv[],
             throw gg_error(std::format("Missing pathname following {}.",
                 param));
     }
-    else if (strcmp("--startup", param) == 0)
+    else if (strcmp("startup", param) == 0)
     {
         ++i;
 
@@ -369,7 +369,7 @@ static void process_long(int &i, const int argc, const char* const argv[],
             throw gg_error(std::format("Missing pathname following {}.",
                 param));
     }
-    else if (strcmp("--text", param) == 0)
+    else if (strcmp("text", param) == 0)
     {
         // Text
         ++i;
@@ -380,7 +380,7 @@ static void process_long(int &i, const int argc, const char* const argv[],
         else
             throw gg_error(std::format("Missing regex following {}.", param));
     }
-    else if (strcmp("--text-whole", param) == 0)
+    else if (strcmp("text-whole", param) == 0)
     {
         // Text
         ++i;
@@ -391,9 +391,9 @@ static void process_long(int &i, const int argc, const char* const argv[],
         else
             throw gg_error(std::format("Missing regex following {}.", param));
     }
-    else if (strcmp("--writable", param) == 0)
+    else if (strcmp("writable", param) == 0)
         g_writable = true;
-    else if (strcmp("--utf8", param) == 0)
+    else if (strcmp("utf8", param) == 0)
         g_force_unicode = true;
     else
         throw gg_error(std::format("Unknown switch {}", param));
