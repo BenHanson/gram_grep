@@ -348,7 +348,6 @@ static bool process_text(const text& t, const char* data_first,
     std::vector<match>& ranges, std::vector<std::string>& captures)
 {
     const std::string text = build_text(t._text, captures);
-    const bool back_dig = text.back() >= '0' && text.back() <= '9';
     const char* first = ranges.back()._first;
     const char* second = ranges.back()._eoi;
     bool success = false;
@@ -372,13 +371,14 @@ static bool process_text(const text& t, const char* data_first,
                     !(first == data_first ||
                         (*(first - 1) >= 'A' && *(first - 1) <= 'Z') ||
                         *(first - 1) == '_' ||
-                        (*(first - 1) >= 'a' && *(first - 1) <= 'z'))) &&
+                        (*(first - 1) >= 'a' && *(first - 1) <= 'z') ||
+                        (*(first - 1) >= '0' && *(first - 1) <= '9'))) &&
                     (!(t._flags & config_flags::whole_word) ||
                         !(second == ranges.front()._eoi ||
                             (*second >= 'A' && *second <= 'Z') ||
                             *second == '_' ||
                             (*second >= 'a' && *second <= 'z') ||
-                            (back_dig && *second >= '0' && *second <= '9')));
+                            (*second >= '0' && *second <= '9')));
 
                 if (success && !whole_word)
                 {
