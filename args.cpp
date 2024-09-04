@@ -8,6 +8,7 @@
 
 extern std::string g_checkout;
 extern bool g_dump;
+extern bool g_dot;
 extern std::pair<std::vector<wildcardtl::wildcard>,
     std::vector<wildcardtl::wildcard>> g_exclude;
 extern bool g_force_unicode;
@@ -61,7 +62,7 @@ bool is_windows()
 #endif
 }
 
-static void process_long(int &i, const int argc, const char* const argv[],
+static void process_long(int& i, const int argc, const char* const argv[],
     std::vector<config>& configs)
 {
     // Skip over "--"
@@ -79,6 +80,11 @@ static void process_long(int &i, const int argc, const char* const argv[],
         else
             throw gg_error(std::format("Missing pathname following {}.",
                 param));
+    }
+    else if (strcmp("dot", param) == 0)
+    {
+        g_dump = true;
+        g_dot = true;
     }
     else if (strcmp("dump", param) == 0)
         g_dump = true;
@@ -433,6 +439,10 @@ static void process_short(int& i, const int argc, const char* const argv[],
         case 'd':
             g_dump = true;
             break;
+        case 'D':
+            g_dump = true;
+            g_dot = true;
+            break;
         case 'E':
             // DFA regex
             ++i;
@@ -782,6 +792,7 @@ void show_help()
         "-a, --replace <text>\t\t\t\tReplace matching text.\n"
         "-c, --checkout <cmd>\t\t\t\tCheckout command (include $1 for pathname).\n"
         "-d, --dump\t\t\t\t\tDump DFA regexp.\n"
+        "-D, --dot\t\t\t\t\tDump DFA regexp in DOT format.\n"
         "-E, --extended-regexp <regexp>\t\t\tSearch using DFA regexp.\n"
         "-Ee, --extended-regexp-ext <regexp>\t\t"
         "As -E but continue search following match.\n"

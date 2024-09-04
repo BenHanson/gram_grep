@@ -5,6 +5,7 @@
 
 #include "args.hpp"
 #include <lexertl/debug.hpp>
+#include <lexertl/dot.hpp>
 #include <filesystem>
 #include <fstream>
 #include "gg_error.hpp"
@@ -31,6 +32,7 @@ std::pair<std::vector<wildcardtl::wildcard>,
 bool g_show_hits = false;
 bool g_icase = false;
 bool g_dump = false;
+bool g_dot = false;
 bool g_pathname_only = false;
 bool g_force_unicode = false;
 bool g_modify = false; // Set when grammar has modifying operations
@@ -858,7 +860,10 @@ int main(int argc, char* argv[])
                 {
                     const auto& l = std::get<lexer>(v);
 
-                    lexertl::debug::dump(l._sm, std::cout);
+                    if (g_dot)
+                        lexertl::dot::dump(l._sm, lexertl::rules(), std::cout);
+                    else
+                        lexertl::debug::dump(l._sm, std::cout);
                 }
             }
 
