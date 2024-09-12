@@ -14,6 +14,12 @@
 #include "search.hpp"
 #include <wildcardtl/wildcard.hpp>
 
+constexpr const char szPurpleText[] = "\x1B[95m";
+constexpr const char szBlueText[] = "\x1B[36m";
+constexpr const char szGreenText[] = "\x1B[92m";
+constexpr const char szRedText[] = "\x1B[91m";
+constexpr const char szWhiteText[] = "\x1B[37m";
+
 extern std::string build_text(const std::string& input,
     const std::vector<std::string>& captures);
 extern std::string unescape(const std::string_view& vw);
@@ -31,6 +37,7 @@ std::pair<std::vector<wildcardtl::wildcard>,
     std::vector<wildcardtl::wildcard>> g_exclude;
 bool g_show_hits = false;
 bool g_icase = false;
+bool g_colour = false;
 bool g_dump = false;
 bool g_dot = false;
 bool g_pathname_only = false;
@@ -247,7 +254,15 @@ static bool process_matches(const std::vector<match>& ranges,
             const char* eoi = data_second;
 
             if (!g_show_hits && g_print.empty() && !g_rule_print)
+            {
+                if (g_colour)
+                    std::cout << szPurpleText;
+
                 std::cout << pathname;
+
+                if (g_colour)
+                    std::cout << szWhiteText;
+            }
 
             if (g_pathname_only)
             {
@@ -264,7 +279,25 @@ static bool process_matches(const std::vector<match>& ranges,
                 const auto count = std::count(data_first, curr, '\n');
 
                 if (!pathname.empty())
-                    std::cout << '(' << 1 + count << "):";
+                {
+                    if (g_colour)
+                        std::cout << szBlueText;
+
+                    std::cout << '(';
+
+                    if (g_colour)
+                        std::cout << szGreenText;
+
+                    std::cout << 1 + count;
+
+                    if (g_colour)
+                        std::cout << szBlueText;
+
+                    std::cout << "):";
+
+                    if (g_colour)
+                        std::cout << szWhiteText;
+                }
 
                 if (count == 0)
                     curr = data_first;
@@ -273,8 +306,19 @@ static bool process_matches(const std::vector<match>& ranges,
 
                 for (; curr != eoi && *curr != '\r' && *curr != '\n'; ++curr)
                 {
+                    if (g_colour)
+                    {
+                        if (curr == iter->_first)
+                            std::cout << szRedText;
+                        else if (curr == iter->_eoi)
+                            std::cout << szWhiteText;
+                    }
+
                     std::cout << *curr;
                 }
+
+                if (g_colour && (*curr == '\r' || *curr == '\n'))
+                    std::cout << szWhiteText;
             }
 
             if (!g_show_hits && g_print.empty() && !g_rule_print)

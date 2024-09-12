@@ -7,6 +7,7 @@
 #include <wildcardtl/wildcard.hpp>
 
 extern std::string g_checkout;
+extern bool g_colour;
 extern bool g_dump;
 extern bool g_dot;
 extern std::pair<std::vector<wildcardtl::wildcard>,
@@ -68,7 +69,21 @@ static void process_long(int& i, const int argc, const char* const argv[],
     // Skip over "--"
     const char* param = argv[i] + 2;
 
-    if (strcmp("checkout", param) == 0)
+    if (strcmp("color", param) == 0 || strcmp("colour", param) == 0)
+    {
+        g_colour = true;
+
+#ifdef WIN32
+        HANDLE hOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+        DWORD dwMode = 0;
+
+        GetConsoleMode(hOutput, &dwMode);
+
+        if (!(dwMode & ENABLE_VIRTUAL_TERMINAL_PROCESSING))
+            SetConsoleMode(hOutput, dwMode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+#endif
+    }
+    else if (strcmp("checkout", param) == 0)
     {
         ++i;
 
@@ -791,6 +806,7 @@ void show_help()
     std::cout << "-h, --help\t\t\t\t\tShows help.\n"
         "-a, --replace <text>\t\t\t\tReplace matching text.\n"
         "-c, --checkout <cmd>\t\t\t\tCheckout command (include $1 for pathname).\n"
+        "    --colour, --color\t\t\t\tuse markers to highlight the matching strings\n"
         "-d, --dump\t\t\t\t\tDump DFA regexp.\n"
         "-D, --dot\t\t\t\t\tDump DFA regexp in DOT format.\n"
         "-E, --extended-regexp <regexp>\t\t\tSearch using DFA regexp.\n"
