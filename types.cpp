@@ -10,15 +10,15 @@
 extern config_parser g_config_parser;
 extern parser* g_curr_parser;
 extern uparser* g_curr_uparser;
-extern bool g_icase;
 extern bool g_force_unicode;
 
-void config_state::parse(const std::string& config_pathname)
+void config_state::parse(const unsigned int flags,
+    const std::string& config_pathname)
 {
     lexertl::citerator iter;
     lexertl::citerator end;
 
-    if (g_icase)
+    if (flags & config_flags::icase)
     {
         using enum lexertl::regex_flags;
 

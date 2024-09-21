@@ -1,6 +1,7 @@
 #include "pch.h"
 
 #include <format>
+//#include <parsertl/debug.hpp>
 #include <parsertl/generator.hpp>
 #include "gg_error.hpp"
 #include <lexertl/memory_file.hpp>
@@ -10,7 +11,6 @@ extern config_parser g_config_parser;
 extern parser* g_curr_parser;
 extern uparser* g_curr_uparser;
 extern bool g_force_unicode;
-extern bool g_icase;
 extern bool g_modify;
 
 std::string unescape(const std::string_view& vw)
@@ -41,7 +41,7 @@ std::string unescape(const std::string_view& vw)
 
     return ret;
 }
-
+/*
 static std::string unescape_str(const char* first, const char* second)
 {
     std::string ret = unescape(std::string_view(first, second));
@@ -55,7 +55,7 @@ static std::string unescape_str(const char* first, const char* second)
 
     return ret;
 }
-
+*/
 void build_config_parser()
 {
     parsertl::rules grules;
@@ -204,9 +204,9 @@ void build_config_parser()
             state._lhs = state._results.dollar(0, parser._gsm,
                 state._productions).str();
         };
-    grules.push("production", "opt_prec_list "
-        "| production '|' opt_prec_list");
-    g_config_parser._actions[grules.push("opt_prec_list",
+    grules.push("production", "opt_production "
+        "| production '|' opt_production");
+    g_config_parser._actions[grules.push("opt_production",
         "opt_list opt_prec opt_script")] =
         [](config_state& state, const config_parser& parser)
         {
@@ -223,7 +223,7 @@ void build_config_parser()
             if (iter != (g_force_unicode ? g_curr_uparser->_actions.end() :
                 g_curr_parser->_actions.end()))
             {
-                for (const auto& cmd : iter->second)
+                for (const auto& cmd : iter->second._commands)
                 {
                     if (cmd._param1 >=
                         state._grules.grammar().back()._rhs._symbols.size())
@@ -287,6 +287,123 @@ void build_config_parser()
     grules.push("cmd_list", "%empty "
         "| cmd_list single_cmd ';'");
     grules.push("single_cmd", "cmd");
+
+    g_config_parser._actions[grules.push("cmd", "'match' '=' Index")] =
+        [](config_state& state, const config_parser& parser)
+        {
+            const auto rule_idx = static_cast<uint16_t>
+                (state._grules.grammar().size());
+            const auto& token = state._results.dollar(2, parser._gsm,
+                state._productions);
+            const auto index = static_cast<uint16_t>(atoi(token.first + 1) - 1);
+
+            if (g_force_unicode)
+                g_curr_uparser->_actions[rule_idx].
+                    emplace(cmd(cmd_type::assign, index, match_cmd(0, 0)));
+            else
+                g_curr_parser->_actions[rule_idx].
+                    emplace(cmd(cmd_type::assign, index, match_cmd(0, 0)));
+        };
+    g_config_parser._actions[grules.push("cmd",
+        "'match' '=' 'substr' '(' Index ',' Integer ',' Integer ')'")] =
+        [](config_state& state, const config_parser& parser)
+        {
+            const auto rule_idx = static_cast<uint16_t>
+                (state._grules.grammar().size());
+            const auto& token4 = state._results.dollar(4, parser._gsm,
+                state._productions);
+            const auto index = static_cast<uint16_t>
+                (atoi(token4.first + 1) - 1);
+            const auto& token6 = state._results.dollar(6, parser._gsm,
+                state._productions);
+            const auto& token8 = state._results.dollar(8, parser._gsm,
+                state._productions);
+
+            if (g_force_unicode)
+            {
+                g_curr_uparser->_actions[rule_idx].
+                    emplace(cmd(cmd_type::assign, index,
+                        match_cmd(static_cast<uint16_t>(atoi(token6.first)),
+                        static_cast<uint16_t>(atoi(token8.first)))));
+            }
+            else
+            {
+                g_curr_parser->_actions[rule_idx].
+                    emplace(cmd(cmd_type::assign, index,
+                        match_cmd(static_cast<uint16_t>(atoi(token6.first)),
+                        static_cast<uint16_t>(atoi(token8.first)))));
+            }
+        };
+    g_config_parser._actions[grules.push("cmd", "'match' '+=' Index")] =
+        [](config_state& state, const config_parser& parser)
+        {
+            const auto rule_idx = static_cast<uint16_t>
+                (state._grules.grammar().size());
+            const auto& token = state._results.dollar(2, parser._gsm,
+                state._productions);
+            const auto index = static_cast<uint16_t>(atoi(token.first + 1) - 1);
+
+            if (g_force_unicode)
+            {
+                g_curr_uparser->_actions[rule_idx].
+                    emplace(cmd(cmd_type::append, index, match_cmd(0, 0)));
+            }
+            else
+            {
+                g_curr_parser->_actions[rule_idx].
+                    emplace(cmd(cmd_type::append, index, match_cmd(0, 0)));
+            }
+        };
+    g_config_parser._actions[grules.push("cmd",
+        "'match' '+=' 'substr' '(' Index ',' Integer ',' Integer ')'")] =
+        [](config_state& state, const config_parser& parser)
+        {
+            const auto rule_idx = static_cast<uint16_t>
+                (state._grules.grammar().size());
+            const auto& token4 = state._results.dollar(4, parser._gsm,
+                state._productions);
+            const auto index = static_cast<uint16_t>(atoi(token4.first + 1) - 1);
+            const auto& token6 = state._results.dollar(6, parser._gsm,
+                state._productions);
+            const auto& token8 = state._results.dollar(8, parser._gsm,
+                state._productions);
+
+            if (g_force_unicode)
+            {
+                g_curr_uparser->_actions[rule_idx].
+                    emplace(cmd(cmd_type::append, index,
+                        match_cmd(static_cast<uint16_t>(atoi(token6.first)),
+                        static_cast<uint16_t>(atoi(token8.first)))));
+            }
+            else
+            {
+                g_curr_parser->_actions[rule_idx].
+                    emplace(cmd(cmd_type::append, index,
+                        match_cmd(static_cast<uint16_t>(atoi(token6.first)),
+                        static_cast<uint16_t>(atoi(token8.first)))));
+            }
+        };
+    g_config_parser._actions[grules.push("cmd",
+        "'print' '(' ret_function ')'")] =
+        [](config_state& state, const config_parser&)
+        {
+            const auto rule_idx = static_cast<uint16_t>
+                (state._grules.grammar().size());
+
+            if (g_force_unicode)
+            {
+                g_curr_uparser->_actions[rule_idx].
+                    emplace(cmd(cmd_type::print, print_cmd()));
+            }
+            else
+            {
+                g_curr_parser->_actions[rule_idx].
+                    emplace(cmd(cmd_type::print, print_cmd()));
+            }
+
+            state._print = true;
+        };
+
     g_config_parser._actions[grules.push("single_cmd",
         "mod_cmd")] =
         [](config_state&, const config_parser&)
@@ -305,13 +422,13 @@ void build_config_parser()
 
             if (g_force_unicode)
             {
-                g_curr_uparser->_actions[rule_idx].emplace_back(cmd_type::erase,
-                    index, erase_cmd());
+                g_curr_uparser->_actions[rule_idx].
+                    emplace(cmd(cmd_type::erase, index, erase_cmd()));
             }
             else
             {
-                g_curr_parser->_actions[rule_idx].emplace_back(cmd_type::erase,
-                    index, erase_cmd());
+                g_curr_parser->_actions[rule_idx].
+                    emplace(cmd(cmd_type::erase, index, erase_cmd()));
             }
         };
     g_config_parser._actions[grules.push("mod_cmd",
@@ -331,13 +448,13 @@ void build_config_parser()
 
             if (g_force_unicode)
             {
-                g_curr_uparser->_actions[rule_idx].emplace_back(cmd_type::erase,
-                    index1, index2, erase_cmd());
+                g_curr_uparser->_actions[rule_idx].
+                    emplace(cmd(cmd_type::erase, index1, index2, erase_cmd()));
             }
             else
             {
-                g_curr_parser->_actions[rule_idx].emplace_back(cmd_type::erase,
-                    index1, index2, erase_cmd());
+                g_curr_parser->_actions[rule_idx].
+                    emplace(cmd(cmd_type::erase, index1, index2, erase_cmd()));
             }
         };
     g_config_parser._actions[grules.push("mod_cmd",
@@ -361,184 +478,64 @@ void build_config_parser()
 
             if (g_force_unicode)
             {
-                g_curr_uparser->_actions[rule_idx].emplace_back(cmd_type::erase,
-                    index1, second1, index2, second2, erase_cmd());
-            }
-            else
-            {
-                g_curr_parser->_actions[rule_idx].emplace_back(cmd_type::erase,
-                    index1, second1, index2, second2, erase_cmd());
-            }
-        };
-    g_config_parser._actions[grules.push("mod_cmd",
-        "'insert' '(' Index ',' ScriptString ')'")] =
-        [](config_state& state, const config_parser& parser)
-        {
-            const auto rule_idx = static_cast<uint16_t>
-                (state._grules.grammar().size());
-            const auto& token2 = state._results.dollar(2, parser._gsm,
-                state._productions);
-            const auto index = static_cast<uint16_t>
-                (atoi(token2.first + 1) - 1);
-            const auto& token4 = state._results.dollar(4, parser._gsm,
-                state._productions);
-            const std::string text =
-                unescape_str(token4.first + 1, token4.second - 1);
-
-            if (g_force_unicode)
-            {
-                g_curr_uparser->_actions[rule_idx].emplace_back(cmd_type::insert,
-                    index, insert_cmd(text));
-            }
-            else
-            {
-                g_curr_parser->_actions[rule_idx].emplace_back(cmd_type::insert,
-                    index, insert_cmd(text));
-            }
-        };
-    g_config_parser._actions[grules.push("mod_cmd",
-        "'insert' '(' Index '.' 'second' ',' ScriptString ')'")] =
-        [](config_state& state, const config_parser& parser)
-        {
-            const auto rule_idx = static_cast<uint16_t>
-                (state._grules.grammar().size());
-            const auto& token2 = state._results.dollar(2, parser._gsm,
-                state._productions);
-            const auto index = static_cast<uint16_t>
-                (atoi(token2.first + 1) - 1);
-            const auto& token6 = state._results.dollar(6, parser._gsm,
-                state._productions);
-            const std::string text =
-                unescape_str(token6.first + 1, token6.second - 1);
-
-            if (g_force_unicode)
-            {
-                g_curr_uparser->_actions[rule_idx].emplace_back(cmd_type::insert,
-                    index, true, insert_cmd(text));
-            }
-            else
-            {
-                g_curr_parser->_actions[rule_idx].emplace_back(cmd_type::insert,
-                    index, true, insert_cmd(text));
-            }
-        };
-    g_config_parser._actions[grules.push("cmd", "'match' '=' Index")] =
-        [](config_state& state, const config_parser& parser)
-        {
-            const auto rule_idx = static_cast<uint16_t>
-                (state._grules.grammar().size());
-            const auto& token = state._results.dollar(2, parser._gsm,
-                state._productions);
-            const auto index = static_cast<uint16_t>(atoi(token.first + 1) - 1);
-
-            if (g_force_unicode)
                 g_curr_uparser->_actions[rule_idx].
-                emplace_back(cmd_type::assign, index, match_cmd(0, 0));
-            else
-                g_curr_parser->_actions[rule_idx].emplace_back(cmd_type::assign,
-                    index, match_cmd(0, 0));
-        };
-    g_config_parser._actions[grules.push("cmd",
-        "'match' '=' 'substr' '(' Index ',' Integer ',' Integer ')'")] =
-        [](config_state& state, const config_parser& parser)
-        {
-            const auto rule_idx = static_cast<uint16_t>
-                (state._grules.grammar().size());
-            const auto& token4 = state._results.dollar(4, parser._gsm,
-                state._productions);
-            const auto index = static_cast<uint16_t>
-                (atoi(token4.first + 1) - 1);
-            const auto& token6 = state._results.dollar(6, parser._gsm,
-                state._productions);
-            const auto& token8 = state._results.dollar(8, parser._gsm,
-                state._productions);
-
-            if (g_force_unicode)
-            {
-                g_curr_uparser->_actions[rule_idx].emplace_back(cmd_type::assign,
-                    index, match_cmd(static_cast<uint16_t>(atoi(token6.first)),
-                        static_cast<uint16_t>(atoi(token8.first))));
-            }
-            else
-            {
-                g_curr_parser->_actions[rule_idx].emplace_back(cmd_type::assign,
-                    index, match_cmd(static_cast<uint16_t>(atoi(token6.first)),
-                        static_cast<uint16_t>(atoi(token8.first))));
-            }
-        };
-    g_config_parser._actions[grules.push("cmd", "'match' '+=' Index")] =
-        [](config_state& state, const config_parser& parser)
-        {
-            const auto rule_idx = static_cast<uint16_t>
-                (state._grules.grammar().size());
-            const auto& token = state._results.dollar(2, parser._gsm,
-                state._productions);
-            const auto index = static_cast<uint16_t>(atoi(token.first + 1) - 1);
-
-            if (g_force_unicode)
-            {
-                g_curr_uparser->_actions[rule_idx].emplace_back(cmd_type::append,
-                    index, match_cmd(0, 0));
-            }
-            else
-            {
-                g_curr_parser->_actions[rule_idx].emplace_back(cmd_type::append,
-                    index, match_cmd(0, 0));
-            }
-        };
-    g_config_parser._actions[grules.push("cmd",
-        "'match' '+=' 'substr' '(' Index ',' Integer ',' Integer ')'")] =
-        [](config_state& state, const config_parser& parser)
-        {
-            const auto rule_idx = static_cast<uint16_t>
-                (state._grules.grammar().size());
-            const auto& token4 = state._results.dollar(4, parser._gsm,
-                state._productions);
-            const auto index = static_cast<uint16_t>(atoi(token4.first + 1) - 1);
-            const auto& token6 = state._results.dollar(6, parser._gsm,
-                state._productions);
-            const auto& token8 = state._results.dollar(8, parser._gsm,
-                state._productions);
-
-            if (g_force_unicode)
-            {
-                g_curr_uparser->_actions[rule_idx].emplace_back(cmd_type::append,
-                    index, match_cmd(static_cast<uint16_t>(atoi(token6.first)),
-                        static_cast<uint16_t>(atoi(token8.first))));
-            }
-            else
-            {
-                g_curr_parser->_actions[rule_idx].emplace_back(cmd_type::append,
-                    index, match_cmd(static_cast<uint16_t>(atoi(token6.first)),
-                        static_cast<uint16_t>(atoi(token8.first))));
-            }
-        };
-    g_config_parser._actions[grules.push("mod_cmd",
-        "'print' '(' ScriptString ')'")] =
-        [](config_state& state, const config_parser& parser)
-        {
-            const auto rule_idx = static_cast<uint16_t>
-                (state._grules.grammar().size());
-            const auto& token2 = state._results.dollar(2, parser._gsm,
-                state._productions);
-            const std::string text =
-                unescape_str(token2.first + 1, token2.second - 1);
-
-            if (g_force_unicode)
-            {
-                g_curr_uparser->_actions[rule_idx].
-                    emplace_back(cmd_type::print, print_cmd(text));
+                    emplace(cmd(cmd_type::erase, index1, second1, index2,
+                        second2, erase_cmd()));
             }
             else
             {
                 g_curr_parser->_actions[rule_idx].
-                    emplace_back(cmd_type::print, print_cmd(text));
+                    emplace(cmd(cmd_type::erase, index1, second1, index2,
+                        second2, erase_cmd()));
             }
+        };
 
-            state._print = true;
+    g_config_parser._actions[grules.push("mod_cmd",
+        "'insert' '(' Index ',' ret_function ')'")] =
+        [](config_state& state, const config_parser& parser)
+        {
+            const auto rule_idx = static_cast<uint16_t>
+                (state._grules.grammar().size());
+            const auto& token2 = state._results.dollar(2, parser._gsm,
+                state._productions);
+            const auto index = static_cast<uint16_t>
+                (atoi(token2.first + 1) - 1);
+
+            if (g_force_unicode)
+            {
+                g_curr_uparser->_actions[rule_idx].
+                    emplace(cmd(cmd_type::insert, index, insert_cmd()));
+            }
+            else
+            {
+                g_curr_parser->_actions[rule_idx].
+                    emplace(cmd(cmd_type::insert, index, insert_cmd()));
+            }
         };
     g_config_parser._actions[grules.push("mod_cmd",
-        "'replace' '(' Index ',' ScriptString ')'")] =
+        "'insert' '(' Index '.' 'second' ',' ret_function ')'")] =
+        [](config_state& state, const config_parser& parser)
+        {
+            const auto rule_idx = static_cast<uint16_t>
+                (state._grules.grammar().size());
+            const auto& token2 = state._results.dollar(2, parser._gsm,
+                state._productions);
+            const auto index = static_cast<uint16_t>
+                (atoi(token2.first + 1) - 1);
+
+            if (g_force_unicode)
+            {
+                g_curr_uparser->_actions[rule_idx].
+                    emplace(cmd(cmd_type::insert, index, true, insert_cmd()));
+            }
+            else
+            {
+                g_curr_parser->_actions[rule_idx].
+                    emplace(cmd(cmd_type::insert, index, true, insert_cmd()));
+            }
+        };
+    g_config_parser._actions[grules.push("mod_cmd",
+        "'replace' '(' Index ',' ret_function ')'")] =
         [](config_state& state, const config_parser& parser)
         {
             const auto rule_idx = static_cast<uint16_t>
@@ -546,24 +543,20 @@ void build_config_parser()
             const auto& token2 = state._results.dollar(2, parser._gsm,
                 state._productions);
             const auto index = static_cast<uint16_t>(atoi(token2.first + 1) - 1);
-            const auto& token4 = state._results.dollar(4, parser._gsm,
-                state._productions);
-            const std::string text =
-                unescape_str(token4.first + 1, token4.second - 1);
 
             if (g_force_unicode)
             {
-                g_curr_uparser->_actions[rule_idx].emplace_back(cmd_type::replace,
-                    index, replace_cmd(text));
+                g_curr_uparser->_actions[rule_idx].
+                    emplace(cmd(cmd_type::replace, index, replace_cmd()));
             }
             else
             {
-                g_curr_parser->_actions[rule_idx].emplace_back(cmd_type::replace,
-                    index, replace_cmd(text));
+                g_curr_parser->_actions[rule_idx].
+                    emplace(cmd(cmd_type::replace, index, replace_cmd()));
             }
         };
     g_config_parser._actions[grules.push("mod_cmd",
-        "'replace' '(' Index ',' Index ',' ScriptString ')'")] =
+        "'replace' '(' Index ',' Index ',' ret_function ')'")] =
         [](config_state& state, const config_parser& parser)
         {
             const auto rule_idx = static_cast<uint16_t>
@@ -574,25 +567,23 @@ void build_config_parser()
             const auto& token4 = state._results.dollar(4, parser._gsm,
                 state._productions);
             const auto index2 = static_cast<uint16_t>(atoi(token4.first + 1) - 1);
-            const auto& token6 = state._results.dollar(6, parser._gsm,
-                state._productions);
-            const std::string text =
-                unescape_str(token6.first + 1, token6.second - 1);
 
             if (g_force_unicode)
             {
-                g_curr_uparser->_actions[rule_idx].emplace_back(cmd_type::replace,
-                    index1, index2, replace_cmd(text));
+                g_curr_uparser->_actions[rule_idx].
+                    emplace(cmd(cmd_type::replace, index1, index2,
+                        replace_cmd()));
             }
             else
             {
-                g_curr_parser->_actions[rule_idx].emplace_back(cmd_type::replace,
-                    index1, index2, replace_cmd(text));
+                g_curr_parser->_actions[rule_idx].
+                    emplace(cmd(cmd_type::replace, index1, index2,
+                        replace_cmd()));
             }
         };
     g_config_parser._actions[grules.push("mod_cmd",
         "'replace' '(' Index '.' first_second ',' "
-        "Index '.' first_second ',' ScriptString ')'")] =
+        "Index '.' first_second ',' ret_function ')'")] =
         [](config_state& state, const config_parser& parser)
         {
             const auto rule_idx = static_cast<uint16_t>
@@ -607,24 +598,23 @@ void build_config_parser()
             const auto index2 = static_cast<uint16_t>(atoi(token6.first + 1) - 1);
             const bool second2 = *state._results.dollar(8, parser._gsm,
                 state._productions).first == 's';
-            const auto& token10 = state._results.dollar(10, parser._gsm,
-                state._productions);
-            const std::string text =
-                unescape_str(token10.first + 1, token10.second - 1);
 
             if (g_force_unicode)
             {
-                g_curr_uparser->_actions[rule_idx].emplace_back(cmd_type::replace,
-                    index1, second1, index2, second2, replace_cmd(text));
+                g_curr_uparser->_actions[rule_idx].
+                    emplace(cmd(cmd_type::replace, index1, second1, index2,
+                        second2, replace_cmd()));
             }
             else
             {
-                g_curr_parser->_actions[rule_idx].emplace_back(cmd_type::replace,
-                    index1, second1, index2, second2, replace_cmd(text));
+                g_curr_parser->_actions[rule_idx].
+                    emplace(cmd(cmd_type::replace, index1, second1, index2,
+                        second2, replace_cmd()));
             }
         };
+    grules.push("first_second", "'first' | 'second'");
     g_config_parser._actions[grules.push("mod_cmd",
-        "'replace_all' '(' Index ',' ScriptString ',' ScriptString ')'")] =
+        "'replace_all' '(' Index ',' ret_function ',' ret_function ')'")] =
         [](config_state& state, const config_parser& parser)
         {
             const auto rule_idx = static_cast<uint16_t>
@@ -632,27 +622,78 @@ void build_config_parser()
             const auto& token2 = state._results.dollar(2, parser._gsm,
                 state._productions);
             const auto index = static_cast<uint16_t>(atoi(token2.first + 1) - 1);
-            const auto& token4 = state._results.dollar(4, parser._gsm,
-                state._productions);
-            const std::string text1 =
-                unescape_str(token4.first + 1, token4.second - 1);
-            const auto& token6 = state._results.dollar(6, parser._gsm,
-                state._productions);
-            const std::string text2 =
-                unescape_str(token6.first + 1, token6.second - 1);
 
             if (g_force_unicode)
             {
-                g_curr_uparser->_actions[rule_idx].emplace_back(cmd_type::replace_all,
-                    index, replace_all_cmd(text1, text2));
+                g_curr_uparser->_actions[rule_idx].
+                    emplace(cmd(cmd_type::replace_all, index, replace_all_cmd()));
             }
             else
             {
-                g_curr_parser->_actions[rule_idx].emplace_back(cmd_type::replace_all,
-                    index, replace_all_cmd(text1, text2));
+                g_curr_parser->_actions[rule_idx].
+                    emplace(cmd(cmd_type::replace_all, index, replace_all_cmd()));
             }
         };
-    grules.push("first_second", "'first' | 'second'");
+
+    g_config_parser._actions[grules.push("ret_function", "ScriptString")] =
+        [](config_state& state, const config_parser& parser)
+        {
+            const auto rule_idx = static_cast<uint16_t>
+                (state._grules.grammar().size());
+            std::string text = state._results.dollar(0, parser._gsm,
+                state._productions).substr(1, 1);
+
+            g_curr_parser->_actions[rule_idx].
+                _arguments.push_back(std::move(text));
+        };
+    grules.push("ret_function", "perform_exec "
+        "| perform_format");
+    g_config_parser._actions[grules.push("perform_exec", "'exec' '(' ret_function ')'")] =
+        [](config_state& state, const config_parser&)
+        {
+            const auto rule_idx = static_cast<uint16_t>
+                (state._grules.grammar().size());
+
+            if (g_force_unicode)
+            {
+                g_curr_uparser->_actions[rule_idx].
+                    emplace(cmd(cmd_type::exec, exec_cmd()));
+            }
+            else
+            {
+                g_curr_parser->_actions[rule_idx].
+                    emplace(cmd(cmd_type::exec, exec_cmd()));
+            }
+        };
+    g_config_parser._actions[grules.push("perform_format",
+        "'format' '(' ret_function format_params ')'")] =
+        [](config_state& state, const config_parser&)
+        {
+            const auto rule_idx = static_cast<uint16_t>
+                (state._grules.grammar().size());
+
+            if (g_force_unicode)
+            {
+                g_curr_uparser->_actions[rule_idx].
+                    emplace(cmd(cmd_type::format,
+                        format_cmd(state._format_param_count)));
+            }
+            else
+            {
+                g_curr_parser->_actions[rule_idx].
+                    emplace(cmd(cmd_type::format,
+                        format_cmd(state._format_param_count)));
+            }
+
+            state._format_param_count = 0;
+        };
+    grules.push("format_params", "%empty");
+    g_config_parser._actions[grules.push("format_params",
+        "format_params ',' ret_function")] =
+        [](config_state& state, const config_parser&)
+        {
+            ++state._format_param_count;
+        };
 
     // Token regex macros
     grules.push("rx_macros", "%empty");
@@ -942,7 +983,9 @@ void build_config_parser()
     lrules.push("SCRIPT", ";", grules.token_id("';'"), ".");
     lrules.push("SCRIPT", R"(\+=)", grules.token_id("'+='"), ".");
     lrules.push("SCRIPT", "erase", grules.token_id("'erase'"), ".");
+    lrules.push("SCRIPT", "exec", grules.token_id("'exec'"), ".");
     lrules.push("SCRIPT", "first", grules.token_id("'first'"), ".");
+    lrules.push("SCRIPT", "format", grules.token_id("'format'"), ".");
     lrules.push("SCRIPT", "insert", grules.token_id("'insert'"), ".");
     lrules.push("SCRIPT", "match", grules.token_id("'match'"), ".");
     lrules.push("SCRIPT", "print", grules.token_id("'print'"), ".");

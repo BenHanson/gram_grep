@@ -14,10 +14,11 @@
 enum config_flags
 {
     none = 0,
-    whole_word = 1,
-    negate = 2,
-    all = 4,
-    extend_search = 8
+    icase = 1,
+    whole_word = 2,
+    negate = 4,
+    all = 8,
+    extend_search = 16
 };
 
 enum class match_type
@@ -73,14 +74,22 @@ struct erase_cmd
 {
 };
 
-struct insert_cmd
+struct exec_cmd
 {
-    std::string _text;
+};
 
-    explicit insert_cmd(const std::string& text) :
-        _text(text)
+struct format_cmd
+{
+    std::size_t _param_count;
+
+    format_cmd(const std::size_t param_count) :
+        _param_count(param_count)
     {
     }
+};
+
+struct insert_cmd
+{
 };
 
 struct match_cmd
@@ -98,45 +107,34 @@ struct match_cmd
 
 struct print_cmd
 {
-    std::string _text;
-
-    explicit print_cmd(const std::string& text) :
-        _text(text)
-    {
-    }
 };
 
 struct replace_cmd
 {
-    std::string _text;
-
-    explicit replace_cmd(const std::string& text) :
-        _text(text)
-    {
-    }
 };
 
 struct replace_all_cmd
 {
-    std::regex _rx;
-    std::string _text;
-
-    replace_all_cmd(const std::string& rx, const std::string& text) :
-        _rx(rx),
-        _text(text)
-    {
-    }
 };
 
 enum class cmd_type
 {
-    unknown, assign, append, erase, insert, print, replace, replace_all
+    unknown,
+    assign,
+    append,
+    erase,
+    exec,
+    format,
+    insert,
+    print,
+    replace,
+    replace_all
 };
 
 struct cmd
 {
-    using action = std::variant<erase_cmd, insert_cmd, match_cmd, print_cmd,
-        replace_cmd, replace_all_cmd>;
+    using action = std::variant<erase_cmd, exec_cmd, format_cmd, insert_cmd,
+        match_cmd, print_cmd, replace_cmd, replace_all_cmd>;
     cmd_type _type = cmd_type::unknown;
     uint16_t _param1 = 0;
     bool _second1 = false;
@@ -189,11 +187,22 @@ struct cmd
     }
 };
 
+struct actions
+{
+    std::vector<cmd> _commands;
+    std::vector<std::string> _arguments;
+
+    void emplace(cmd&& command)
+    {
+        _commands.push_back(std::move(command));
+    }
+};
+
 struct parser_base : base
 {
     parsertl::state_machine _gsm;
     std::set<uint16_t> _reduce_set;
-    std::map<uint16_t, std::vector<cmd>> _actions;
+    std::map<uint16_t, actions> _actions;
 };
 
 struct parser : parser_base
@@ -234,8 +243,9 @@ struct config_state
     parsertl::match_results _results;
     std::string _lhs;
     bool _print = false;
+    std::size_t _format_param_count = 0;
 
-    void parse(const std::string& config_pathname);
+    void parse(const unsigned int flags, const std::string& config_pathname);
 };
 
 struct config_parser;

@@ -14,11 +14,11 @@
 #include "search.hpp"
 #include <wildcardtl/wildcard.hpp>
 
-constexpr const char szPurpleText[] = "\x1B[95m";
-constexpr const char szBlueText[] = "\x1B[36m";
-constexpr const char szGreenText[] = "\x1B[92m";
-constexpr const char szRedText[] = "\x1B[91m";
-constexpr const char szWhiteText[] = "\x1B[37m";
+constexpr const char szPurpleText[] = "\x1b[38;5;141m\x1b[K";
+constexpr const char szBlueText[] = "\x1b[36m\x1b[K";
+constexpr const char szGreenText[] = "\x1b[92m\x1b[K";
+constexpr const char szRedText[] = "\x1b[01;91m\x1b[K";
+constexpr const char szDefaultText[] = "\x1b[m\x1b[K";
 
 extern std::string build_text(const std::string& input,
     const std::vector<std::string>& captures);
@@ -36,11 +36,11 @@ pipeline g_pipeline;
 std::pair<std::vector<wildcardtl::wildcard>,
     std::vector<wildcardtl::wildcard>> g_exclude;
 bool g_show_hits = false;
-bool g_icase = false;
 bool g_colour = false;
 bool g_dump = false;
 bool g_dot = false;
 bool g_pathname_only = false;
+unsigned int g_flags = 0;
 bool g_force_unicode = false;
 bool g_modify = false; // Set when grammar has modifying operations
 bool g_output = false;
@@ -261,7 +261,7 @@ static bool process_matches(const std::vector<match>& ranges,
                 std::cout << pathname;
 
                 if (g_colour)
-                    std::cout << szWhiteText;
+                    std::cout << szDefaultText;
             }
 
             if (g_pathname_only)
@@ -296,7 +296,7 @@ static bool process_matches(const std::vector<match>& ranges,
                     std::cout << "):";
 
                     if (g_colour)
-                        std::cout << szWhiteText;
+                        std::cout << szDefaultText;
                 }
 
                 if (count == 0)
@@ -311,14 +311,14 @@ static bool process_matches(const std::vector<match>& ranges,
                         if (curr == iter->_first)
                             std::cout << szRedText;
                         else if (curr == iter->_eoi)
-                            std::cout << szWhiteText;
+                            std::cout << szDefaultText;
                     }
 
                     std::cout << *curr;
                 }
 
                 if (g_colour && (*curr == '\r' || *curr == '\n'))
-                    std::cout << szWhiteText;
+                    std::cout << szDefaultText;
             }
 
             if (!g_show_hits && g_print.empty() && !g_rule_print)
@@ -748,7 +748,7 @@ static void fill_pipeline(const std::vector<config>& configs)
 
                 lexer._flags = config._flags;
 
-                if (g_icase)
+                if (lexer._flags & config_flags::icase)
                     rules.flags(*lexertl::regex_flags::icase |
                         *lexertl::regex_flags::dot_not_cr_lf);
 
@@ -767,7 +767,7 @@ static void fill_pipeline(const std::vector<config>& configs)
 
                 lexer._flags = config._flags;
 
-                if (g_icase)
+                if (lexer._flags & config_flags::icase)
                     rules.flags(*lexertl::regex_flags::icase |
                         *lexertl::regex_flags::dot_not_cr_lf);
 
@@ -787,7 +787,7 @@ static void fill_pipeline(const std::vector<config>& configs)
             regex regex;
 
             regex._flags = config._flags;
-            regex._rx.assign(config._param, g_icase ?
+            regex._rx.assign(config._param, (regex._flags & config_flags::icase) ?
                 (std::regex_constants::ECMAScript |
                     std::regex_constants::icase) :
                 std::regex_constants::ECMAScript);
@@ -807,7 +807,7 @@ static void fill_pipeline(const std::vector<config>& configs)
                 if (g_config_parser._gsm.empty())
                     build_config_parser();
 
-                state.parse(config._param);
+                state.parse(config._flags, config._param);
                 g_rule_print |= state._print;
 
                 if (parser._gsm.empty())
@@ -832,7 +832,7 @@ static void fill_pipeline(const std::vector<config>& configs)
                 if (g_config_parser._gsm.empty())
                     build_config_parser();
 
-                state.parse(config._param);
+                state.parse(config._flags, config._param);
                 g_rule_print |= state._print;
 
                 if (parser._gsm.empty())
