@@ -243,7 +243,7 @@ struct config_state
     parsertl::match_results _results;
     std::string _lhs;
     bool _print = false;
-    std::size_t _format_param_count = 0;
+    std::size_t _varargs = 0;
 
     void parse(const unsigned int flags, const std::string& config_pathname);
 };

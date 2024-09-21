@@ -667,32 +667,64 @@ void build_config_parser()
         };
     g_config_parser._actions[grules.push("perform_format",
         "'format' '(' ret_function format_params ')'")] =
-        [](config_state& state, const config_parser&)
+        [](config_state& state, const config_parser& parser)
         {
             const auto rule_idx = static_cast<uint16_t>
                 (state._grules.grammar().size());
+
+            if (const auto& token = state._results.dollar(2, parser._gsm,
+                state._productions);
+                *token.first == '\'' && *(token.second - 1) == '\'')
+            {
+                static const char szTarget[] = { '{', '}' };
+                const char* curr = std::search(token.first, token.second,
+                    std::begin(szTarget), std::end(szTarget));
+                std::size_t count = 0;
+
+                for (; curr != token.second;
+                    curr = std::search(curr + 2, token.second,
+                        std::begin(szTarget), std::end(szTarget)))
+                {
+                    ++count;
+                }
+
+                if (count != state._varargs)
+                {
+                    std::ostringstream ss;
+
+                    ss << "Too ";
+
+                    if (count < state._varargs)
+                        ss << "many";
+                    else
+                        ss << "few";
+
+                    ss << " arguments for the format string";
+                    throw gg_error(ss.str());
+                }
+            }
 
             if (g_force_unicode)
             {
                 g_curr_uparser->_actions[rule_idx].
                     emplace(cmd(cmd_type::format,
-                        format_cmd(state._format_param_count)));
+                        format_cmd(state._varargs)));
             }
             else
             {
                 g_curr_parser->_actions[rule_idx].
                     emplace(cmd(cmd_type::format,
-                        format_cmd(state._format_param_count)));
+                        format_cmd(state._varargs)));
             }
 
-            state._format_param_count = 0;
+            state._varargs = 0;
         };
     grules.push("format_params", "%empty");
     g_config_parser._actions[grules.push("format_params",
         "format_params ',' ret_function")] =
         [](config_state& state, const config_parser&)
         {
-            ++state._format_param_count;
+            ++state._varargs;
         };
 
     // Token regex macros
