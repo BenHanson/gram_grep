@@ -215,7 +215,8 @@ static void process_action(const parser& p, const char* start,
             {
                 const auto fmt_idx = output.find("{}");
 
-                output.replace(fmt_idx, 2, arguments[idx]);
+                if (fmt_idx != std::string::npos)
+                    output.replace(fmt_idx, 2, arguments[idx]);
             }
 
             arguments.resize(arguments.size() - count);
