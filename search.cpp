@@ -57,6 +57,58 @@ const token_type& dollar(const uint16_t rule_, const std::size_t index_,
         production_size(sm_, rule_) + index_];
 }
 
+static std::string format_item(const std::string& input,
+    const std::pair<uint16_t, token::token_vector>& item)
+{
+    std::string output;
+    const char* last = input.c_str();
+    std::cregex_iterator iter(last, last + input.size(),
+        g_capture_rx);
+    std::cregex_iterator end;
+
+    for (; iter != end; ++iter)
+    {
+        const std::size_t idx =
+            static_cast<std::size_t>(atoi((*iter)[0].first + 1)) - 1;
+
+        output.append(last, (*iter)[0].first);
+        output += idx >= item.second.size() ?
+            std::string() :
+            item.second[idx].str();
+        last = (*iter)[0].second;
+    }
+
+    output.append(last, input.c_str() + input.size());
+    return output;
+}
+
+static std::string format_item(const std::string& input,
+    const std::pair<uint16_t,
+    parsertl::token<crutf8iterator>::token_vector>& item)
+{
+    std::string output;
+    const char* last = input.c_str();
+    std::cregex_iterator iter(last, last + input.size(),
+        g_capture_rx);
+    std::cregex_iterator end;
+
+    for (; iter != end; ++iter)
+    {
+        const std::size_t idx =
+            static_cast<std::size_t>(atoi((*iter)[0].first + 1)) - 1;
+
+        output.append(last, (*iter)[0].first);
+        output += idx >= item.second.size() ?
+            std::string() :
+            std::string(item.second[idx].first.get(),
+                item.second[idx].second.get());
+        last = (*iter)[0].second;
+    }
+
+    output.append(last, input.c_str() + input.size());
+    return output;
+}
+
 static void process_action(const parser& p, const char* start,
     const std::map<uint16_t, actions>::iterator& action_iter,
     const std::pair<uint16_t, token::token_vector>& item,
@@ -143,28 +195,9 @@ static void process_action(const parser& p, const char* start,
             break;
         case cmd_type::exec:
         {
-            std::string command;
-            const std::string last_str = arguments.back();
-            const char* last = last_str.c_str();
-            std::cregex_iterator iter(last, last + last_str.size(),
-                g_capture_rx);
-            std::cregex_iterator end;
-            std::string output;
+            const std::string command = format_item(arguments.back(), item);
+            std::string output = exec_ret(command);
 
-            for (; iter != end; ++iter)
-            {
-                const std::size_t idx =
-                    static_cast<std::size_t>(atoi((*iter)[0].first + 1)) - 1;
-
-                command.append(last, (*iter)[0].first);
-                command += idx >= item.second.size() ?
-                    std::string() :
-                    item.second[idx].str();
-                last = (*iter)[0].second;
-            }
-
-            command.append(last, last_str.c_str() + last_str.size());
-            output = exec_ret(command);
             arguments.pop_back();
             arguments.push_back(std::move(output));
             break;
@@ -174,7 +207,7 @@ static void process_action(const parser& p, const char* start,
             const auto& action = std::get<format_cmd>(cmd._action);
             const std::size_t count = action._param_count + 1;
             std::size_t idx = arguments.size() - count;
-            std::string output = arguments[idx];
+            std::string output = format_item(arguments[idx], item);
 
             ++idx;
 
@@ -204,25 +237,8 @@ static void process_action(const parser& p, const char* start,
             break;
         case cmd_type::print:
         {
-            std::string output;
-            const std::string& last_str = arguments.back();
-            const char* last = last_str.c_str();
-            std::cregex_iterator iter(last, last + last_str.size(), g_capture_rx);
-            std::cregex_iterator end;
+            const std::string output = format_item(arguments.back(), item);
 
-            for (; iter != end; ++iter)
-            {
-                const std::size_t idx =
-                    static_cast<std::size_t>(atoi((*iter)[0].first + 1)) - 1;
-
-                output.append(last, (*iter)[0].first);
-                output += idx >= item.second.size() ?
-                    std::string() :
-                    item.second[idx].str();
-                last = (*iter)[0].second;
-            }
-
-            output.append(last, last_str.c_str() + last_str.size());
             std::cout << output;
             arguments.pop_back();
             break;
@@ -365,29 +381,9 @@ static void process_action(const uparser& p, const char* start,
         }
         case cmd_type::exec:
         {
-            std::string command;
-            const std::string last_str = arguments.back();
-            const char* last = last_str.c_str();
-            std::cregex_iterator iter(last, last + last_str.size(),
-                g_capture_rx);
-            std::cregex_iterator end;
-            std::string output;
+            const std::string command = format_item(arguments.back(), item);
+            std::string output = exec_ret(command);
 
-            for (; iter != end; ++iter)
-            {
-                const std::size_t idx =
-                    static_cast<std::size_t>(atoi((*iter)[0].first + 1)) - 1;
-
-                command.append(last, (*iter)[0].first);
-                command += idx >= item.second.size() ?
-                    std::string() :
-                    std::string(item.second[idx].first.get(),
-                        item.second[idx].second.get());
-                last = (*iter)[0].second;
-            }
-
-            command.append(last, last_str.c_str() + last_str.size());
-            output = exec_ret(command);
             arguments.pop_back();
             arguments.push_back(std::move(output));
             break;
@@ -397,7 +393,7 @@ static void process_action(const uparser& p, const char* start,
             const auto& action = std::get<format_cmd>(cmd._action);
             const std::size_t count = action._param_count + 1;
             std::size_t idx = arguments.size() - count;
-            std::string output = arguments[idx];
+            std::string output = format_item(arguments[idx], item);
 
             ++idx;
 
@@ -429,26 +425,8 @@ static void process_action(const uparser& p, const char* start,
         }
         case cmd_type::print:
         {
-            std::string output;
-            const std::string& last_str = arguments.back();
-            const char* last = last_str.c_str();
-            std::cregex_iterator iter(last, last + last_str.size(), g_capture_rx);
-            std::cregex_iterator end;
+            const std::string output = format_item(arguments.back(), item);
 
-            for (; iter != end; ++iter)
-            {
-                const std::size_t idx =
-                    static_cast<std::size_t>(atoi((*iter)[0].first + 1)) - 1;
-
-                output.append(last, (*iter)[0].first);
-                output += idx >= item.second.size() ?
-                    std::string() :
-                    std::string(item.second[idx].first.get(),
-                        item.second[idx].second.get());
-                last = (*iter)[0].second;
-            }
-
-            output.append(last, last_str.c_str() + last_str.size());
             std::cout << output;
             arguments.pop_back();
             break;
