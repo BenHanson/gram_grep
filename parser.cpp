@@ -626,12 +626,14 @@ void build_config_parser()
             if (g_force_unicode)
             {
                 g_curr_uparser->_actions[rule_idx].
-                    emplace(cmd(cmd_type::replace_all, index, replace_all_cmd()));
+                    emplace(cmd(cmd_type::replace_all_inplace,
+                        index, replace_all_inplace_cmd()));
             }
             else
             {
                 g_curr_parser->_actions[rule_idx].
-                    emplace(cmd(cmd_type::replace_all, index, replace_all_cmd()));
+                    emplace(cmd(cmd_type::replace_all_inplace, index,
+                        replace_all_inplace_cmd()));
             }
         };
 
@@ -644,10 +646,11 @@ void build_config_parser()
                 state._productions).substr(1, 1);
 
             g_curr_parser->_actions[rule_idx].
-                _arguments.push_back(std::move(text));
+                _arguments.push_front(std::move(text));
         };
     grules.push("ret_function", "perform_exec "
-        "| perform_format");
+        "| perform_format "
+        "| perform_replace_all");
     g_config_parser._actions[grules.push("perform_exec", "'exec' '(' ret_function ')'")] =
         [](config_state& state, const config_parser&)
         {
@@ -718,6 +721,24 @@ void build_config_parser()
             }
 
             state._varargs = 0;
+        };
+    g_config_parser._actions[grules.push("perform_replace_all",
+        "'replace_all' '(' ret_function ',' ret_function ',' ret_function ')'")] =
+        [](config_state& state, const config_parser&)
+        {
+            const auto rule_idx = static_cast<uint16_t>
+                (state._grules.grammar().size());
+
+            if (g_force_unicode)
+            {
+                g_curr_uparser->_actions[rule_idx].
+                    emplace(cmd(cmd_type::replace_all, replace_all_cmd()));
+            }
+            else
+            {
+                g_curr_parser->_actions[rule_idx].
+                    emplace(cmd(cmd_type::replace_all, replace_all_cmd()));
+            }
         };
     grules.push("format_params", "%empty");
     g_config_parser._actions[grules.push("format_params",

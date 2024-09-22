@@ -117,6 +117,10 @@ struct replace_all_cmd
 {
 };
 
+struct replace_all_inplace_cmd
+{
+};
+
 enum class cmd_type
 {
     unknown,
@@ -128,13 +132,15 @@ enum class cmd_type
     insert,
     print,
     replace,
-    replace_all
+    replace_all,
+    replace_all_inplace
 };
 
 struct cmd
 {
     using action = std::variant<erase_cmd, exec_cmd, format_cmd, insert_cmd,
-        match_cmd, print_cmd, replace_cmd, replace_all_cmd>;
+        match_cmd, print_cmd, replace_cmd, replace_all_cmd,
+        replace_all_inplace_cmd>;
     cmd_type _type = cmd_type::unknown;
     uint16_t _param1 = 0;
     bool _second1 = false;
@@ -190,7 +196,7 @@ struct cmd
 struct actions
 {
     std::vector<cmd> _commands;
-    std::vector<std::string> _arguments;
+    std::deque<std::string> _arguments;
 
     void emplace(cmd&& command)
     {

@@ -205,21 +205,22 @@ static void process_action(const parser& p, const char* start,
         case cmd_type::format:
         {
             const auto& action = std::get<format_cmd>(cmd._action);
-            const std::size_t count = action._param_count + 1;
-            std::size_t idx = arguments.size() - count;
-            std::string output = format_item(arguments[idx], item);
+            std::size_t count = action._param_count + 1;
+            std::string output = format_item(arguments.back(), item);
 
-            ++idx;
+            arguments.pop_back();
+            --count;
 
-            for (; idx < count; ++idx)
+            for (; count; --count)
             {
                 const auto fmt_idx = output.find("{}");
 
                 if (fmt_idx != std::string::npos)
-                    output.replace(fmt_idx, 2, arguments[idx]);
+                    output.replace(fmt_idx, 2, arguments.back());
+
+                arguments.pop_back();
             }
 
-            arguments.resize(arguments.size() - count);
             arguments.push_back(unescape(output));
             break;
         }
@@ -263,6 +264,17 @@ static void process_action(const parser& p, const char* start,
             arguments.pop_back();
             break;
         case cmd_type::replace_all:
+        {
+            const std::regex rx(arguments[arguments.size() - 2]);
+            const std::string output =
+                std::regex_replace(arguments.back(),
+                    rx, arguments[arguments.size() - 3]);
+
+            arguments.resize(arguments.size() - 3);
+            arguments.push_back(output);
+            break;
+        }
+        case cmd_type::replace_all_inplace:
             if (g_output)
             {
                 const auto size = productions.size() -
@@ -392,20 +404,22 @@ static void process_action(const uparser& p, const char* start,
         case cmd_type::format:
         {
             const auto& action = std::get<format_cmd>(cmd._action);
-            const std::size_t count = action._param_count + 1;
-            std::size_t idx = arguments.size() - count;
-            std::string output = format_item(arguments[idx], item);
+            std::size_t count = action._param_count + 1;
+            std::string output = format_item(arguments.back(), item);
 
-            ++idx;
+            arguments.pop_back();
+            --count;
 
-            for (; idx < count; ++idx)
+            for (; count; --count)
             {
                 const auto fmt_idx = output.find("{}");
 
-                output.replace(fmt_idx, 2, arguments[idx]);
+                if (fmt_idx != std::string::npos)
+                    output.replace(fmt_idx, 2, arguments.back());
+
+                arguments.pop_back();
             }
 
-            arguments.resize(arguments.size() - count);
             arguments.push_back(unescape(output));
             break;
         }
@@ -452,6 +466,17 @@ static void process_action(const uparser& p, const char* start,
             break;
         }
         case cmd_type::replace_all:
+        {
+            const std::regex rx(arguments[arguments.size() - 2]);
+            const std::string output =
+                std::regex_replace(arguments.back(),
+                    rx, arguments[arguments.size() - 3]);
+
+            arguments.resize(arguments.size() - 3);
+            arguments.push_back(output);
+            break;
+        }
+        case cmd_type::replace_all_inplace:
             if (g_output)
             {
                 const auto size = production_size(p._gsm, item.first);
