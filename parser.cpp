@@ -503,17 +503,18 @@ void build_config_parser()
             const uint16_t rule_idx = state._grules.grammar().size() & 0xffff;
             const uint16_t index = (atoi(token.first + 1) - 1) & 0xffff;
             auto command = std::make_shared<erase_cmd>(index);
+            actions* ptr = nullptr;
 
             if (g_force_unicode)
             {
-                g_curr_uparser->_actions[rule_idx].
-                    emplace(std::move(command));
+                ptr = &g_curr_uparser->_actions[rule_idx];
             }
             else
             {
-                g_curr_parser->_actions[rule_idx].
-                    emplace(std::move(command));
+                ptr = &g_curr_parser->_actions[rule_idx];
             }
+
+            ptr->emplace(std::move(command));
         };
     g_config_parser._actions[grules.push("mod_cmd",
         "'erase' '(' Index ',' Index ')'")] =
@@ -527,16 +528,18 @@ void build_config_parser()
             const uint16_t index1 = (atoi(token2.first + 1) - 1) & 0xffff;
             const uint16_t index2 = (atoi(token4.first + 1) - 1) & 0xffff;
             auto command = std::make_shared<erase_cmd>(index1, index2);
+            actions* ptr = nullptr;
 
             if (g_force_unicode)
             {
-                g_curr_uparser->_actions[rule_idx].emplace(std::move(command));
+                ptr = &g_curr_uparser->_actions[rule_idx];
             }
             else
             {
-                g_curr_parser->_actions[rule_idx].
-                    emplace(std::move(command));
+                ptr = &g_curr_parser->_actions[rule_idx];
             }
+
+            ptr->emplace(std::move(command));
         };
     g_config_parser._actions[grules.push("mod_cmd",
         "'erase' '(' Index '.' first_second ',' Index '.' first_second ')'")] =
@@ -555,15 +558,18 @@ void build_config_parser()
             const uint16_t index2 = (atoi(token6.first + 1) - 1) & 0xffff;
             auto command = std::make_shared<erase_cmd>
                 (index1, second1, index2, second2);
+            actions* ptr = nullptr;
 
             if (g_force_unicode)
             {
-                g_curr_uparser->_actions[rule_idx].emplace(std::move(command));
+                ptr = &g_curr_uparser->_actions[rule_idx];
             }
             else
             {
-                g_curr_parser->_actions[rule_idx].emplace(std::move(command));
+                ptr = &g_curr_parser->_actions[rule_idx];
             }
+
+            ptr->emplace(std::move(command));
         };
 
     g_config_parser._actions[grules.push("mod_cmd",

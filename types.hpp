@@ -113,6 +113,8 @@ struct cmd
     {
     }
 
+    virtual ~cmd() = default;
+
     virtual void push(cmd*)
     {
         // Do nothing by default
