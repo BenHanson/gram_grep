@@ -14,34 +14,6 @@ extern pipeline g_pipeline;
 
 extern std::string unescape(const std::string_view& vw);
 
-[[nodiscard]] std::string exec_ret(const std::string& cmd)
-{
-    std::array<char, 128> buffer{};
-    std::string result;
-#ifdef _WIN32
-    std::unique_ptr<FILE, decltype(&_pclose)> pipe(_popen(cmd.c_str(), "rb"), &_pclose);
-#else
-    auto closer = [](std::FILE* fp) { pclose(fp); };
-    std::unique_ptr<FILE, decltype(closer)> pipe(popen(cmd.c_str(), "r"), closer);
-#endif
-    std::size_t size = 0;
-
-    if (!pipe)
-    {
-        throw gg_error("Failed to open " + cmd);
-    }
-
-    result.reserve(1024);
-
-    do
-    {
-        size = fread(buffer.data(), 1, buffer.size(), pipe.get());
-        result.append(buffer.data(), size);
-    } while (size);
-
-    return result;
-}
-
 static std::size_t production_size(const parsertl::state_machine& sm,
     const std::size_t index_)
 {
@@ -79,7 +51,7 @@ static std::string format_item(const std::string& input,
     }
 
     output.append(last, input.c_str() + input.size());
-    return output;
+    return unescape(output);
 }
 
 static std::string format_item(const std::string& input,
@@ -106,7 +78,7 @@ static std::string format_item(const std::string& input,
     }
 
     output.append(last, input.c_str() + input.size());
-    return output;
+    return unescape(output);
 }
 
 static void process_action(const parser& p, const char* start,
@@ -115,186 +87,137 @@ static void process_action(const parser& p, const char* start,
     std::stack<std::string>& matches,
     std::map<std::pair<std::size_t, std::size_t>, std::string>& replacements)
 {
-    auto arguments = action_iter->second._arguments;
-
-    for (const auto& cmd : action_iter->second._commands)
+    for (const auto cmd : action_iter->second._commands)
     {
         const token::token_vector& productions = item.second;
 
-        switch (cmd._type)
+        switch (cmd->_type)
         {
-        case cmd_type::append:
+        case cmd::type::append:
         {
-            const auto& c = std::get<match_cmd>(cmd._action);
+            const auto c = static_cast<match_cmd*>(cmd);
             const std::string_view temp = dollar<token>(item.first,
-                cmd._param1, p._gsm, productions).view();
-            const uint16_t size = c._front + c._back;
+                cmd->_param1, p._gsm, productions).view();
+            const uint16_t size = c->_front + c->_back;
 
-            if (c._front == 0 && c._back == 0)
+            if (c->_front == 0 && c->_back == 0)
                 matches.top() += temp;
             else
             {
-                if (c._front >= temp.size() || size > temp.size())
+                if (c->_front >= temp.size() || size > temp.size())
                 {
                     throw gg_error(std::format("substr(${}, {}, {}) out of "
                         "range for string '{}'.",
-                        cmd._param1 + 1,
-                        c._front,
-                        c._back,
+                        cmd->_param1 + 1,
+                        c->_front,
+                        c->_back,
                         temp));
                 }
 
-                matches.top() += temp.substr(c._front, temp.size() - size);
+                matches.top() += temp.substr(c->_front, temp.size() - size);
             }
 
             break;
         }
-        case cmd_type::assign:
+        case cmd::type::assign:
         {
-            const auto& c = std::get<match_cmd>(cmd._action);
-            std::string temp = dollar<token>(item.first, cmd._param1, p._gsm,
+            const auto& c = static_cast<match_cmd*>(cmd);
+            std::string temp = dollar<token>(item.first, cmd->_param1, p._gsm,
                 productions).str();
 
-            if (c._front == 0 && c._back == 0)
+            if (c->_front == 0 && c->_back == 0)
                 matches.top() = std::move(temp);
             else
             {
-                const uint16_t size = c._front + c._back;
+                const uint16_t size = c->_front + c->_back;
 
-                if (c._front >= temp.size() || size > temp.size())
+                if (c->_front >= temp.size() || size > temp.size())
                 {
                     throw gg_error(std::format("substr(${}, {}, {}) out of "
                         "range for string '{}'.",
-                        cmd._param1 + 1,
-                        c._front,
-                        c._back,
+                        cmd->_param1 + 1,
+                        c->_front,
+                        c->_back,
                         temp));
                 }
 
-                matches.top() = temp.substr(c._front, temp.size() - size);
+                matches.top() = temp.substr(c->_front, temp.size() - size);
             }
 
             break;
         }
-        case cmd_type::erase:
+        case cmd::type::erase:
             if (g_output)
             {
-                const auto& param1 = dollar<token>(item.first, cmd._param1,
+                const auto& param1 = dollar<token>(item.first, cmd->_param1,
                     p._gsm, productions);
-                const auto& param2 = dollar<token>(item.first, cmd._param2,
+                const auto& param2 = dollar<token>(item.first, cmd->_param2,
                     p._gsm, productions);
                 const auto index1 =
-                    (cmd._second1 ? param1.second : param1.first) - start;
+                    (cmd->_second1 ? param1.second : param1.first) - start;
                 const auto index2 =
-                    (cmd._second2 ? param2.second : param2.first) - start;
+                    (cmd->_second2 ? param2.second : param2.first) - start;
 
                 replacements[std::pair(index1, index2 - index1)] =
                     std::string();
             }
 
             break;
-        case cmd_type::exec:
-        {
-            const std::string command = format_item(arguments.back(), item);
-            std::string output = exec_ret(command);
-
-            arguments.pop_back();
-            arguments.push_back(std::move(output));
-            break;
-        }
-        case cmd_type::format:
-        {
-            const auto& action = std::get<format_cmd>(cmd._action);
-            std::size_t count = action._param_count + 1;
-            std::string output = format_item(arguments.back(), item);
-
-            arguments.pop_back();
-            --count;
-
-            for (; count; --count)
-            {
-                const auto fmt_idx = output.find("{}");
-
-                if (fmt_idx != std::string::npos)
-                    output.replace(fmt_idx, 2, arguments.back());
-
-                arguments.pop_back();
-            }
-
-            arguments.push_back(unescape(output));
-            break;
-        }
-        case cmd_type::insert:
+        case cmd::type::insert:
             if (g_output)
             {
-                const auto& param = dollar<token>(item.first, cmd._param1,
+                const auto c = static_cast<insert_cmd*>(cmd);
+                const auto& param = dollar<token>(item.first, cmd->_param1,
                     p._gsm, productions);
-                const auto index = (cmd._second1 ? param.second : param.first) -
-                    start;
+                const auto index = (cmd->_second1 ?
+                    param.second :
+                    param.first) - start;
 
-                replacements[std::pair(index, 0)] = arguments.back();
+                replacements[std::pair(index, 0)] = action_iter->second.exec(c->_param);
             }
 
-            arguments.pop_back();
             break;
-        case cmd_type::print:
-        {
-            const std::string output = format_item(arguments.back(), item);
-
-            std::cout << output;
-            arguments.pop_back();
+        case cmd::type::print:
+            std::cout << format_item(action_iter->second.exec(cmd), item);
             break;
-        }
-        case cmd_type::replace:
+        case cmd::type::replace:
             if (g_output)
             {
+                const auto c = static_cast<replace_cmd*>(cmd);
                 const auto size = productions.size() -
                     production_size(p._gsm, item.first);
-                const auto& param1 = productions[size + cmd._param1];
-                const auto& param2 = productions[size + cmd._param2];
+                const auto& param1 = productions[size + c->_param1];
+                const auto& param2 = productions[size + c->_param2];
                 const auto index1 =
-                    (cmd._second1 ? param1.second : param1.first) - start;
+                    (c->_second1 ? param1.second : param1.first) - start;
                 const auto index2 =
-                    (cmd._second2 ? param2.second : param2.first) - start;
+                    (c->_second2 ? param2.second : param2.first) - start;
 
                 replacements[std::pair(index1, index2 - index1)] =
-                    arguments.back();
+                    action_iter->second.exec(c->_param);
             }
 
-            arguments.pop_back();
             break;
-        case cmd_type::replace_all:
-        {
-            const std::regex rx(arguments[arguments.size() - 2]);
-            const std::string output =
-                std::regex_replace(arguments.back(),
-                    rx, arguments[arguments.size() - 3]);
-
-            arguments.resize(arguments.size() - 3);
-            arguments.push_back(output);
-            break;
-        }
-        case cmd_type::replace_all_inplace:
+        case cmd::type::replace_all_inplace:
             if (g_output)
             {
+                const auto c = static_cast<replace_all_inplace_cmd*>(cmd);
                 const auto size = productions.size() -
                     production_size(p._gsm, item.first);
-                const auto& param = productions[size + cmd._param1];
+                const auto& param = productions[size + c->_param1];
                 const auto index1 = param.first - start;
                 const auto index2 = param.second - start;
                 auto pair = std::pair(index1, index2 - index1);
                 auto iter = replacements.find(pair);
-                const std::regex rx(arguments[arguments.size() - 2]);
+                const std::regex rx(action_iter->second.exec(c->_params[0]));
                 const std::string text =
                     std::regex_replace(iter == replacements.end() ?
                         std::string(param.first, param.second) : iter->second,
-                        rx, arguments.back());
+                        rx, action_iter->second.exec(c->_params[1]));
 
                 replacements[pair] = text;
             }
 
-            arguments.pop_back();
-            arguments.pop_back();
             break;
         default:
             break;
@@ -309,81 +232,78 @@ static void process_action(const uparser& p, const char* start,
     std::stack<std::string>& matches,
     std::map<std::pair<std::size_t, std::size_t>, std::string>& replacements)
 {
-    auto arguments = action_iter->second._arguments;
-
-    for (const auto& cmd : action_iter->second._commands)
+    for (const auto cmd : action_iter->second._commands)
     {
         using token_type = parsertl::token<crutf8iterator>;
         const token_type::token_vector& productions = item.second;
 
-        switch (cmd._type)
+        switch (cmd->_type)
         {
-        case cmd_type::append:
+        case cmd::type::append:
         {
-            const auto& c = std::get<match_cmd>(cmd._action);
+            const auto c = static_cast<match_cmd*>(cmd);
             auto& token = dollar<token_type>
-                (item.first, cmd._param1, p._gsm, productions);
+                (item.first, cmd->_param1, p._gsm, productions);
             std::string temp(token.first.get(), token.second.get());
-            const uint16_t size = c._front + c._back;
+            const uint16_t size = c->_front + c->_back;
 
-            if (c._front == 0 && c._back == 0)
+            if (c->_front == 0 && c->_back == 0)
                 matches.top() += temp;
             else
             {
-                if (c._front >= temp.size() || size > temp.size())
+                if (c->_front >= temp.size() || size > temp.size())
                 {
                     throw gg_error(std::format("substr(${}, {}, {}) out of "
                         "range for string '{}'.",
-                        cmd._param1 + 1,
-                        c._front,
-                        c._back,
+                        cmd->_param1 + 1,
+                        c->_front,
+                        c->_back,
                         temp));
                 }
 
-                matches.top() += temp.substr(c._front, temp.size() - size);
+                matches.top() += temp.substr(c->_front, temp.size() - size);
             }
 
             break;
         }
-        case cmd_type::assign:
+        case cmd::type::assign:
         {
-            const auto& c = std::get<match_cmd>(cmd._action);
-            auto& token = dollar<token_type>(item.first, cmd._param1, p._gsm,
+            const auto c = static_cast<match_cmd*>(cmd);
+            auto& token = dollar<token_type>(item.first, cmd->_param1, p._gsm,
                 productions);
             std::string temp(token.first.get(), token.second.get());
 
-            if (c._front == 0 && c._back == 0)
+            if (c->_front == 0 && c->_back == 0)
                 matches.top() = std::move(temp);
             else
             {
-                const uint16_t size = c._front + c._back;
+                const uint16_t size = c->_front + c->_back;
 
-                if (c._front >= temp.size() || size > temp.size())
+                if (c->_front >= temp.size() || size > temp.size())
                 {
                     throw gg_error(std::format("substr(${}, {}, {}) out of "
                         "range for string '{}'.",
-                        cmd._param1 + 1,
-                        c._front,
-                        c._back,
+                        cmd->_param1 + 1,
+                        c->_front,
+                        c->_back,
                         temp));
                 }
 
-                matches.top() = temp.substr(c._front, temp.size() - size);
+                matches.top() = temp.substr(c->_front, temp.size() - size);
             }
 
             break;
         }
-        case cmd_type::erase:
-        {
+        case cmd::type::erase:
             if (g_output)
             {
-                const auto& param1 = dollar<token_type>(item.first, cmd._param1,
+                const auto& param1 = dollar<token_type>(item.first, cmd->_param1,
                     p._gsm, productions);
-                const auto& param2 = dollar<token_type>(item.first, cmd._param2,
+                const auto& param2 = dollar<token_type>(item.first, cmd->_param2,
                     p._gsm, productions);
-                const auto index1 = (cmd._second1 ? param1.second.get() :
+                const auto index1 = (cmd->_second1 ? param1.second.get() :
                     param1.first.get()) - start;
-                const auto index2 = (cmd._second2 ? param2.second.get() :
+                const auto index2 = (cmd->_second2 ? param2.second.get() :
                     param2.first.get()) - start;
 
                 replacements[std::pair(index1, index2 - index1)] =
@@ -391,112 +311,59 @@ static void process_action(const uparser& p, const char* start,
             }
 
             break;
-        }
-        case cmd_type::exec:
-        {
-            const std::string command = format_item(arguments.back(), item);
-            std::string output = exec_ret(command);
-
-            arguments.pop_back();
-            arguments.push_back(std::move(output));
-            break;
-        }
-        case cmd_type::format:
-        {
-            const auto& action = std::get<format_cmd>(cmd._action);
-            std::size_t count = action._param_count + 1;
-            std::string output = format_item(arguments.back(), item);
-
-            arguments.pop_back();
-            --count;
-
-            for (; count; --count)
-            {
-                const auto fmt_idx = output.find("{}");
-
-                if (fmt_idx != std::string::npos)
-                    output.replace(fmt_idx, 2, arguments.back());
-
-                arguments.pop_back();
-            }
-
-            arguments.push_back(unescape(output));
-            break;
-        }
-        case cmd_type::insert:
-        {
+        case cmd::type::insert:
             if (g_output)
             {
-                const auto& param = dollar<token_type>(item.first, cmd._param1,
+                const auto c = static_cast<insert_cmd*>(cmd);
+                const auto& param = dollar<token_type>(item.first, cmd->_param1,
                     p._gsm, productions);
-                const auto index = (cmd._second1 ? param.second.get() :
+                const auto index = (cmd->_second1 ? param.second.get() :
                     param.first.get()) - start;
 
-                replacements[std::pair(index, 0)] = arguments.back();
+                replacements[std::pair(index, 0)] = action_iter->second.exec(c->_param);
             }
 
-            arguments.pop_back();
             break;
-        }
-        case cmd_type::print:
-        {
-            const std::string output = format_item(arguments.back(), item);
-
-            std::cout << output;
-            arguments.pop_back();
+        case cmd::type::print:
+            std::cout << format_item(action_iter->second.exec(cmd), item);
             break;
-        }
-        case cmd_type::replace:
-        {
+        case cmd::type::replace:
             if (g_output)
             {
+                const auto c = static_cast<replace_cmd*>(cmd);
                 const auto size = production_size(p._gsm, item.first);
-                const auto& param1 = productions[size + cmd._param1];
-                const auto& param2 = productions[size + cmd._param2];
-                const auto index1 = (cmd._second1 ? param1.second.get() :
+                const auto& param1 = productions[size + c->_param1];
+                const auto& param2 = productions[size + c->_param2];
+                const auto index1 = (c->_second1 ? param1.second.get() :
                     param1.first.get()) - start;
-                const auto index2 = (cmd._second2 ? param2.second.get() :
+                const auto index2 = (c->_second2 ? param2.second.get() :
                     param2.first.get()) - start;
 
                 replacements[std::pair(index1, index2 - index1)] =
-                    arguments.back();
+                    action_iter->second.exec(c->_param);
             }
 
-            arguments.pop_back();
             break;
-        }
-        case cmd_type::replace_all:
-        {
-            const std::regex rx(arguments[arguments.size() - 2]);
-            const std::string output =
-                std::regex_replace(arguments.back(),
-                    rx, arguments[arguments.size() - 3]);
-
-            arguments.resize(arguments.size() - 3);
-            arguments.push_back(output);
-            break;
-        }
-        case cmd_type::replace_all_inplace:
+        case cmd::type::replace_all_inplace:
             if (g_output)
             {
+                const auto c = static_cast<replace_all_inplace_cmd*>(cmd);
                 const auto size = production_size(p._gsm, item.first);
-                const auto& param = productions[size + cmd._param1];
+                const auto& param = productions[size + c->_param1];
                 const auto index1 = param.first.get() - start;
                 const auto index2 = param.second.get() - start;
                 auto pair = std::pair(index1, index2 - index1);
                 auto iter = replacements.find(pair);
-                const std::regex rx(arguments[arguments.size() - 2]);
+                const std::regex rx(action_iter->second.exec(c->_params[0]));
                 const std::string text =
                     std::regex_replace(iter == replacements.end() ?
                         std::string(param.first.get(), param.second.get()) :
                         iter->second,
-                        rx, arguments.back());
+                        rx, action_iter->second.exec(c->_params[1]));
 
                 replacements[pair] = text;
             }
 
-            arguments.pop_back();
-            arguments.pop_back();
             break;
         default:
             break;
@@ -593,19 +460,22 @@ static bool process_text(const text& t, const char* data_first,
             {
                 const char* last_start = ranges.back()._first;
 
-                ranges.back()._second = first + text.size();
+                if (!(t._flags & config_flags::ret_prev_match))
+                    ranges.back()._second = first + text.size();
 
                 if (last_start == first)
                 {
-                    // The match is right at the beginning, so skip.
-                    ranges.emplace_back(second, second, second);
+                    if (!(t._flags & config_flags::ret_prev_match))
+                        // The match is right at the beginning, so skip.
+                        ranges.emplace_back(second, second, second);
+
                     success = false;
                 }
-                else
+                else if (!(t._flags & config_flags::ret_prev_match))
                     ranges.emplace_back(ranges.back()._first, first, first);
             }
         }
-        else
+        else if (!(t._flags & config_flags::ret_prev_match))
         {
             // Store start of match
             ranges.back()._first = first;
@@ -625,8 +495,12 @@ static bool process_text(const text& t, const char* data_first,
     else if (t._flags & config_flags::negate &&
         ranges.back()._first != ranges.back()._eoi)
     {
-        ranges.back()._second = first;
-        ranges.emplace_back(ranges.back()._first, first, first);
+        if (!(t._flags & config_flags::ret_prev_match))
+        {
+            ranges.back()._second = first;
+            ranges.emplace_back(ranges.back()._first, first, first);
+        }
+
         success = true;
     }
 
@@ -664,21 +538,24 @@ static bool process_regex(const regex& r, const char* data_first,
             {
                 const char* last_start = ranges.back()._first;
 
-                ranges.back()._second = (*iter)[0].second;
+                if (!(r._flags & config_flags::ret_prev_match))
+                    ranges.back()._second = (*iter)[0].second;
 
                 if (last_start == (*iter)[0].first)
                 {
-                    // The match is right at the beginning, so skip.
-                    ranges.emplace_back((*iter)[0].second, (*iter)[0].second,
-                        (*iter)[0].second);
+                    if (!(r._flags & config_flags::ret_prev_match))
+                        // The match is right at the beginning, so skip.
+                        ranges.emplace_back((*iter)[0].second, (*iter)[0].second,
+                            (*iter)[0].second);
+
                     success = false;
                 }
-                else
+                else if(!(r._flags & config_flags::ret_prev_match))
                     ranges.emplace_back(ranges.back()._first, (*iter)[0].first,
                         (*iter)[0].first);
             }
         }
-        else
+        else if(!(r._flags & config_flags::ret_prev_match))
         {
             // Store start of match
             ranges.back()._first = (*iter)[0].first;
@@ -698,9 +575,13 @@ static bool process_regex(const regex& r, const char* data_first,
     else if (r._flags & config_flags::negate &&
         ranges.back()._first != ranges.back()._eoi)
     {
-        ranges.back()._second = ranges.back()._eoi;
-        ranges.emplace_back(ranges.back()._first, ranges.back()._eoi,
-            ranges.back()._eoi);
+        if (!(r._flags & config_flags::ret_prev_match))
+        {
+            ranges.back()._second = ranges.back()._eoi;
+            ranges.emplace_back(ranges.back()._first, ranges.back()._eoi,
+                ranges.back()._eoi);
+        }
+
         success = true;
     }
 
@@ -746,21 +627,24 @@ static bool process_lexer(const lexer& l, const char* data_first,
             {
                 const char* last_start = ranges.back()._first;
 
-                ranges.back()._second = iter->second;
+                if (!(l._flags & config_flags::ret_prev_match))
+                    ranges.back()._second = iter->second;
 
                 if (last_start == iter->first)
                 {
-                    // The match is right at the beginning, so skip.
-                    ranges.emplace_back(iter->second, iter->second,
-                        iter->second);
+                    if (!(l._flags & config_flags::ret_prev_match))
+                        // The match is right at the beginning, so skip.
+                        ranges.emplace_back(iter->second, iter->second,
+                            iter->second);
+
                     success = false;
                 }
-                else
+                else if(!(l._flags & config_flags::ret_prev_match))
                     ranges.emplace_back(ranges.back()._first, iter->first,
                         iter->first);
             }
         }
-        else
+        else if(!(l._flags & config_flags::ret_prev_match))
         {
             // Store start of match
             ranges.back()._first = iter->first;
@@ -780,8 +664,12 @@ static bool process_lexer(const lexer& l, const char* data_first,
     else if (l._flags & config_flags::negate &&
         ranges.back()._first != ranges.back()._eoi)
     {
-        ranges.back()._second = iter->first;
-        ranges.emplace_back(ranges.back()._first, iter->first, iter->first);
+        if (!(l._flags & config_flags::ret_prev_match))
+        {
+            ranges.back()._second = iter->first;
+            ranges.emplace_back(ranges.back()._first, iter->first, iter->first);
+        }
+
         success = true;
     }
 
@@ -822,21 +710,24 @@ static bool process_lexer(const ulexer& l, const char* data_first,
             {
                 const char* last_start = ranges.back()._first;
 
-                ranges.back()._second = iter->second.get();
+                if (!(l._flags & config_flags::ret_prev_match))
+                    ranges.back()._second = iter->second.get();
 
                 if (last_start == iter->first.get())
                 {
-                    // The match is right at the beginning, so skip.
-                    ranges.emplace_back(iter->second.get(), iter->second.get(),
-                        iter->second.get());
+                    if (!(l._flags & config_flags::ret_prev_match))
+                        // The match is right at the beginning, so skip.
+                        ranges.emplace_back(iter->second.get(), iter->second.get(),
+                            iter->second.get());
+
                     success = false;
                 }
-                else
+                else if (!(l._flags & config_flags::ret_prev_match))
                     ranges.emplace_back(ranges.back()._first, iter->first.get(),
                         iter->first.get());
             }
         }
-        else
+        else if (!(l._flags & config_flags::ret_prev_match))
         {
             // Store start of match
             ranges.back()._first = iter->first.get();
@@ -856,9 +747,13 @@ static bool process_lexer(const ulexer& l, const char* data_first,
     else if (l._flags & config_flags::negate &&
         ranges.back()._first != ranges.back()._eoi)
     {
-        ranges.back()._second = iter->first.get();
-        ranges.emplace_back(ranges.back()._first, iter->first.get(),
-            iter->first.get());
+        if (!(l._flags & config_flags::ret_prev_match))
+        {
+            ranges.back()._second = iter->first.get();
+            ranges.emplace_back(ranges.back()._first, iter->first.get(),
+                iter->first.get());
+        }
+
         success = true;
     }
 
@@ -913,16 +808,19 @@ static bool process_parser(parser& p, const char* data_first,
             {
                 const char* last_start = ranges.back()._first;
 
-                ranges.back()._second = end->first;
+                if (!(p._flags & config_flags::ret_prev_match))
+                    ranges.back()._second = end->first;
 
                 if (last_start == iter->first)
                 {
-                    // The match is right at the beginning, so skip.
-                    ranges.emplace_back(iter->second, iter->second,
-                        iter->second);
+                    if (!(p._flags & config_flags::ret_prev_match))
+                        // The match is right at the beginning, so skip.
+                        ranges.emplace_back(iter->second, iter->second,
+                            iter->second);
+
                     success = false;
                 }
-                else
+                else if (!(p._flags & config_flags::ret_prev_match))
                     ranges.emplace_back(ranges.back()._first, iter->first,
                         iter->first);
             }
@@ -935,21 +833,24 @@ static bool process_parser(parser& p, const char* data_first,
             // Only care about grammar captures with a positive match
             if (p._gsm._captures.empty())
             {
-                // Store start of match
-                ranges.back()._first = iter->first;
-                // Store end of match
-                ranges.back()._second = end->first;
-                ranges.emplace_back((p._flags & config_flags::extend_search) ?
-                    end->first :
-                    iter->first,
-                    (p._flags & config_flags::extend_search) ?
-                    end->first :
-                    iter->first,
-                    (p._flags & config_flags::extend_search) ?
-                    ranges.back()._eoi :
-                    end->first);
+                if (!(p._flags & config_flags::ret_prev_match))
+                {
+                    // Store start of match
+                    ranges.back()._first = iter->first;
+                    // Store end of match
+                    ranges.back()._second = end->first;
+                    ranges.emplace_back((p._flags & config_flags::extend_search) ?
+                        end->first :
+                        iter->first,
+                        (p._flags & config_flags::extend_search) ?
+                        end->first :
+                        iter->first,
+                        (p._flags & config_flags::extend_search) ?
+                        ranges.back()._eoi :
+                        end->first);
+                }
             }
-            else
+            else if (!(p._flags & config_flags::ret_prev_match))
             {
                 // Store start of match
                 ranges.back()._first = cap[0][0].first;
@@ -988,10 +889,14 @@ static bool process_parser(parser& p, const char* data_first,
                 {
                     process_action(p, data_first, action_iter, item,
                         matches, replacements);
-                    ranges.back()._first = ranges.back()._second =
-                        matches.top().c_str();
-                    ranges.back()._eoi = matches.top().c_str() +
-                        matches.top().size();
+
+                    if (!(p._flags & config_flags::ret_prev_match))
+                    {
+                        ranges.back()._first = ranges.back()._second =
+                            matches.top().c_str();
+                        ranges.back()._eoi = matches.top().c_str() +
+                            matches.top().size();
+                    }
                 }
                 else
                 {
@@ -1002,10 +907,13 @@ static bool process_parser(parser& p, const char* data_first,
 
                         if (!matches.empty())
                         {
-                            ranges.back()._first = ranges.back()._second =
-                                matches.top().c_str();
-                            ranges.back()._eoi = matches.top().c_str() +
-                                matches.top().size();
+                            if (!(p._flags & config_flags::ret_prev_match))
+                            {
+                                ranges.back()._first = ranges.back()._second =
+                                    matches.top().c_str();
+                                ranges.back()._eoi = matches.top().c_str() +
+                                    matches.top().size();
+                            }
                         }
                     }
                 }
@@ -1015,9 +923,13 @@ static bool process_parser(parser& p, const char* data_first,
     else if ((p._flags & config_flags::negate) &&
         ranges.back()._first != ranges.back()._eoi)
     {
-        ranges.back()._second = iter->first;
-        ranges.emplace_back(ranges.back()._first, iter->first,
-            iter->first);
+        if (!(p._flags & config_flags::ret_prev_match))
+        {
+            ranges.back()._second = iter->first;
+            ranges.emplace_back(ranges.back()._first, iter->first,
+                iter->first);
+        }
+
         success = true;
     }
 
@@ -1085,16 +997,19 @@ static bool process_parser(uparser& p, const char* data_first,
             {
                 const char* last_start = ranges.back()._first;
 
-                ranges.back()._second = end->first.get();
+                if (!(p._flags & config_flags::ret_prev_match))
+                    ranges.back()._second = end->first.get();
 
                 if (last_start == iter->first.get())
                 {
-                    // The match is right at the beginning, so skip.
-                    ranges.emplace_back(iter->second.get(), iter->second.get(),
-                        iter->second.get());
+                    if (!(p._flags & config_flags::ret_prev_match))
+                        // The match is right at the beginning, so skip.
+                        ranges.emplace_back(iter->second.get(), iter->second.get(),
+                            iter->second.get());
+
                     success = false;
                 }
-                else
+                else if (!(p._flags & config_flags::ret_prev_match))
                     ranges.emplace_back(ranges.back()._first,
                         iter->first.get(), iter->first.get());
             }
@@ -1107,21 +1022,24 @@ static bool process_parser(uparser& p, const char* data_first,
             // Only care about grammar captures with a positive match
             if (p._gsm._captures.empty())
             {
-                // Store start of match
-                ranges.back()._first = iter->first.get();
-                // Store end of match
-                ranges.back()._second = end->first.get();
-                ranges.emplace_back((p._flags & config_flags::extend_search) ?
-                    end->first.get() :
-                    iter->first.get(),
-                    (p._flags & config_flags::extend_search) ?
-                    end->first.get() :
-                    iter->first.get(),
-                    (p._flags & config_flags::extend_search) ?
-                    ranges.back()._eoi :
-                    end->first.get());
+                if (!(p._flags & config_flags::ret_prev_match))
+                {
+                    // Store start of match
+                    ranges.back()._first = iter->first.get();
+                    // Store end of match
+                    ranges.back()._second = end->first.get();
+                    ranges.emplace_back((p._flags & config_flags::extend_search) ?
+                        end->first.get() :
+                        iter->first.get(),
+                        (p._flags & config_flags::extend_search) ?
+                        end->first.get() :
+                        iter->first.get(),
+                        (p._flags & config_flags::extend_search) ?
+                        ranges.back()._eoi :
+                        end->first.get());
+                }
             }
-            else
+            else if (!(p._flags & config_flags::ret_prev_match))
             {
                 // Store start of match
                 ranges.back()._first = cap[0][0].first.get();
@@ -1160,10 +1078,14 @@ static bool process_parser(uparser& p, const char* data_first,
                 {
                     process_action(p, data_first, action_iter, item, matches,
                         replacements);
-                    ranges.back()._first = ranges.back()._second =
-                        matches.top().c_str();
-                    ranges.back()._eoi = matches.top().c_str() +
-                        matches.top().size();
+
+                    if (!(p._flags & config_flags::ret_prev_match))
+                    {
+                        ranges.back()._first = ranges.back()._second =
+                            matches.top().c_str();
+                        ranges.back()._eoi = matches.top().c_str() +
+                            matches.top().size();
+                    }
                 }
                 else
                 {
@@ -1174,10 +1096,13 @@ static bool process_parser(uparser& p, const char* data_first,
 
                         if (!matches.empty())
                         {
-                            ranges.back()._first = ranges.back()._second =
-                                matches.top().c_str();
-                            ranges.back()._eoi = matches.top().c_str() +
-                                matches.top().size();
+                            if (!(p._flags & config_flags::ret_prev_match))
+                            {
+                                ranges.back()._first = ranges.back()._second =
+                                    matches.top().c_str();
+                                ranges.back()._eoi = matches.top().c_str() +
+                                    matches.top().size();
+                            }
                         }
                     }
                 }
@@ -1187,9 +1112,13 @@ static bool process_parser(uparser& p, const char* data_first,
     else if (p._flags & config_flags::negate &&
         ranges.back()._first != ranges.back()._eoi)
     {
-        ranges.back()._second = iter->first.get();
-        ranges.emplace_back(ranges.back()._first, iter->first.get(),
-            iter->first.get());
+        if (!(p._flags & config_flags::ret_prev_match))
+        {
+            ranges.back()._second = iter->first.get();
+            ranges.emplace_back(ranges.back()._first, iter->first.get(),
+                iter->first.get());
+        }
+
         success = true;
     }
 

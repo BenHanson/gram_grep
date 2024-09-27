@@ -39,6 +39,7 @@ bool g_show_hits = false;
 bool g_colour = false;
 bool g_dump = false;
 bool g_dot = false;
+bool g_dump_argv = false;
 bool g_pathname_only = false;
 unsigned int g_flags = 0;
 bool g_force_unicode = false;
@@ -893,6 +894,18 @@ int main(int argc, char* argv[])
 
                 add_pathname(std::string(param, param + p.size()), g_pathnames);
             }
+        }
+
+        if (g_dump_argv)
+        {
+            std::cout << "argv[] =\n";
+
+            for (int idx = 0; idx != argc; ++idx)
+            {
+                std::cout << "  " << argv[idx] << '\n';
+            }
+
+            return 0;
         }
 
         if (g_dump)

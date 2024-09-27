@@ -3,13 +3,13 @@
 #include "args.hpp"
 #include <format>
 #include "gg_error.hpp"
-#include "parser.hpp"
 #include <wildcardtl/wildcard.hpp>
 
 extern std::string g_checkout;
 extern bool g_colour;
 extern bool g_dump;
 extern bool g_dot;
+extern bool g_dump_argv;
 extern std::pair<std::vector<wildcardtl::wildcard>,
     std::vector<wildcardtl::wildcard>> g_exclude;
 extern unsigned int g_flags;
@@ -105,6 +105,8 @@ static void process_long(int& i, const int argc, const char* const argv[],
     }
     else if (strcmp("dump", param) == 0)
         g_dump = true;
+    else if (strcmp("dump-argv", param) == 0)
+        g_dump_argv = true;
     else if (strcmp("exclude", param) == 0)
     {
         ++i;
@@ -398,6 +400,8 @@ static void process_long(int& i, const int argc, const char* const argv[],
             throw gg_error(std::format("Missing text following {}.",
                 argv[i - 1]));
     }
+    else if (strcmp("return-previous-match", param) == 0)
+        g_flags |= config_flags::ret_prev_match;
     else if (strcmp("shutdown", param) == 0)
     {
         ++i;
@@ -828,6 +832,7 @@ void show_help()
         "    --colour, --color\t\t\t\tUse markers to highlight the matching strings.\n"
         "-D, --dot\t\t\t\t\tDump DFA regexp in DOT format.\n"
         "-d, --dump\t\t\t\t\tDump DFA regexp.\n"
+        "    --dump-argv\t\t\t\t\tDump command line arguments.\n"
         "-x, --exclude <wildcard>\t\t\tExclude pathnames matching wildcard.\n"
         "    --extend-search\t\t\t\tExtend the end of the next match to be the end of the current match.\n"
         "-E, --extended-regexp <regexp>\t\t\tSearch using DFA regexp.\n"
@@ -853,6 +858,7 @@ void show_help()
         "-p, --print <text>\t\t\t\tPrint text instead of line of match.\n"
         "-r, -R, --recursive\t\t\t\tRecurse subdirectories.\n"
         "-a, --replace <text>\t\t\t\tReplace matching text.\n"
+        "    --return-previous-match\t\t\tReturn the previous match instead of the current one.\n"
         "-S, --shutdown <cmd>\t\t\t\tCommand to run when exiting.\n"
         "-s, --startup <cmd>\t\t\t\tCommand to run at startup.\n"
         "-u, --utf8\t\t\t\t\tIn the absence of a BOM assume UTF-8.\n"

@@ -1,6 +1,8 @@
 #pragma once
 
+#include <array>
 #include <lexertl/iterator.hpp>
+#include <memory>
 #include <lexertl/memory_file.hpp>
 #include <regex>
 #include <lexertl/rules.hpp>
@@ -10,6 +12,7 @@
 #include <parsertl/token.hpp>
 #include <lexertl/utf_iterators.hpp>
 #include <variant>
+#include <vector>
 
 enum config_flags
 {
@@ -18,193 +21,303 @@ enum config_flags
     whole_word = 2,
     negate = 4,
     all = 8,
-    extend_search = 16
+    extend_search = 16,
+    ret_prev_match = 32
 };
 
-enum class match_type
-{
-    // Must match order of variant in g_pipeline
-    // Note that dfa_regex always goes on the end
-    // as it is converted to lexer or ulexer
-    text, regex, lexer, ulexer, parser, uparser, dfa_regex
-};
-
-struct config
-{
-    match_type _type;
-    std::string _param;
-    unsigned int _flags = config_flags::none;
-
-    config(const match_type type, const std::string& param, const unsigned int flags) :
-        _type(type),
-        _param(param),
-        _flags(flags)
-    {
-    }
-};
-
-struct base
+struct match_type_base
 {
     unsigned int _flags = config_flags::none;
 
-    virtual ~base() = default;
+    virtual ~match_type_base() = default;
 };
 
-struct text : base
+struct text : match_type_base
 {
     std::string _text;
 };
 
-struct regex : base
+struct regex : match_type_base
 {
     std::regex _rx;
 };
 
-struct lexer : base
+struct lexer : match_type_base
 {
     lexertl::state_machine _sm;
 };
 
-struct ulexer : base
+struct ulexer : match_type_base
 {
     lexertl::u32state_machine _sm;
 };
 
-struct erase_cmd
-{
-};
-
-struct exec_cmd
-{
-};
-
-struct format_cmd
-{
-    std::size_t _param_count;
-
-    format_cmd(const std::size_t param_count) :
-        _param_count(param_count)
-    {
-    }
-};
-
-struct insert_cmd
-{
-};
-
-struct match_cmd
-{
-    uint16_t _front;
-    uint16_t _back;
-
-    match_cmd(const uint16_t front,
-        const uint16_t back) noexcept :
-        _front(front),
-        _back(back)
-    {
-    }
-};
-
-struct print_cmd
-{
-};
-
-struct replace_cmd
-{
-};
-
-struct replace_all_cmd
-{
-};
-
-struct replace_all_inplace_cmd
-{
-};
-
-enum class cmd_type
-{
-    unknown,
-    assign,
-    append,
-    erase,
-    exec,
-    format,
-    insert,
-    print,
-    replace,
-    replace_all,
-    replace_all_inplace
-};
-
 struct cmd
 {
-    using action = std::variant<erase_cmd, exec_cmd, format_cmd, insert_cmd,
-        match_cmd, print_cmd, replace_cmd, replace_all_cmd,
-        replace_all_inplace_cmd>;
-    cmd_type _type = cmd_type::unknown;
+    enum class type
+    {
+        unknown,
+        string,
+        assign,
+        append,
+        erase,
+        exec,
+        format,
+        insert,
+        print,
+        replace,
+        replace_all,
+        replace_all_inplace
+    };
+
+    type _type = type::unknown;
     uint16_t _param1 = 0;
     bool _second1 = false;
     uint16_t _param2 = 0;
     bool _second2 = true;
-    action _action;
 
-    cmd(const cmd_type type, const action& action) :
-        _type(type),
-        _action(action)
+    cmd(const type type) :
+        _type(type)
     {
     }
 
-    cmd(const cmd_type type, const uint16_t param, const action& action) :
+    cmd(const type type, const uint16_t param) :
         _type(type),
         _param1(param),
-        _param2(param),
-        _action(action)
+        _param2(param)
     {
     }
 
-    cmd(const cmd_type type, const uint16_t param, const bool second,
-        const action& action) :
+    cmd(const type type, const uint16_t param, const bool second) :
         _type(type),
         _param1(param),
         _second1(second),
-        _param2(param),
-        _action(action)
+        _param2(param)
     {
     }
 
-    cmd(const cmd_type type, const uint16_t param1, const uint16_t param2,
-        const action& action) :
+    cmd(const type type, const uint16_t param1, const uint16_t param2) :
         _type(type),
         _param1(param1),
-        _param2(param2),
-        _action(action)
+        _param2(param2)
     {
     }
 
-    cmd(const cmd_type type, const uint16_t param1, const bool second1,
-        const uint16_t param2, const bool second2, const action& action) :
+    cmd(const type type, const uint16_t param1, const bool second1,
+        const uint16_t param2, const bool second2) :
         _type(type),
         _param1(param1),
         _second1(second1),
         _param2(param2),
-        _second2(second2),
-        _action(action)
+        _second2(second2)
     {
     }
+
+    virtual void push(cmd*)
+    {
+        // Do nothing by default
+    }
+};
+
+struct erase_cmd : cmd
+{
+    explicit erase_cmd(const uint16_t index) :
+        cmd(type::erase, index)
+    {
+    }
+
+    explicit erase_cmd(const uint16_t index1, const uint16_t index2) :
+        cmd(type::erase, index1, index2)
+    {
+    }
+
+    explicit erase_cmd(const uint16_t param1, const bool second1,
+        const uint16_t param2, const bool second2) :
+        cmd(type::erase, param1, second1, param2, second2)
+    {
+    }
+};
+
+struct exec_cmd : cmd
+{
+    cmd* _param = nullptr;
+
+    explicit exec_cmd() :
+        cmd(cmd::type::exec)
+    {
+    }
+
+    void push(cmd* command) override
+    {
+        _param = command;
+    }
+};
+
+struct format_cmd : cmd
+{
+    std::vector<cmd*> _params;
+
+    explicit format_cmd() :
+        cmd(type::format)
+    {
+    }
+
+    void push(cmd* command) override
+    {
+        _params.push_back(command);
+    }
+};
+
+struct insert_cmd : cmd
+{
+    cmd* _param = nullptr;
+
+    explicit insert_cmd() :
+        cmd(cmd::type::insert)
+    {
+    }
+
+    void push(cmd* command) override
+    {
+        _param = command;
+    }
+};
+
+struct match_cmd : cmd
+{
+    uint16_t _front = 0;
+    uint16_t _back = 0;
+
+    match_cmd(const type type, const uint16_t index) :
+        cmd(type, index)
+    {
+    }
+};
+
+struct print_cmd : cmd
+{
+    cmd* _param = nullptr;
+
+    explicit print_cmd() :
+        cmd(cmd::type::print)
+    {
+    }
+
+    void push(cmd* command) override
+    {
+        _param = command;
+    }
+};
+
+struct replace_cmd : cmd
+{
+    cmd* _param = nullptr;
+
+    replace_cmd() :
+        cmd(cmd::type::replace)
+    {
+    }
+
+    void push(cmd* command) override
+    {
+        _param = command;
+    }
+};
+
+struct replace_all_cmd : cmd
+{
+    std::vector<cmd*> _params;
+
+    replace_all_cmd() :
+        cmd(type::replace_all)
+    {
+    }
+
+    void push(cmd* command) override
+    {
+        _params.push_back(command);
+    }
+};
+
+struct replace_all_inplace_cmd : cmd
+{
+    std::vector<cmd*> _params;
+
+    replace_all_inplace_cmd() :
+        cmd(type::replace_all_inplace)
+    {
+    }
+
+    void push(cmd* command) override
+    {
+        _params.push_back(command);
+    }
+};
+
+struct string_cmd : cmd
+{
+    std::string _str;
+
+    explicit string_cmd(std::string&& str) :
+        cmd(type::string),
+        _str(std::move(str))
+    {
+    }
+};
+
+struct cmd_data
+{
+    cmd::type _type = cmd::type::unknown;
+    std::size_t _param_count = 0;
+    std::vector<std::string> _params;
+
+    cmd_data(const cmd::type type, const std::size_t param_count) :
+        _type(type),
+        _param_count(param_count)
+    {
+    }
+
+    bool ready() const
+    {
+        return _param_count == _params.size();
+    }
+
+    std::string exec() const;
 };
 
 struct actions
 {
-    std::vector<cmd> _commands;
-    std::deque<std::string> _arguments;
+    std::vector<std::shared_ptr<cmd>> _storage;
+    std::vector<cmd*> _commands;
+    std::vector<cmd*> _cmd_stack;
+    std::vector<std::size_t> _index_stack;
 
-    void emplace(cmd&& command)
+    void emplace(std::shared_ptr<cmd> command)
     {
-        _commands.push_back(std::move(command));
+        _storage.emplace_back(std::move(command));
+        _commands.push_back(_storage.back().get());
     }
+
+    void push(std::shared_ptr<cmd> command)
+    {
+        _storage.emplace_back(std::move(command));
+        _cmd_stack.push_back(_storage.back().get());
+    }
+
+    cmd* top()
+    {
+        return _cmd_stack.back();
+    }
+
+    void pop()
+    {
+        _cmd_stack.pop_back();
+    }
+
+    std::string exec(cmd* command);
 };
 
-struct parser_base : base
+struct parser_base : match_type_base
 {
     parsertl::state_machine _gsm;
     std::set<uint16_t> _reduce_set;
@@ -221,16 +334,26 @@ struct uparser : parser_base
     lexertl::u32state_machine _lsm;
 };
 
-struct match
+enum class match_type
 {
-    const char* _first = nullptr;
-    const char* _second = nullptr;
-    const char* _eoi = nullptr;
+    // Must match order of variant in pipeline (below).
+    // Note that dfa_regex always goes on the end
+    // as it is converted to lexer or ulexer
+    text, regex, lexer, ulexer, parser, uparser, dfa_regex
+};
 
-    match(const char* first, const char* second, const char* eoi) :
-        _first(first),
-        _second(second),
-        _eoi(eoi)
+using pipeline = std::vector<std::variant<text, regex, lexer, ulexer, parser, uparser>>;
+
+struct config
+{
+    match_type _type;
+    std::string _param;
+    unsigned int _flags = config_flags::none;
+
+    config(const match_type type, const std::string& param, const unsigned int flags) :
+        _type(type),
+        _param(param),
+        _flags(flags)
     {
     }
 };
@@ -249,7 +372,6 @@ struct config_state
     parsertl::match_results _results;
     std::string _lhs;
     bool _print = false;
-    std::size_t _varargs = 0;
 
     void parse(const unsigned int flags, const std::string& config_pathname);
 };
@@ -266,7 +388,19 @@ struct config_parser
     config_actions_map _actions;
 };
 
-using pipeline = std::vector<std::variant<text, regex, lexer, ulexer, parser, uparser>>;
+struct match
+{
+    const char* _first = nullptr;
+    const char* _second = nullptr;
+    const char* _eoi = nullptr;
+
+    match(const char* first, const char* second, const char* eoi) :
+        _first(first),
+        _second(second),
+        _eoi(eoi)
+    {
+    }
+};
 
 using utf8_iterator = lexertl::basic_utf8_in_iterator<const char*, char32_t>;
 using utf8results = lexertl::recursive_match_results<utf8_iterator>;

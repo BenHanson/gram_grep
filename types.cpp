@@ -12,6 +12,175 @@ extern parser* g_curr_parser;
 extern uparser* g_curr_uparser;
 extern bool g_force_unicode;
 
+[[nodiscard]] std::string exec_ret(const std::string& cmd)
+{
+    std::array<char, 128> buffer{};
+    std::string result;
+#ifdef _WIN32
+    std::unique_ptr<FILE, decltype(&_pclose)> pipe(_popen(cmd.c_str(), "rb"), &_pclose);
+#else
+    auto closer = [](std::FILE* fp) { pclose(fp); };
+    std::unique_ptr<FILE, decltype(closer)> pipe(popen(cmd.c_str(), "r"), closer);
+#endif
+    std::size_t size = 0;
+
+    if (!pipe)
+    {
+        throw gg_error("Failed to open " + cmd);
+    }
+
+    result.reserve(1024);
+
+    do
+    {
+        size = fread(buffer.data(), 1, buffer.size(), pipe.get());
+        result.append(buffer.data(), size);
+    } while (size);
+
+    return result;
+}
+
+std::string actions::exec(cmd* command)
+{
+    std::string output;
+    std::vector<cmd_data> stack;
+
+    _cmd_stack.push_back(command);
+
+    while (!_cmd_stack.empty())
+    {
+        command = _cmd_stack.back();
+
+        switch (command->_type)
+        {
+        case cmd::type::exec:
+        {
+            auto ptr = static_cast<exec_cmd*>(command);
+
+            _index_stack.push_back(stack.size());
+            stack.emplace_back(ptr->_type, 1);
+            _cmd_stack.push_back(ptr->_param);
+            break;
+        }
+        case cmd::type::format:
+        {
+            auto ptr = static_cast<format_cmd*>(command);
+
+            _index_stack.insert(_index_stack.end(), ptr->_params.size(),
+                stack.size());
+            stack.emplace_back(ptr->_type, ptr->_params.size());
+
+            for (auto iter = ptr->_params.rbegin(), end = ptr->_params.rend();
+                iter != end; ++iter)
+            {
+                _cmd_stack.push_back(*iter);
+            }
+
+            break;
+        }
+        case cmd::type::print:
+        {
+            auto ptr = static_cast<print_cmd*>(command);
+
+            // print() doesn't return anything, so pop
+            _cmd_stack.pop_back();
+            _cmd_stack.push_back(ptr->_param);
+            break;
+        }
+        case cmd::type::replace_all:
+        {
+            auto ptr = static_cast<replace_all_cmd*>(command);
+
+            _index_stack.insert(_index_stack.end(), 3, stack.size());
+            stack.emplace_back(ptr->_type, 3);
+            _cmd_stack.push_back(ptr->_params[2]);
+            _cmd_stack.push_back(ptr->_params[1]);
+            _cmd_stack.push_back(ptr->_params[0]);
+            break;
+        }
+        case cmd::type::string:
+        {
+            auto ptr = static_cast<string_cmd*>(command);
+
+            if (stack.empty())
+            {
+                stack.emplace_back(cmd::type::string, 1);
+                stack.back()._params.push_back(ptr->_str);
+            }
+            else
+            {
+                stack[_index_stack.back()]._params.push_back(ptr->_str);
+                _index_stack.pop_back();
+            }
+
+            _cmd_stack.pop_back();
+            break;
+        }
+        default:
+            break;
+        }
+
+        while (!stack.empty() && stack.back().ready())
+        {
+            // Execute command
+            output = stack.back().exec();
+
+            if (!_index_stack.empty())
+            {
+                stack[_index_stack.back()]._params.push_back(output);
+                _index_stack.pop_back();
+            }
+
+            stack.pop_back();
+
+            if (!_cmd_stack.empty())
+                _cmd_stack.pop_back();
+        }
+    }
+
+    return output;
+}
+
+std::string cmd_data::exec() const
+{
+    std::string output;
+
+    switch (_type)
+    {
+    case cmd::type::exec:
+        output = exec_ret(_params.back());
+        break;
+    case cmd::type::format:
+    {
+        auto iter = _params.begin();
+        auto end = _params.end();
+
+        output = *iter;
+        ++iter;
+
+        for (; iter != end; ++iter)
+        {
+            const auto fmt_idx = output.find("{}");
+
+            if (fmt_idx != std::string::npos)
+                output.replace(fmt_idx, 2, *iter);
+        }
+
+        break;
+    }
+    case cmd::type::replace_all:
+        output = std::regex_replace(_params[0], std::regex(_params[1]), _params[2]);
+        break;
+    case cmd::type::string:
+        output = _params.back();
+        break;
+    default:
+        break;
+    }
+
+    return output;
+}
+
 void config_state::parse(const unsigned int flags,
     const std::string& config_pathname)
 {
