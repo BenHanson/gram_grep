@@ -23,6 +23,7 @@ extern std::string g_replace;
 extern bool g_show_hits;
 extern std::string g_shutdown;
 extern std::string g_startup;
+extern bool g_whole_match;
 extern bool g_writable;
 
 extern std::string unescape(const std::string_view& vw);
@@ -98,6 +99,8 @@ static void process_long(int& i, const int argc, const char* const argv[],
             throw gg_error(std::format("Missing pathname following {}.",
                 argv[i - 1]));
     }
+    else if (strcmp("display-whole-match", param) == 0)
+        g_whole_match = true;
     else if (strcmp("dot", param) == 0)
     {
         g_dump = true;
@@ -830,6 +833,7 @@ void show_help()
     std::cout << "-h, --help\t\t\t\t\tShows help.\n"
         "-c, --checkout <cmd>\t\t\t\tCheckout command (include $1 for pathname).\n"
         "    --colour, --color\t\t\t\tUse markers to highlight the matching strings.\n"
+        "    --display-whole-match\t\t\tDisplay a multiline match.\n"
         "-D, --dot\t\t\t\t\tDump DFA regexp in DOT format.\n"
         "-d, --dump\t\t\t\t\tDump DFA regexp.\n"
         "    --dump-argv\t\t\t\t\tDump command line arguments.\n"

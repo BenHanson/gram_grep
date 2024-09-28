@@ -402,6 +402,11 @@ struct match
         _eoi(eoi)
     {
     }
+
+    std::string_view view() const
+    {
+        return std::string_view(_first, _eoi);
+    }
 };
 
 using utf8_iterator = lexertl::basic_utf8_in_iterator<const char*, char32_t>;

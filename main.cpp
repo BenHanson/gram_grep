@@ -57,6 +57,7 @@ std::map<std::string, std::pair<std::vector<wildcardtl::wildcard>,
 std::size_t g_hits = 0;
 std::size_t g_files = 0;
 std::size_t g_searched = 0;
+bool g_whole_match = false;
 bool g_writable = false;
 std::string g_startup;
 std::string g_shutdown;
@@ -300,26 +301,39 @@ static bool process_matches(const std::vector<match>& ranges,
                         std::cout << szDefaultText;
                 }
 
-                if (count == 0)
-                    curr = data_first;
-                else
-                    for (; *(curr - 1) != '\n'; --curr);
-
-                for (; curr != eoi && *curr != '\r' && *curr != '\n'; ++curr)
+                if (g_whole_match)
                 {
                     if (g_colour)
+                        std::cout << szRedText;
+
+                    std::cout << iter->view() << '\n';
+
+                    if (g_colour)
+                        std::cout << szDefaultText;
+                }
+                else
+                {
+                    if (count == 0)
+                        curr = data_first;
+                    else
+                        for (; *(curr - 1) != '\n'; --curr);
+
+                    for (; curr != eoi && *curr != '\r' && *curr != '\n'; ++curr)
                     {
-                        if (curr == iter->_first)
-                            std::cout << szRedText;
-                        else if (curr == iter->_eoi)
-                            std::cout << szDefaultText;
+                        if (g_colour)
+                        {
+                            if (curr == iter->_first)
+                                std::cout << szRedText;
+                            else if (curr == iter->_eoi)
+                                std::cout << szDefaultText;
+                        }
+
+                        std::cout << *curr;
                     }
 
-                    std::cout << *curr;
+                    if (g_colour && (*curr == '\r' || *curr == '\n'))
+                        std::cout << szDefaultText;
                 }
-
-                if (g_colour && (*curr == '\r' || *curr == '\n'))
-                    std::cout << szDefaultText;
             }
 
             if (!g_show_hits && g_print.empty() && !g_rule_print)
