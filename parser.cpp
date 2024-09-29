@@ -315,11 +315,11 @@ void build_config_parser()
         "| rhs_list rhs");
     grules.push("rhs", "Literal "
         "| Name "
-        "| '[' production ']' "
+        "| '[' opt_list ']' "
         "| rhs '?' "
         "| rhs '*' "
         "| rhs '+' "
-        "| '(' production ')'");
+        "| '(' opt_list ')'");
     grules.push("opt_prec", "%empty "
         "| '%prec' Literal "
         "| '%prec' Name");
