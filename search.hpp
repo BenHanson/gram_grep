@@ -9,4 +9,4 @@
 std::pair<bool, bool> search(std::vector<match>& ranges, const char* data_first,
     std::stack<std::string>& matches,
     std::map<std::pair<std::size_t, std::size_t>, std::string>& replacements,
-    std::vector<std::string>& captures);
+    capture_vector& captures);

@@ -6,6 +6,7 @@
 #include "gg_error.hpp"
 #include "types.hpp"
 
+extern condition_parser g_condition_parser;
 extern config_parser g_config_parser;
 extern parser* g_curr_parser;
 extern uparser* g_curr_uparser;
@@ -115,6 +116,27 @@ static void pop_ret_cmd(const config_state& state)
     ptr->_cmd_stack.pop_back();
 }
 
+void build_condition_parser()
+{
+    parsertl::rules grules;
+    lexertl::rules lrules;
+
+    grules.token("Index String");
+    grules.push("start", "cmd | start '||' cmd");
+    grules.push("cmd", "'regex_search' '(' Index ',' String ')'");
+    parsertl::generator::build(grules, g_condition_parser._gsm);
+
+    lrules.push(R"(\()", grules.token_id("'('"));
+    lrules.push(R"(\))", grules.token_id("')'"));
+    lrules.push(",", grules.token_id("','"));
+    lrules.push(R"(\|\|)", grules.token_id("'||'"));
+    lrules.push(R"($[1-9]\d*)", grules.token_id("Index"));
+    lrules.push("regex_search", grules.token_id("'regex_search'"));
+    lrules.push(R"(\".*?\")", grules.token_id("String"));
+    lrules.push(R"(\s+)", lexertl::rules::skip());
+    lexertl::generator::build(lrules, g_condition_parser._lsm);
+}
+
 void build_config_parser()
 {
     parsertl::rules grules;
@@ -135,6 +157,16 @@ void build_config_parser()
         [](config_state& state, const config_parser&)
         {
             state._grules.flags(*parsertl::rule_flags::enable_captures);
+        };
+    g_config_parser._actions[grules.push("directive", "consume tokens NL")] =
+        [](config_state& state, const config_parser&)
+        {
+            state._store_tokens = false;
+        };
+    g_config_parser._actions[grules.push("consume", "'%consume'")] =
+        [](config_state& state, const config_parser&)
+        {
+            state._store_tokens = true;
         };
     // Read and store %left entries
     g_config_parser._actions[grules.push("directive", "'%left' tokens NL")] =
@@ -198,8 +230,28 @@ void build_config_parser()
 
             state._grules.token(tokens.c_str());
         };
-    grules.push("tokens", "token "
-        "| tokens token");
+    g_config_parser._actions[grules.push("tokens", "token")] =
+        [](config_state& state, const config_parser& parser)
+        {
+            if (state._store_tokens)
+            {
+                const auto& token = state._results.dollar(0, parser._gsm,
+                    state._productions);
+
+                state._consume.push_back(token.str());
+            }
+        };
+    g_config_parser._actions[grules.push("tokens", "tokens token")] =
+        [](config_state& state, const config_parser& parser)
+        {
+            if (state._store_tokens)
+            {
+                const auto& token = state._results.dollar(1, parser._gsm,
+                    state._productions);
+
+                state._consume.push_back(token.str());
+            }
+        };
     grules.push("token", "Literal | Name");
     // Read and store %option caseless
     g_config_parser._actions[grules.push("directive",
@@ -776,18 +828,19 @@ void build_config_parser()
             ptr->_storage.push_back(std::make_shared<string_cmd>(std::move(text)));
             ptr->_cmd_stack.back()->push(ptr->_storage.back().get());
         };
-    grules.push("ret_function", "perform_exec "
+    grules.push("ret_function", "perform_system "
         "| perform_format "
         "| perform_replace_all");
-    g_config_parser._actions[grules.push("perform_exec", "exec_kwd '(' ret_function ')'")] =
+    g_config_parser._actions[grules.push("perform_system",
+        "system_kwd '(' ret_function ')'")] =
         [](config_state& state, const config_parser&)
         {
             pop_ret_cmd(state);
         };
-    g_config_parser._actions[grules.push("exec_kwd", "'exec'")] =
+    g_config_parser._actions[grules.push("system_kwd", "'system'")] =
         [](config_state& state, const config_parser&)
         {
-            push_ret_kwd<exec_cmd>(state);
+            push_ret_kwd<system_cmd>(state);
         };
     g_config_parser._actions[grules.push("perform_format",
         "format_kwd '(' ret_function format_params ')'")] =
@@ -1068,6 +1121,7 @@ void build_config_parser()
     lrules.push("INITIAL,OPTION", "{spc_tab}", lexertl::rules::skip(), ".");
     lrules.push("{nl}", grules.token_id("NL"));
     lrules.push("%captures", grules.token_id("'%captures'"));
+    lrules.push("%consume", grules.token_id("'%consume'"));
     lrules.push("%left", grules.token_id("'%left'"));
     lrules.push("%nonassoc", grules.token_id("'%nonassoc'"));
     lrules.push("%precedence", grules.token_id("'%precedence'"));
@@ -1100,7 +1154,6 @@ void build_config_parser()
     lrules.push("SCRIPT", ";", grules.token_id("';'"), ".");
     lrules.push("SCRIPT", R"(\+=)", grules.token_id("'+='"), ".");
     lrules.push("SCRIPT", "erase", grules.token_id("'erase'"), ".");
-    lrules.push("SCRIPT", "exec", grules.token_id("'exec'"), ".");
     lrules.push("SCRIPT", "first", grules.token_id("'first'"), ".");
     lrules.push("SCRIPT", "format", grules.token_id("'format'"), ".");
     lrules.push("SCRIPT", "insert", grules.token_id("'insert'"), ".");
@@ -1110,6 +1163,7 @@ void build_config_parser()
     lrules.push("SCRIPT", "replace_all", grules.token_id("'replace_all'"), ".");
     lrules.push("SCRIPT", "second", grules.token_id("'second'"), ".");
     lrules.push("SCRIPT", "substr", grules.token_id("'substr'"), ".");
+    lrules.push("SCRIPT", "system", grules.token_id("'system'"), ".");
     lrules.push("SCRIPT", R"(\d+)", grules.token_id("Integer"), ".");
     lrules.push("SCRIPT", R"(\s+)", lexertl::rules::skip(), ".");
     lrules.push("SCRIPT", R"(\$[1-9]\d*)", grules.token_id("Index"), ".");

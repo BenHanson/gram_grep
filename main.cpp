@@ -21,7 +21,7 @@ constexpr const char szRedText[] = "\x1b[01;91m\x1b[K";
 constexpr const char szDefaultText[] = "\x1b[m\x1b[K";
 
 extern std::string build_text(const std::string& input,
-    const std::vector<std::string>& captures);
+    const capture_vector& captures);
 extern std::string unescape(const std::string_view& vw);
 
 enum class file_type
@@ -31,38 +31,40 @@ enum class file_type
 
 namespace fs = std::filesystem;
 
+std::regex g_capture_rx(R"(\$\d+)");
+std::string g_checkout;
+bool g_colour = false;
+condition_map g_conditions;
+condition_parser g_condition_parser;
 config_parser g_config_parser;
-pipeline g_pipeline;
 std::pair<std::vector<wildcardtl::wildcard>,
     std::vector<wildcardtl::wildcard>> g_exclude;
-bool g_show_hits = false;
-bool g_colour = false;
-bool g_dump = false;
-bool g_dot = false;
-bool g_dump_argv = false;
-bool g_pathname_only = false;
-unsigned int g_flags = 0;
-bool g_force_unicode = false;
-bool g_modify = false; // Set when grammar has modifying operations
-bool g_output = false;
-bool g_recursive = false;
-bool g_rule_print = false;
-std::string g_print;
-std::string g_replace;
-std::string g_checkout;
 parser* g_curr_parser = nullptr;
 uparser* g_curr_uparser = nullptr;
+bool g_dot = false;
+bool g_dump = false;
+bool g_dump_argv = false;
+std::size_t g_files = 0;
+unsigned int g_flags = 0;
+bool g_force_unicode = false;
+bool g_force_write = false;
+std::size_t g_hits = 0;
+bool g_modify = false; // Set when grammar has modifying operations
+bool g_output = false;
+bool g_pathname_only = false;
 std::map<std::string, std::pair<std::vector<wildcardtl::wildcard>,
     std::vector<wildcardtl::wildcard>>> g_pathnames;
-std::size_t g_hits = 0;
-std::size_t g_files = 0;
+pipeline g_pipeline;
+std::string g_print;
+bool g_recursive = false;
+std::string g_replace;
+bool g_rule_print = false;
 std::size_t g_searched = 0;
-bool g_whole_match = false;
-bool g_writable = false;
+bool g_show_hits = false;
 std::string g_startup;
 std::string g_shutdown;
-bool g_force_write = false;
-std::regex g_capture_rx(R"(\$\d+)");
+bool g_whole_match = false;
+bool g_writable = false;
 
 file_type fetch_file_type(const char* data, std::size_t size)
 {
@@ -171,7 +173,7 @@ static bool process_matches(const std::vector<match>& ranges,
     std::map<std::pair<std::size_t, std::size_t>, std::string>& replacements,
     std::map<std::pair<std::size_t, std::size_t>,
     std::string>& temp_replacements,
-    const bool negate, const std::vector<std::string>& captures,
+    const bool negate, const capture_vector& captures,
     const char* data_first, const char* data_second,
     lexertl::state_machine& cap_sm, const std::string& pathname,
     std::size_t& hits)
@@ -227,7 +229,7 @@ static bool process_matches(const std::vector<match>& ranges,
                         const std::size_t idx = atoi(i->first + 1);
 
                         if (idx < captures.size())
-                            replace += captures[idx];
+                            replace += captures[idx].front();
                         else
                         {
                             std::cerr << "Capture $" << idx <<
@@ -519,7 +521,7 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
     std::size_t hits = 0;
     std::vector<match> ranges;
     static lexertl::state_machine cap_sm;
-    std::vector<std::string> captures;
+    capture_vector captures;
     std::stack<std::string> matches;
     std::map<std::pair<std::size_t, std::size_t>, std::string> replacements;
     bool finished = false;
@@ -744,7 +746,7 @@ void add_pathname(std::string pn,
         positive.emplace_back(pn, is_windows());
 }
 
-static void fill_pipeline(const std::vector<config>& configs)
+static void fill_pipeline(std::vector<config>& configs)
 {
     // Postponed to allow -i to be processed first.
     for (const auto& config : configs)
@@ -762,6 +764,7 @@ static void fill_pipeline(const std::vector<config>& configs)
                 ulexer lexer;
 
                 lexer._flags = config._flags;
+                lexer._conditions = std::move(config._conditions);
 
                 if (lexer._flags & config_flags::icase)
                     rules.flags(*lexertl::regex_flags::icase |
@@ -781,6 +784,7 @@ static void fill_pipeline(const std::vector<config>& configs)
                 lexer lexer;
 
                 lexer._flags = config._flags;
+                lexer._conditions = std::move(config._conditions);
 
                 if (lexer._flags & config_flags::icase)
                     rules.flags(*lexertl::regex_flags::icase |
@@ -802,6 +806,7 @@ static void fill_pipeline(const std::vector<config>& configs)
             regex regex;
 
             regex._flags = config._flags;
+            regex._conditions = std::move(config._conditions);
             regex._rx.assign(config._param, (regex._flags & config_flags::icase) ?
                 (std::regex_constants::ECMAScript |
                     std::regex_constants::icase) :
@@ -817,6 +822,7 @@ static void fill_pipeline(const std::vector<config>& configs)
                 config_state state;
 
                 parser._flags = config._flags;
+                parser._conditions = std::move(config._conditions);
                 g_curr_uparser = &parser;
 
                 if (g_config_parser._gsm.empty())
@@ -842,6 +848,7 @@ static void fill_pipeline(const std::vector<config>& configs)
                 config_state state;
 
                 parser._flags = config._flags;
+                parser._conditions = std::move(config._conditions);
                 g_curr_parser = &parser;
 
                 if (g_config_parser._gsm.empty())
@@ -869,6 +876,7 @@ static void fill_pipeline(const std::vector<config>& configs)
             text text;
 
             text._flags = config._flags;
+            text._conditions = std::move(config._conditions);
             text._text = config._param;
             g_pipeline.emplace_back(std::move(text));
             break;

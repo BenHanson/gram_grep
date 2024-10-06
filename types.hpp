@@ -25,9 +25,12 @@ enum config_flags
     ret_prev_match = 32
 };
 
+using condition_map = std::map<uint16_t, std::regex>;
+
 struct match_type_base
 {
     unsigned int _flags = config_flags::none;
+    condition_map _conditions;
 
     virtual ~match_type_base() = default;
 };
@@ -61,13 +64,13 @@ struct cmd
         assign,
         append,
         erase,
-        exec,
         format,
         insert,
         print,
         replace,
         replace_all,
-        replace_all_inplace
+        replace_all_inplace,
+        system
     };
 
     type _type = type::unknown;
@@ -140,12 +143,12 @@ struct erase_cmd : cmd
     }
 };
 
-struct exec_cmd : cmd
+struct system_cmd : cmd
 {
     cmd* _param = nullptr;
 
-    explicit exec_cmd() :
-        cmd(cmd::type::exec)
+    explicit system_cmd() :
+        cmd(cmd::type::system)
     {
     }
 
@@ -284,7 +287,7 @@ struct cmd_data
         return _param_count == _params.size();
     }
 
-    std::string exec() const;
+    std::string system() const;
 };
 
 struct actions
@@ -316,7 +319,7 @@ struct actions
         _cmd_stack.pop_back();
     }
 
-    std::string exec(cmd* command);
+    std::string system(cmd* command);
 };
 
 struct parser_base : match_type_base
@@ -351,11 +354,14 @@ struct config
     match_type _type;
     std::string _param;
     unsigned int _flags = config_flags::none;
+    condition_map _conditions;
 
-    config(const match_type type, const std::string& param, const unsigned int flags) :
+    config(const match_type type, const std::string& param,
+        const unsigned int flags, condition_map conditions) :
         _type(type),
         _param(param),
-        _flags(flags)
+        _flags(flags),
+        _conditions(std::move(conditions))
     {
     }
 };
@@ -369,6 +375,8 @@ struct config_state
     parsertl::rules _grules;
     lexertl::rules _lrules;
     lurules _lurules;
+    bool _store_tokens = false;
+    std::vector<std::string> _consume;
     lexertl::memory_file _mf;
     token::token_vector _productions;
     parsertl::match_results _results;
@@ -376,6 +384,12 @@ struct config_state
     bool _print = false;
 
     void parse(const unsigned int flags, const std::string& config_pathname);
+};
+
+struct condition_parser
+{
+    parsertl::state_machine _gsm;
+    lexertl::state_machine _lsm;
 };
 
 struct config_parser;
@@ -408,6 +422,8 @@ struct match
         return std::string_view(_first, _eoi);
     }
 };
+
+using capture_vector = std::vector<std::vector<std::string_view>>;
 
 using utf8_iterator = lexertl::basic_utf8_in_iterator<const char*, char32_t>;
 using utf8results = lexertl::recursive_match_results<utf8_iterator>;

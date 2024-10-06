@@ -40,7 +40,7 @@ extern bool g_force_unicode;
     return result;
 }
 
-std::string actions::exec(cmd* command)
+std::string actions::system(cmd* command)
 {
     std::string output;
     std::vector<cmd_data> stack;
@@ -53,15 +53,6 @@ std::string actions::exec(cmd* command)
 
         switch (command->_type)
         {
-        case cmd::type::exec:
-        {
-            auto ptr = static_cast<exec_cmd*>(command);
-
-            _index_stack.push_back(stack.size());
-            stack.emplace_back(ptr->_type, 1);
-            _cmd_stack.push_back(ptr->_param);
-            break;
-        }
         case cmd::type::format:
         {
             auto ptr = static_cast<format_cmd*>(command);
@@ -116,6 +107,15 @@ std::string actions::exec(cmd* command)
             _cmd_stack.pop_back();
             break;
         }
+        case cmd::type::system:
+        {
+            auto ptr = static_cast<system_cmd*>(command);
+
+            _index_stack.push_back(stack.size());
+            stack.emplace_back(ptr->_type, 1);
+            _cmd_stack.push_back(ptr->_param);
+            break;
+        }
         default:
             break;
         }
@@ -123,7 +123,7 @@ std::string actions::exec(cmd* command)
         while (!stack.empty() && stack.back().ready())
         {
             // Execute command
-            output = stack.back().exec();
+            output = stack.back().system();
 
             if (!_index_stack.empty())
             {
@@ -141,15 +141,12 @@ std::string actions::exec(cmd* command)
     return output;
 }
 
-std::string cmd_data::exec() const
+std::string cmd_data::system() const
 {
     std::string output;
 
     switch (_type)
     {
-    case cmd::type::exec:
-        output = exec_ret(_params.back());
-        break;
     case cmd::type::format:
     {
         auto iter = _params.begin();
@@ -173,6 +170,9 @@ std::string cmd_data::exec() const
         break;
     case cmd::type::string:
         output = _params.back();
+        break;
+    case cmd::type::system:
+        output = exec_ret(_params.back());
         break;
     default:
         break;
@@ -329,7 +329,8 @@ void config_state::parse(const unsigned int flags,
                 std::cerr << "Warning: Token \"" << terminals[i] <<
                 "\" does not have a lexer definiton.\n";
 
-            if (!used_tokens.contains(i) && !used_prec.contains(i))
+            if (!used_tokens.contains(i) && !used_prec.contains(i) &&
+                std::ranges::find(_consume, terminals[i]) == _consume.end())
             {
                 std::cerr << "Warning: Token \"" << terminals[i] <<
                     "\" is not used in the grammar.\n";

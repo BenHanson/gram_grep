@@ -14,6 +14,54 @@ extern pipeline g_pipeline;
 
 extern std::string unescape(const std::string_view& vw);
 
+using results = std::vector<std::vector<std::pair
+    <const char*, const char*>>>;
+using prod_map_t = std::vector<std::pair<uint16_t, token::token_vector>>;
+using uresults = std::vector<std::vector<std::pair
+    <utf8_iterator, utf8_iterator>>>;
+using uprod_map_t = std::vector<std::pair<uint16_t,
+    parsertl::token<crutf8iterator>::token_vector>>;
+
+static const char* get_first(const std::pair<const char*, const char*>& pair)
+{
+    return pair.first;
+}
+
+static const char* get_second(const std::pair<const char*, const char*>& pair)
+{
+    return pair.second;
+}
+
+static const char* get_first(const std::pair<utf8_iterator, utf8_iterator>& pair)
+{
+    return pair.first.get();
+}
+
+static const char* get_second(const std::pair<utf8_iterator, utf8_iterator>& pair)
+{
+    return pair.second.get();
+}
+
+static const char* get_first(const lexertl::criterator& iter)
+{
+    return iter->first;
+}
+
+static const char* get_second(const lexertl::criterator& iter)
+{
+    return iter->second;
+}
+
+static const char* get_first(const crutf8iterator& iter)
+{
+    return iter->first.get();
+}
+
+static const char* get_second(const crutf8iterator& iter)
+{
+    return iter->second.get();
+}
+
 static std::size_t production_size(const parsertl::state_machine& sm,
     const std::size_t index_)
 {
@@ -79,6 +127,32 @@ static std::string format_item(const std::string& input,
 
     output.append(last, input.c_str() + input.size());
     return unescape(output);
+}
+
+template<typename T>
+bool conditions_met(const condition_map& conditions, const T& cap_vec)
+{
+    bool success = conditions.empty();
+
+    for (const auto& [idx, rx] : conditions)
+    {
+        if (idx >= cap_vec.size())
+            throw gg_error(std::format("${} is out of range", idx));
+
+        for (const auto& cap : cap_vec[idx])
+        {
+            if (std::regex_search(get_first(cap), get_second(cap), rx))
+            {
+                success = true;
+                break;
+            }
+        }
+
+        if (success)
+            break;
+    }
+
+    return success;
 }
 
 static void process_action(const parser& p, const char* start,
@@ -173,12 +247,13 @@ static void process_action(const parser& p, const char* start,
                     param.second :
                     param.first) - start;
 
-                replacements[std::pair(index, 0)] = action_iter->second.exec(c->_param);
+                replacements[std::pair(index, 0)] =
+                    action_iter->second.system(c->_param);
             }
 
             break;
         case cmd::type::print:
-            std::cout << format_item(action_iter->second.exec(cmd), item);
+            std::cout << format_item(action_iter->second.system(cmd), item);
             break;
         case cmd::type::replace:
             if (g_output)
@@ -194,7 +269,7 @@ static void process_action(const parser& p, const char* start,
                     (c->_second2 ? param2.second : param2.first) - start;
 
                 replacements[std::pair(index1, index2 - index1)] =
-                    action_iter->second.exec(c->_param);
+                    action_iter->second.system(c->_param);
             }
 
             break;
@@ -209,11 +284,11 @@ static void process_action(const parser& p, const char* start,
                 const auto index2 = param.second - start;
                 auto pair = std::pair(index1, index2 - index1);
                 auto iter = replacements.find(pair);
-                const std::regex rx(action_iter->second.exec(c->_params[0]));
+                const std::regex rx(action_iter->second.system(c->_params[0]));
                 const std::string text =
                     std::regex_replace(iter == replacements.end() ?
                         std::string(param.first, param.second) : iter->second,
-                        rx, action_iter->second.exec(c->_params[1]));
+                        rx, action_iter->second.system(c->_params[1]));
 
                 replacements[pair] = text;
             }
@@ -320,12 +395,13 @@ static void process_action(const uparser& p, const char* start,
                 const auto index = (cmd->_second1 ? param.second.get() :
                     param.first.get()) - start;
 
-                replacements[std::pair(index, 0)] = action_iter->second.exec(c->_param);
+                replacements[std::pair(index, 0)] =
+                    action_iter->second.system(c->_param);
             }
 
             break;
         case cmd::type::print:
-            std::cout << format_item(action_iter->second.exec(cmd), item);
+            std::cout << format_item(action_iter->second.system(cmd), item);
             break;
         case cmd::type::replace:
             if (g_output)
@@ -340,7 +416,7 @@ static void process_action(const uparser& p, const char* start,
                     param2.first.get()) - start;
 
                 replacements[std::pair(index1, index2 - index1)] =
-                    action_iter->second.exec(c->_param);
+                    action_iter->second.system(c->_param);
             }
 
             break;
@@ -354,12 +430,12 @@ static void process_action(const uparser& p, const char* start,
                 const auto index2 = param.second.get() - start;
                 auto pair = std::pair(index1, index2 - index1);
                 auto iter = replacements.find(pair);
-                const std::regex rx(action_iter->second.exec(c->_params[0]));
+                const std::regex rx(action_iter->second.system(c->_params[0]));
                 const std::string text =
                     std::regex_replace(iter == replacements.end() ?
                         std::string(param.first.get(), param.second.get()) :
                         iter->second,
-                        rx, action_iter->second.exec(c->_params[1]));
+                        rx, action_iter->second.system(c->_params[1]));
 
                 replacements[pair] = text;
             }
@@ -371,12 +447,12 @@ static void process_action(const uparser& p, const char* start,
     }
 }
 
-std::string build_text(const std::string& input,
-    const std::vector<std::string>& captures)
+std::string build_text(const std::string& input, const capture_vector& captures)
 {
     std::string output;
     const char* last = input.c_str();
-    std::cregex_iterator iter(input.c_str(), input.c_str() + input.size(), g_capture_rx);
+    std::cregex_iterator iter(input.c_str(),
+        input.c_str() + input.size(), g_capture_rx);
     std::cregex_iterator end;
 
     for (; iter != end; ++iter)
@@ -384,7 +460,9 @@ std::string build_text(const std::string& input,
         const auto idx = static_cast<std::size_t>(atoi((*iter)[0].first + 1));
 
         output.append(last, (*iter)[0].first);
-        output += idx >= captures.size() ? std::string() : captures[idx];
+        output += idx >= captures.size() ?
+            std::string_view() :
+            captures[idx].front();
         last = (*iter)[0].second;
     }
 
@@ -416,13 +494,16 @@ static bool is_whole_word(const char* data_first, const char* first,
 }
 
 static bool process_text(const text& t, const char* data_first,
-    std::vector<match>& ranges, std::vector<std::string>& captures)
+    std::vector<match>& ranges, capture_vector& captures)
 {
     const std::string text = build_text(t._text, captures);
     const char* first = ranges.back()._first;
     const char* second = ranges.back()._eoi;
+    results cap_vec;
     bool success = false;
-    bool whole_word = false;
+
+    cap_vec.emplace_back();
+    cap_vec.back().emplace_back();
 
     do
     {
@@ -436,19 +517,24 @@ static bool process_text(const text& t, const char* data_first,
                 })
             : std::search(first, second, &text.front(),
                 &text.front() + text.size());
-                second = first + text.size();
-                success = first != ranges.back()._eoi;
-                whole_word = success && is_whole_word(data_first,
-                    first, second, ranges.front()._eoi, t._flags);
+        second = first + text.size();
+        success = first != ranges.back()._eoi;
 
-                if (success && !whole_word)
-                {
-                    ++first;
-                    second = ranges.back()._eoi;
-                }
-    } while (success && !whole_word);
+        if (!success)
+            break;
 
-    success &= whole_word;
+        cap_vec.back().back().first = first;
+        cap_vec.back().back().second = second;
+        success = is_whole_word(data_first, first, second,
+            ranges.front()._eoi, t._flags) &&
+            conditions_met(t._conditions, cap_vec);
+
+        if (!success)
+        {
+            ++first;
+            second = ranges.back()._eoi;
+        }
+    } while (!success);
 
     if (success)
     {
@@ -504,27 +590,34 @@ static bool process_text(const text& t, const char* data_first,
         success = true;
     }
 
-    if (success)
+    if (success && !(t._flags & config_flags::ret_prev_match))
     {
         captures.clear();
-        captures.emplace_back(ranges.back()._first, ranges.back()._eoi);
+        captures.emplace_back();
+        captures.back().emplace_back(ranges.back()._first, ranges.back()._eoi);
     }
 
     return success;
 }
 
 static bool process_regex(const regex& r, const char* data_first,
-    std::vector<match>& ranges, std::vector<std::string>& captures)
+    std::vector<match>& ranges, capture_vector& captures)
 {
     std::cregex_iterator iter(ranges.back()._first,
         ranges.back()._eoi, r._rx);
     std::cregex_iterator end;
+    results cap_vec;
     bool success = iter != end;
 
-    while (success && !is_whole_word(data_first,
-        (*iter)[0].first, (*iter)[0].second, ranges.front()._eoi, r._flags))
+    cap_vec.emplace_back();
+    cap_vec.back().emplace_back((*iter)[0]);
+
+    while (success && (!is_whole_word(data_first,
+        (*iter)[0].first, (*iter)[0].second, ranges.front()._eoi, r._flags) ||
+        !conditions_met(r._conditions, cap_vec)))
     {
         iter = std::cregex_iterator((*iter)[0].second, ranges.back()._eoi, r._rx);
+        cap_vec.back().back() = (*iter)[0];
         success = iter != end;
     }
 
@@ -585,17 +678,22 @@ static bool process_regex(const regex& r, const char* data_first,
         success = true;
     }
 
-    if (success)
+    if (success && !(r._flags & config_flags::ret_prev_match))
     {
         captures.clear();
 
         if (r._flags & config_flags::negate)
-            captures.emplace_back(ranges.back()._first, ranges.back()._second);
+        {
+            captures.emplace_back();
+            captures.back().emplace_back(ranges.back()._first,
+                ranges.back()._second);
+        }
         else
         {
             for (const auto& m : *iter)
             {
-                captures.push_back(m.str());
+                captures.emplace_back();
+                captures.back().emplace_back(m.first, m.second);
             }
         }
     }
@@ -603,103 +701,63 @@ static bool process_regex(const regex& r, const char* data_first,
     return success;
 }
 
-static bool process_lexer(const lexer& l, const char* data_first,
-    std::vector<match>& ranges, std::vector<std::string>& captures)
+static std::pair<bool, lexertl::criterator> lexer_search(const lexer& l,
+    const char* data_first, std::vector<match>& ranges)
 {
     lexertl::criterator iter(ranges.back()._first,
         ranges.back()._eoi, l._sm);
+    results cap_vec;
     bool success = iter->first != ranges.back()._eoi;
 
-    while (success && !is_whole_word(data_first,
-        iter->first, iter->second, ranges.front()._eoi, l._flags))
+    cap_vec.emplace_back();
+    cap_vec.back().emplace_back(iter->first, iter->second);
+
+    while (success && (!is_whole_word(data_first,
+        iter->first, iter->second, ranges.front()._eoi, l._flags) ||
+        !conditions_met(l._conditions, cap_vec)))
     {
         iter = lexertl::criterator(iter->second, iter->eoi, l._sm);
+        cap_vec.back().back().first = iter->first;
+        cap_vec.back().back().second = iter->second;
         success = iter->first != ranges.back()._eoi;
     }
 
-    if (success)
-    {
-        if (l._flags & config_flags::negate)
-        {
-            if (l._flags & config_flags::all)
-                success = false;
-            else
-            {
-                const char* last_start = ranges.back()._first;
-
-                if (!(l._flags & config_flags::ret_prev_match))
-                    ranges.back()._second = iter->second;
-
-                if (last_start == iter->first)
-                {
-                    if (!(l._flags & config_flags::ret_prev_match))
-                        // The match is right at the beginning, so skip.
-                        ranges.emplace_back(iter->second, iter->second,
-                            iter->second);
-
-                    success = false;
-                }
-                else if(!(l._flags & config_flags::ret_prev_match))
-                    ranges.emplace_back(ranges.back()._first, iter->first,
-                        iter->first);
-            }
-        }
-        else if(!(l._flags & config_flags::ret_prev_match))
-        {
-            // Store start of match
-            ranges.back()._first = iter->first;
-            // Store end of match
-            ranges.back()._second = iter->second;
-            ranges.emplace_back((l._flags & config_flags::extend_search) ?
-                iter->second :
-                iter->first,
-                (l._flags & config_flags::extend_search) ?
-                iter->second :
-                iter->first,
-                (l._flags & config_flags::extend_search) ?
-                ranges.back()._eoi :
-                iter->second);
-        }
-    }
-    else if (l._flags & config_flags::negate &&
-        ranges.back()._first != ranges.back()._eoi)
-    {
-        if (!(l._flags & config_flags::ret_prev_match))
-        {
-            ranges.back()._second = iter->first;
-            ranges.emplace_back(ranges.back()._first, iter->first, iter->first);
-        }
-
-        success = true;
-    }
-
-    if (success)
-    {
-        captures.clear();
-        captures.emplace_back(ranges.back()._first, ranges.back()._eoi);
-    }
-
-    return success;
+    return std::make_pair(success, std::move(iter));
 }
 
-static bool process_lexer(const ulexer& l, const char* data_first,
-    std::vector<match>& ranges, std::vector<std::string>& captures)
+static std::pair<bool, crutf8iterator> lexer_search(const ulexer& l,
+    const char* data_first, std::vector<match>& ranges)
 {
     crutf8iterator iter(utf8_iterator(ranges.back()._first, ranges.back()._eoi),
         utf8_iterator(ranges.back()._eoi, ranges.back()._eoi), l._sm);
+    results cap_vec;
     bool success =
         iter->first != utf8_iterator(ranges.back()._eoi, ranges.back()._eoi);
 
-    while (success && !is_whole_word(data_first,
-        iter->first.get(), iter->second.get(),
-        ranges.front()._eoi, l._flags))
+    cap_vec.emplace_back();
+    cap_vec.back().emplace_back(iter->first.get(), iter->second.get());
+
+    while (success && (!is_whole_word(data_first,
+        iter->first.get(), iter->second.get(), ranges.front()._eoi, l._flags) ||
+        !conditions_met(l._conditions, cap_vec)))
     {
         iter = crutf8iterator(utf8_iterator(iter->second.get(), iter->eoi.get()),
             utf8_iterator(iter->eoi.get(), iter->eoi.get()), l._sm);
+        cap_vec.back().back().first = iter->first.get();
+        cap_vec.back().back().second = iter->second.get();
         success = iter->first != utf8_iterator(ranges.back()._eoi,
             ranges.back()._eoi);
     }
 
+    return std::make_pair(success, std::move(iter));
+}
+
+template<typename lexer_t>
+bool process_lexer(const lexer_t& l, const char* data_first,
+    std::vector<match>& ranges, capture_vector& captures)
+{
+    auto [success, iter] = lexer_search(l, data_first, ranges);
+
     if (success)
     {
         if (l._flags & config_flags::negate)
@@ -711,37 +769,38 @@ static bool process_lexer(const ulexer& l, const char* data_first,
                 const char* last_start = ranges.back()._first;
 
                 if (!(l._flags & config_flags::ret_prev_match))
-                    ranges.back()._second = iter->second.get();
+                    ranges.back()._second = get_second(iter);
 
-                if (last_start == iter->first.get())
+                if (last_start == get_first(iter))
                 {
                     if (!(l._flags & config_flags::ret_prev_match))
                         // The match is right at the beginning, so skip.
-                        ranges.emplace_back(iter->second.get(), iter->second.get(),
-                            iter->second.get());
+                        ranges.emplace_back(get_second(iter),
+                            get_second(iter), get_second(iter));
 
                     success = false;
                 }
                 else if (!(l._flags & config_flags::ret_prev_match))
-                    ranges.emplace_back(ranges.back()._first, iter->first.get(),
-                        iter->first.get());
+                    ranges.emplace_back(ranges.back()._first,
+                        get_first(iter), get_first(iter));
             }
         }
         else if (!(l._flags & config_flags::ret_prev_match))
         {
             // Store start of match
-            ranges.back()._first = iter->first.get();
+            ranges.back()._first = get_first(iter);
             // Store end of match
-            ranges.back()._second = iter->second.get();
-            ranges.emplace_back((l._flags & config_flags::extend_search) ?
-                iter->second.get() :
-                iter->first.get(),
+            ranges.back()._second = get_second(iter);
+            ranges.emplace_back((l._flags &
+                config_flags::extend_search) ?
+                get_second(iter) :
+                get_first(iter),
                 (l._flags & config_flags::extend_search) ?
-                iter->second.get() :
-                iter->first.get(),
+                get_second(iter) :
+                get_first(iter),
                 (l._flags & config_flags::extend_search) ?
                 ranges.back()._eoi :
-                iter->second.get());
+                get_second(iter));
         }
     }
     else if (l._flags & config_flags::negate &&
@@ -749,54 +808,71 @@ static bool process_lexer(const ulexer& l, const char* data_first,
     {
         if (!(l._flags & config_flags::ret_prev_match))
         {
-            ranges.back()._second = iter->first.get();
-            ranges.emplace_back(ranges.back()._first, iter->first.get(),
-                iter->first.get());
+            ranges.back()._second = get_first(iter);
+            ranges.emplace_back(ranges.back()._first,
+                get_first(iter), get_first(iter));
         }
 
         success = true;
     }
 
-    if (success)
+    if (success && !(l._flags & config_flags::ret_prev_match))
     {
         captures.clear();
-        captures.emplace_back(ranges.back()._first, ranges.back()._eoi);
+        captures.emplace_back();
+        captures.back().emplace_back(ranges.back()._first, ranges.back()._eoi);
     }
 
     return success;
 }
 
-static bool process_parser(parser& p, const char* data_first,
-    std::vector<match>& ranges, std::stack<std::string>& matches,
-    std::map<std::pair<std::size_t, std::size_t>, std::string>& replacements,
-    std::vector<std::string>& captures)
+static std::tuple<lexertl::criterator, lexertl::criterator, prod_map_t, results>
+get_iterators(const parser& p, const std::vector<match>& ranges)
 {
-    using results = std::vector<std::vector<std::pair
-        <const char*, const char*>>>;
     lexertl::criterator iter(ranges.back()._first,
         ranges.back()._eoi, p._lsm);
-    lexertl::criterator end;
-    std::vector<std::pair<uint16_t, token::token_vector>> prod_map;
-    results cap;
+
+    return std::make_tuple(std::move(iter), lexertl::criterator(),
+        prod_map_t(), results());
+}
+
+static std::tuple<crutf8iterator, crutf8iterator, uprod_map_t, uresults>
+get_iterators(const uparser& p, const std::vector<match>& ranges)
+{
+    crutf8iterator iter(utf8_iterator(ranges.back()._first, ranges.back()._eoi),
+        utf8_iterator(ranges.back()._eoi, ranges.back()._eoi), p._lsm);
+
+    return std::make_tuple(std::move(iter), crutf8iterator(),
+        uprod_map_t(), uresults());
+}
+
+template<typename parser_t>
+bool process_parser(parser_t& p, const char* data_first,
+    std::vector<match>& ranges, std::stack<std::string>& matches,
+    std::map<std::pair<std::size_t, std::size_t>, std::string>& replacements,
+    capture_vector& captures)
+{
+    auto [iter, end, prod_map, cap_vec] = get_iterators(p, ranges);
+    const bool has_captures = !p._gsm._captures.empty();
     bool success = false;
-    bool whole_word = false;
 
     do
     {
-        if (p._gsm._captures.empty())
-            success = parsertl::search(iter, end, p._gsm, &prod_map);
+        if (has_captures)
+            success = parsertl::search(iter, end, p._gsm, cap_vec);
         else
-            success = parsertl::search(iter, end, p._gsm, cap);
+            success = parsertl::search(iter, end, p._gsm, &prod_map);
 
-        if (success)
-        {
-            whole_word = is_whole_word(data_first,
-                iter->first, end->first, ranges.front()._eoi, p._flags);
+        if (!success)
+            break;
 
-            if (!whole_word)
-                iter = end;
-        }
-    } while (success && !whole_word);
+        success = is_whole_word(data_first, get_first(iter),
+            get_first(end), ranges.front()._eoi, p._flags) &&
+            conditions_met(p._conditions, cap_vec);
+
+        if (!success)
+            iter = end;
+    } while (!success);
 
     if (success)
     {
@@ -809,20 +885,20 @@ static bool process_parser(parser& p, const char* data_first,
                 const char* last_start = ranges.back()._first;
 
                 if (!(p._flags & config_flags::ret_prev_match))
-                    ranges.back()._second = end->first;
+                    ranges.back()._second = get_first(end);
 
-                if (last_start == iter->first)
+                if (last_start == get_first(iter))
                 {
                     if (!(p._flags & config_flags::ret_prev_match))
                         // The match is right at the beginning, so skip.
-                        ranges.emplace_back(iter->second, iter->second,
-                            iter->second);
+                        ranges.emplace_back(get_second(iter),
+                            get_second(iter), get_second(iter));
 
                     success = false;
                 }
                 else if (!(p._flags & config_flags::ret_prev_match))
-                    ranges.emplace_back(ranges.back()._first, iter->first,
-                        iter->first);
+                    ranges.emplace_back(ranges.back()._first,
+                        get_first(iter), get_first(iter));
             }
         }
         else
@@ -830,49 +906,22 @@ static bool process_parser(parser& p, const char* data_first,
             if (!p._actions.empty())
                 matches.emplace();
 
-            // Only care about grammar captures with a positive match
-            if (p._gsm._captures.empty())
-            {
-                if (!(p._flags & config_flags::ret_prev_match))
-                {
-                    // Store start of match
-                    ranges.back()._first = iter->first;
-                    // Store end of match
-                    ranges.back()._second = end->first;
-                    ranges.emplace_back((p._flags & config_flags::extend_search) ?
-                        end->first :
-                        iter->first,
-                        (p._flags & config_flags::extend_search) ?
-                        end->first :
-                        iter->first,
-                        (p._flags & config_flags::extend_search) ?
-                        ranges.back()._eoi :
-                        end->first);
-                }
-            }
-            else if (!(p._flags & config_flags::ret_prev_match))
+            if (!(p._flags & config_flags::ret_prev_match))
             {
                 // Store start of match
-                ranges.back()._first = cap[0][0].first;
+                ranges.back()._first = get_first(iter);
                 // Store end of match
-                ranges.back()._second = cap[0][0].second;
-
-                for (std::size_t idx = 1, size = cap.size();
-                    idx < size; ++idx)
-                {
-                    for (const auto& pair : cap[idx])
-                    {
-                        ranges.emplace_back((p._flags & config_flags::extend_search) ?
-                            pair.second :
-                            pair.first,
-                            (p._flags & config_flags::extend_search) ?
-                            pair.second :
-                            pair.first,
-                            (p._flags & config_flags::extend_search) ?
-                            ranges.back()._eoi :
-                            pair.second);
-                    }
-                }
+                ranges.back()._second = get_first(end);
+                ranges.emplace_back((p._flags &
+                    config_flags::extend_search) ?
+                    get_first(end) :
+                    get_first(iter),
+                    (p._flags & config_flags::extend_search) ?
+                    get_first(end) :
+                    get_first(iter),
+                    (p._flags & config_flags::extend_search) ?
+                    ranges.back()._eoi :
+                    get_first(end));
             }
 
             if (!p._reduce_set.empty())
@@ -925,215 +974,42 @@ static bool process_parser(parser& p, const char* data_first,
     {
         if (!(p._flags & config_flags::ret_prev_match))
         {
-            ranges.back()._second = iter->first;
-            ranges.emplace_back(ranges.back()._first, iter->first,
-                iter->first);
+            ranges.back()._second = get_first(iter);
+            ranges.emplace_back(ranges.back()._first,
+                get_first(iter), get_first(iter));
         }
 
         success = true;
     }
 
-    if (success)
+    if (success && !(p._flags & config_flags::ret_prev_match))
     {
         captures.clear();
 
         if (p._flags & config_flags::negate)
-            captures.emplace_back(ranges.back()._first, ranges.back()._second);
+        {
+            captures.emplace_back();
+            captures.back().emplace_back(ranges.back()._first,
+                ranges.back()._second);
+        }
         else
         {
-            for (const auto& v : cap)
+            for (const auto& v : cap_vec)
             {
+                captures.emplace_back();
+
                 if (v.empty())
-                    captures.emplace_back();
-                else
-                    captures.emplace_back(v.front().first, v.front().second);
-            }
-        }
-    }
-
-    return success;
-}
-
-static bool process_parser(uparser& p, const char* data_first,
-    std::vector<match>& ranges, std::stack<std::string>& matches,
-    std::map<std::pair<std::size_t, std::size_t>, std::string>& replacements,
-    std::vector<std::string>& captures)
-{
-    using results = std::vector<std::vector<std::pair
-        <utf8_iterator, utf8_iterator>>>;
-    crutf8iterator iter(utf8_iterator(ranges.back()._first, ranges.back()._eoi),
-        utf8_iterator(ranges.back()._eoi, ranges.back()._eoi), p._lsm);
-    crutf8iterator end;
-    std::vector<std::pair<uint16_t,
-        parsertl::token<crutf8iterator>::token_vector>> prod_map;
-    results cap;
-    bool success = false;
-    bool whole_word = false;
-
-    do
-    {
-        if (p._gsm._captures.empty())
-            success = parsertl::search(iter, end, p._gsm, &prod_map);
-        else
-            success = parsertl::search(iter, end, p._gsm, cap);
-
-        if (success)
-        {
-            whole_word = is_whole_word(data_first,
-                iter->first.get(), end->first.get(), ranges.front()._eoi, p._flags);
-
-            if (!whole_word)
-                iter = end;
-        }
-    } while (success && !whole_word);
-
-    if (success)
-    {
-        if (p._flags & config_flags::negate)
-        {
-            if (p._flags & config_flags::all)
-                success = false;
-            else
-            {
-                const char* last_start = ranges.back()._first;
-
-                if (!(p._flags & config_flags::ret_prev_match))
-                    ranges.back()._second = end->first.get();
-
-                if (last_start == iter->first.get())
                 {
-                    if (!(p._flags & config_flags::ret_prev_match))
-                        // The match is right at the beginning, so skip.
-                        ranges.emplace_back(iter->second.get(), iter->second.get(),
-                            iter->second.get());
-
-                    success = false;
-                }
-                else if (!(p._flags & config_flags::ret_prev_match))
-                    ranges.emplace_back(ranges.back()._first,
-                        iter->first.get(), iter->first.get());
-            }
-        }
-        else
-        {
-            if (!p._actions.empty())
-                matches.emplace();
-
-            // Only care about grammar captures with a positive match
-            if (p._gsm._captures.empty())
-            {
-                if (!(p._flags & config_flags::ret_prev_match))
-                {
-                    // Store start of match
-                    ranges.back()._first = iter->first.get();
-                    // Store end of match
-                    ranges.back()._second = end->first.get();
-                    ranges.emplace_back((p._flags & config_flags::extend_search) ?
-                        end->first.get() :
-                        iter->first.get(),
-                        (p._flags & config_flags::extend_search) ?
-                        end->first.get() :
-                        iter->first.get(),
-                        (p._flags & config_flags::extend_search) ?
-                        ranges.back()._eoi :
-                        end->first.get());
-                }
-            }
-            else if (!(p._flags & config_flags::ret_prev_match))
-            {
-                // Store start of match
-                ranges.back()._first = cap[0][0].first.get();
-                // Store end of match
-                ranges.back()._second = cap[0][0].second.get();
-
-                for (std::size_t idx = 1, size = cap.size();
-                    idx < size; ++idx)
-                {
-                    for (const auto& pair : cap[idx])
-                    {
-                        ranges.emplace_back((p._flags & config_flags::extend_search) ?
-                            pair.second.get() :
-                            pair.first.get(),
-                            (p._flags & config_flags::extend_search) ?
-                            pair.second.get() :
-                            pair.first.get(),
-                            (p._flags & config_flags::extend_search) ?
-                            ranges.back()._eoi :
-                            pair.second.get());
-                    }
-                }
-            }
-
-            if (!p._reduce_set.empty())
-            {
-                // Success only if a _reduce_set item is found
-                success = false;
-            }
-
-            for (const auto& item : prod_map)
-            {
-                auto action_iter = p._actions.find(item.first);
-
-                if (action_iter != p._actions.end())
-                {
-                    process_action(p, data_first, action_iter, item, matches,
-                        replacements);
-
-                    if (!(p._flags & config_flags::ret_prev_match))
-                    {
-                        ranges.back()._first = ranges.back()._second =
-                            matches.top().c_str();
-                        ranges.back()._eoi = matches.top().c_str() +
-                            matches.top().size();
-                    }
+                    captures.back().emplace_back();
                 }
                 else
                 {
-                    if (p._reduce_set.empty() ||
-                        p._reduce_set.contains(item.first))
+                    for (const auto& cap : v)
                     {
-                        success = true;
-
-                        if (!matches.empty())
-                        {
-                            if (!(p._flags & config_flags::ret_prev_match))
-                            {
-                                ranges.back()._first = ranges.back()._second =
-                                    matches.top().c_str();
-                                ranges.back()._eoi = matches.top().c_str() +
-                                    matches.top().size();
-                            }
-                        }
+                        captures.back().emplace_back(get_first(cap),
+                            get_second(cap));
                     }
                 }
-            }
-        }
-    }
-    else if (p._flags & config_flags::negate &&
-        ranges.back()._first != ranges.back()._eoi)
-    {
-        if (!(p._flags & config_flags::ret_prev_match))
-        {
-            ranges.back()._second = iter->first.get();
-            ranges.emplace_back(ranges.back()._first, iter->first.get(),
-                iter->first.get());
-        }
-
-        success = true;
-    }
-
-    if (success)
-    {
-        captures.clear();
-
-        if (p._flags & config_flags::negate)
-            captures.emplace_back(ranges.back()._first, ranges.back()._second);
-        else
-        {
-            for (const auto& v : cap)
-            {
-                captures.emplace_back(v.front().first.get(),
-                    v.front().second.get());
             }
         }
     }
@@ -1144,7 +1020,7 @@ static bool process_parser(uparser& p, const char* data_first,
 std::pair<bool, bool> search(std::vector<match>& ranges, const char* data_first,
     std::stack<std::string>& matches,
     std::map<std::pair<std::size_t, std::size_t>, std::string>& replacements,
-    std::vector<std::string>& captures)
+    capture_vector& captures)
 {
     bool success = false;
     bool negate = false;

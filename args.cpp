@@ -3,10 +3,13 @@
 #include "args.hpp"
 #include <format>
 #include "gg_error.hpp"
+#include <parsertl/iterator.hpp>
 #include <wildcardtl/wildcard.hpp>
 
 extern std::string g_checkout;
 extern bool g_colour;
+extern condition_map g_conditions;
+extern condition_parser g_condition_parser;
 extern bool g_dump;
 extern bool g_dot;
 extern bool g_dump_argv;
@@ -26,6 +29,7 @@ extern std::string g_startup;
 extern bool g_whole_match;
 extern bool g_writable;
 
+extern void build_condition_parser();
 extern std::string unescape(const std::string_view& vw);
 
 std::vector<std::string_view> split(const char* str, const char c)
@@ -62,6 +66,31 @@ bool is_windows()
 #else
     return false;
 #endif
+}
+
+static void parse_condition(const char* str)
+{
+    if (g_condition_parser._gsm.empty())
+        build_condition_parser();
+
+    lexertl::citerator liter(str, str + strlen(str), g_condition_parser._lsm);
+    parsertl::citerator giter(liter, g_condition_parser._gsm);
+
+    for (; giter->entry.action != parsertl::action::accept &&
+        giter->entry.action != parsertl::action::error; ++giter)
+    {
+        if (giter->entry.param == 2)
+        {
+            // start: 'regex_search' '(' Index ',' String ')'
+            const auto index = giter.dollar(2);
+            const auto rx = giter.dollar(4);
+
+            g_conditions[atoi(index.first + 1) & 0xffff] = std::regex(rx.substr(1, 1));
+        }
+    }
+
+    if (giter->entry.action == parsertl::action::error)
+        throw gg_error(std::format("Failed to parse '{}'", str));
 }
 
 static void process_long(int& i, const int argc, const char* const argv[],
@@ -141,7 +170,8 @@ static void process_long(int& i, const int argc, const char* const argv[],
 
         if (i < argc)
         {
-            configs.emplace_back(match_type::dfa_regex, argv[i], g_flags);
+            configs.emplace_back(match_type::dfa_regex, argv[i], g_flags,
+                std::move(g_conditions));
             g_flags = 0;
         }
         else
@@ -163,10 +193,11 @@ static void process_long(int& i, const int argc, const char* const argv[],
                 auto pn = p.data();
 
                 configs.emplace_back(match_type::parser,
-                    std::string(pn, pn + p.size()), g_flags);
+                    std::string(pn, pn + p.size()), g_flags, g_conditions);
             }
 
             g_flags = 0;
+            g_conditions.clear();
         }
         else
             throw gg_error(std::format("Missing pathname following {}.",
@@ -181,7 +212,8 @@ static void process_long(int& i, const int argc, const char* const argv[],
 
         if (i < argc)
         {
-            configs.emplace_back(match_type::text, argv[i], g_flags);
+            configs.emplace_back(match_type::text, argv[i],
+                g_flags, std::move(g_conditions));
             g_flags = 0;
         }
         else
@@ -197,6 +229,17 @@ static void process_long(int& i, const int argc, const char* const argv[],
     }
     else if (strcmp("hits", param) == 0)
         g_show_hits = true;
+    else if (strcmp("if", param) == 0)
+    {
+        // Condition
+        ++i;
+
+        if (i < argc)
+            parse_condition(argv[i]);
+        else
+            throw gg_error(std::format("Missing condition following {}.",
+                argv[i - 1]));
+    }
     else if (strcmp("ignore-case", param) == 0)
         g_flags |= config_flags::icase;
     else if (strcmp("invert-extended-regexp", param) == 0)
@@ -211,7 +254,7 @@ static void process_long(int& i, const int argc, const char* const argv[],
         if (i < argc)
         {
             configs.emplace_back(match_type::dfa_regex, argv[i],
-                config_flags::negate | g_flags);
+                config_flags::negate | g_flags, std::move(g_conditions));
             g_flags = 0;
         }
         else
@@ -236,10 +279,11 @@ static void process_long(int& i, const int argc, const char* const argv[],
 
                 configs.emplace_back(match_type::parser,
                     std::string(pn, pn + p.size()),
-                    config_flags::negate | g_flags);
+                    config_flags::negate | g_flags, g_conditions);
             }
 
             g_flags = 0;
+            g_conditions.clear();
         }
         else
             throw gg_error(std::format("Missing pathname following {}.",
@@ -257,7 +301,7 @@ static void process_long(int& i, const int argc, const char* const argv[],
         if (i < argc)
         {
             configs.emplace_back(match_type::regex, argv[i],
-                config_flags::negate | g_flags);
+                config_flags::negate | g_flags, std::move(g_conditions));
             g_flags = 0;
         }
         else
@@ -275,7 +319,7 @@ static void process_long(int& i, const int argc, const char* const argv[],
         if (i < argc)
         {
             configs.emplace_back(match_type::text, argv[i],
-                config_flags::negate | g_flags);
+                config_flags::negate | g_flags, std::move(g_conditions));
             g_flags = 0;
         }
         else
@@ -294,7 +338,8 @@ static void process_long(int& i, const int argc, const char* const argv[],
         if (i < argc)
         {
             configs.emplace_back(match_type::dfa_regex, argv[i],
-                config_flags::negate | config_flags::all | g_flags);
+                config_flags::negate | config_flags::all | g_flags,
+                std::move(g_conditions));
             g_flags = 0;
         }
         else
@@ -319,10 +364,12 @@ static void process_long(int& i, const int argc, const char* const argv[],
 
                 configs.emplace_back(match_type::parser,
                     std::string(pn, pn + p.size()),
-                    config_flags::negate | config_flags::all | g_flags);
+                    config_flags::negate | config_flags::all | g_flags,
+                    g_conditions);
             }
 
             g_flags = 0;
+            g_conditions.clear();
         }
         else
             throw gg_error(std::format("Missing pathname following {}.",
@@ -340,7 +387,8 @@ static void process_long(int& i, const int argc, const char* const argv[],
         if (i < argc)
         {
             configs.emplace_back(match_type::regex, argv[i],
-                config_flags::negate | config_flags::all | g_flags);
+                config_flags::negate | config_flags::all | g_flags,
+                std::move(g_conditions));
             g_flags = 0;
         }
         else
@@ -358,7 +406,8 @@ static void process_long(int& i, const int argc, const char* const argv[],
         if (i < argc)
         {
             configs.emplace_back(match_type::text, argv[i],
-                config_flags::negate | config_flags::all | g_flags);
+                config_flags::negate | config_flags::all | g_flags,
+                std::move(g_conditions));
             g_flags = 0;
         }
         else
@@ -374,7 +423,8 @@ static void process_long(int& i, const int argc, const char* const argv[],
 
         if (i < argc)
         {
-            configs.emplace_back(match_type::regex, argv[i], g_flags);
+            configs.emplace_back(match_type::regex, argv[i], g_flags,
+                std::move(g_conditions));
             g_flags = 0;
         }
         else
@@ -486,7 +536,8 @@ static void process_short(int& i, const int argc, const char* const argv[],
 
             if (i < argc)
             {
-                configs.emplace_back(match_type::dfa_regex, argv[i], g_flags);
+                configs.emplace_back(match_type::dfa_regex, argv[i], g_flags,
+                    std::move(g_conditions));
                 g_flags = 0;
             }
             else
@@ -509,10 +560,12 @@ static void process_short(int& i, const int argc, const char* const argv[],
                     auto pn = p.data();
 
                     configs.emplace_back(match_type::parser,
-                        std::string(pn, pn + p.size()), g_flags);
+                        std::string(pn, pn + p.size()), g_flags,
+                        g_conditions);
                 }
 
                 g_flags = 0;
+                g_conditions.clear();
             }
             else
                 throw gg_error(std::format("Missing pathname following {}.",
@@ -525,7 +578,8 @@ static void process_short(int& i, const int argc, const char* const argv[],
 
             if (i < argc)
             {
-                configs.emplace_back(match_type::text, argv[i], g_flags);
+                configs.emplace_back(match_type::text, argv[i], g_flags,
+                    std::move(g_conditions));
                 g_flags = 0;
             }
             else
@@ -540,6 +594,17 @@ static void process_short(int& i, const int argc, const char* const argv[],
         case 'i':
             g_flags |= config_flags::icase;
             break;
+        case 'I':
+            // Condition
+            ++i;
+
+            if (i < argc)
+                parse_condition(argv[i]);
+            else
+                throw gg_error(std::format("Missing condition following {}.",
+                    argv[i - 1]));
+
+            break;
         case 'l':
             g_pathname_only = true;
             break;
@@ -552,7 +617,8 @@ static void process_short(int& i, const int argc, const char* const argv[],
 
             if (i < argc)
             {
-                configs.emplace_back(match_type::regex, argv[i], g_flags);
+                configs.emplace_back(match_type::regex, argv[i], g_flags,
+                    std::move(g_conditions));
                 g_flags = 0;
             }
             else
@@ -621,7 +687,8 @@ static void process_short(int& i, const int argc, const char* const argv[],
                 if (i < argc)
                 {
                     configs.emplace_back(match_type::dfa_regex, argv[i],
-                        config_flags::negate | config_flags::all | g_flags);
+                        config_flags::negate | config_flags::all | g_flags,
+                        std::move(g_conditions));
                     g_flags = 0;
                 }
                 else
@@ -642,10 +709,12 @@ static void process_short(int& i, const int argc, const char* const argv[],
 
                         configs.emplace_back(match_type::parser,
                             std::string(pn, pn + p.size()),
-                            config_flags::negate | config_flags::all | g_flags);
+                            config_flags::negate | config_flags::all | g_flags,
+                            g_conditions);
                     }
 
                     g_flags = 0;
+                    g_conditions.clear();
                 }
                 else
                     throw gg_error(std::format("Missing pathname following {}.",
@@ -658,7 +727,8 @@ static void process_short(int& i, const int argc, const char* const argv[],
                 if (i < argc)
                 {
                     configs.emplace_back(match_type::text, argv[i],
-                        config_flags::negate | config_flags::all | g_flags);
+                        config_flags::negate | config_flags::all | g_flags,
+                        std::move(g_conditions));
                     g_flags = 0;
                 }
                 else
@@ -673,7 +743,8 @@ static void process_short(int& i, const int argc, const char* const argv[],
                 if (i < argc)
                 {
                     configs.emplace_back(match_type::regex, argv[i],
-                        config_flags::negate | config_flags::all | g_flags);
+                        config_flags::negate | config_flags::all | g_flags,
+                        std::move(g_conditions));
                     g_flags = 0;
                 }
                 else
@@ -703,7 +774,8 @@ static void process_short(int& i, const int argc, const char* const argv[],
                 if (i < argc)
                 {
                     configs.emplace_back(match_type::dfa_regex, argv[i],
-                        config_flags::negate | g_flags);
+                        config_flags::negate | g_flags,
+                        std::move(g_conditions));
                     g_flags = 0;
                 }
                 else
@@ -724,10 +796,12 @@ static void process_short(int& i, const int argc, const char* const argv[],
 
                         configs.emplace_back(match_type::parser,
                             std::string(pn, pn + p.size()),
-                            config_flags::negate | g_flags);
+                            config_flags::negate | g_flags,
+                            g_conditions);
                     }
 
                     g_flags = 0;
+                    g_conditions.clear();
                 }
                 else
                     throw gg_error(std::format("Missing pathname following {}.",
@@ -740,7 +814,8 @@ static void process_short(int& i, const int argc, const char* const argv[],
                 if (i < argc)
                 {
                     configs.emplace_back(match_type::text, argv[i],
-                        config_flags::negate | g_flags);
+                        config_flags::negate | g_flags,
+                        std::move(g_conditions));
                     g_flags = 0;
                 }
                 else
@@ -755,7 +830,8 @@ static void process_short(int& i, const int argc, const char* const argv[],
                 if (i < argc)
                 {
                     configs.emplace_back(match_type::regex, argv[i],
-                        config_flags::negate | g_flags);
+                        config_flags::negate | g_flags,
+                        std::move(g_conditions));
                     g_flags = 0;
                 }
                 else
@@ -846,6 +922,7 @@ void show_help()
         "syntax.\n"
         "-e, --force-write\t\t\t\tIf a file is read only, force it to be writable.\n"
         "-t, --hits\t\t\t\t\tShow hit count per file.\n"
+        "-I, --if <condition>\t\t\t\tMake search conditional.\n"
         "-i, --ignore-case\t\t\t\tCase insensitive searching.\n"
         "-VE, --invert-all-extended-regexp <regexp>\tSearch using DFA regexp (all negated).\n"
         "-Vf, --invert-all-file <config file>\t\tSearch using config file (all negated).\n"
