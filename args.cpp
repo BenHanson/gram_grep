@@ -31,6 +31,7 @@ extern bool g_writable;
 
 extern void build_condition_parser();
 extern std::string unescape(const std::string_view& vw);
+extern std::string unescape_str(const char* first, const char* second);
 
 std::vector<std::string_view> split(const char* str, const char c)
 {
@@ -85,7 +86,8 @@ static void parse_condition(const char* str)
             const auto index = giter.dollar(2);
             const auto rx = giter.dollar(4);
 
-            g_conditions[atoi(index.first + 1) & 0xffff] = std::regex(rx.substr(1, 1));
+            g_conditions[atoi(index.first + 1) & 0xffff] =
+                std::regex(unescape_str(rx.first + 1, rx.second - 1));
         }
     }
 

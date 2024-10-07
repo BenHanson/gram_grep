@@ -41,8 +41,8 @@ std::string unescape(const std::string_view& vw)
 
     return ret;
 }
-/*
-static std::string unescape_str(const char* first, const char* second)
+
+std::string unescape_str(const char* first, const char* second)
 {
     std::string ret = unescape(std::string_view(first, second));
 
@@ -55,7 +55,6 @@ static std::string unescape_str(const char* first, const char* second)
 
     return ret;
 }
-*/
 
 template<typename T>
 void push_ret_kwd(const config_state& state)
@@ -132,7 +131,7 @@ void build_condition_parser()
     lrules.push(R"(\|\|)", grules.token_id("'||'"));
     lrules.push(R"($[1-9]\d*)", grules.token_id("Index"));
     lrules.push("regex_search", grules.token_id("'regex_search'"));
-    lrules.push(R"(\".*?\")", grules.token_id("String"));
+    lrules.push("'([^']|'')*'", grules.token_id("String"));
     lrules.push(R"(\s+)", lexertl::rules::skip());
     lexertl::generator::build(lrules, g_condition_parser._lsm);
 }
@@ -812,8 +811,8 @@ void build_config_parser()
         [](config_state& state, const config_parser& parser)
         {
             const uint16_t rule_idx = state._grules.grammar().size() & 0xffff;
-            std::string text = state._results.dollar(0, parser._gsm,
-                state._productions).substr(1, 1);
+            const auto& text = state._results.dollar(0, parser._gsm,
+                state._productions);
             actions* ptr = nullptr;
 
             if (g_force_unicode)
@@ -825,7 +824,8 @@ void build_config_parser()
                 ptr = &g_curr_parser->_actions[rule_idx];
             }
 
-            ptr->_storage.push_back(std::make_shared<string_cmd>(std::move(text)));
+            ptr->_storage.push_back(std::make_shared<string_cmd>
+                (unescape_str(text.first + 1, text.second - 1)));
             ptr->_cmd_stack.back()->push(ptr->_storage.back().get());
         };
     grules.push("ret_function", "perform_system "
