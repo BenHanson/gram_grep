@@ -12,6 +12,7 @@
 #include <lexertl/memory_file.hpp>
 #include "parser.hpp"
 #include "search.hpp"
+#include <type_traits>
 #include <wildcardtl/wildcard.hpp>
 
 constexpr const char szPurpleText[] = "\x1b[38;5;141m\x1b[K";
@@ -746,10 +747,10 @@ void add_pathname(std::string pn,
         positive.emplace_back(pn, is_windows());
 }
 
-static void fill_pipeline(std::vector<config>& configs)
+static void fill_pipeline(std::vector<config>&& configs)
 {
     // Postponed to allow -i to be processed first.
-    for (const auto& config : configs)
+    for (auto&& config : std::move(configs))
     {
         switch (config._type)
         {
@@ -835,7 +836,7 @@ static void fill_pipeline(std::vector<config>& configs)
                 {
                     ulexer lexer;
 
-                    lexer._flags |= parser._flags & config_flags::negate;
+                    lexer._flags = parser._flags;
                     lexer._sm.swap(parser._lsm);
                     g_pipeline.emplace_back(std::move(lexer));
                 }
@@ -861,7 +862,7 @@ static void fill_pipeline(std::vector<config>& configs)
                 {
                     lexer lexer;
 
-                    lexer._flags |= parser._flags & config_flags::negate;
+                    lexer._flags = parser._flags;
                     lexer._sm.swap(parser._lsm);
                     g_pipeline.emplace_back(std::move(lexer));
                 }
@@ -902,7 +903,7 @@ int main(int argc, char* argv[])
         bool run = true;
 
         read_switches(argc, argv, configs, files);
-        fill_pipeline(configs);
+        fill_pipeline(std::move(configs));
 
         // Postponed to allow -r to be processed first as
         // add_pathname() checks g_recursive.

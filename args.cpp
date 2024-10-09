@@ -503,27 +503,23 @@ static void process_short(int& i, const int argc, const char* const argv[],
         switch (*param)
         {
         case 'a':
+            if (i + 1 == argc)
+                throw gg_error(std::format("Missing text following -{}.",
+                    *param));
+
             ++i;
-
-            if (i < argc)
-                g_replace = unescape(argv[i]);
-            else
-                throw gg_error(std::format("Missing text following {}.",
-                    argv[i - 1]));
-
+            g_replace = unescape(argv[i]);
             break;
         case 'c':
+            if (i + 1 == argc)
+                throw gg_error(std::format("Missing pathname following -{}.",
+                    *param));
+
             ++i;
-
-            if (i < argc)
-                // "C:\Program Files (x86)\Microsoft Visual Studio 14.0\Common7\IDE\tf.exe"
-                // checkout $1
-                // *NOTE* $1 is replaced by the pathname
-                g_checkout = argv[i];
-            else
-                throw gg_error(std::format("Missing pathname following {}.",
-                    argv[i - 1]));
-
+            // "C:\Program Files (x86)\Microsoft Visual Studio 14.0\Common7\IDE\tf.exe"
+            // checkout $1
+            // *NOTE* $1 is replaced by the pathname
+            g_checkout = argv[i];
             break;
         case 'd':
             g_dump = true;
@@ -533,61 +529,52 @@ static void process_short(int& i, const int argc, const char* const argv[],
             g_dot = true;
             break;
         case 'E':
+            if (i + 1 == argc)
+                throw gg_error(std::format("Missing regex following -{}.",
+                    *param));
+
             // DFA regex
             ++i;
-
-            if (i < argc)
-            {
-                configs.emplace_back(match_type::dfa_regex, argv[i], g_flags,
-                    std::move(g_conditions));
-                g_flags = 0;
-            }
-            else
-                throw gg_error(std::format("Missing regex following {}.",
-                    argv[i - 1]));
-
+            configs.emplace_back(match_type::dfa_regex, argv[i], g_flags,
+                std::move(g_conditions));
+            g_flags = 0;
             break;
         case 'e':
             g_force_write = true;
             break;
         case 'f':
+        {
+            if (i + 1 == argc)
+                throw gg_error(std::format("Missing pathname following -{}.",
+                    *param));
+
             ++i;
 
-            if (i < argc)
+            auto pathnames = split(argv[i], ';');
+
+            for (const auto& p : pathnames)
             {
-                auto pathnames = split(argv[i], ';');
+                auto pn = p.data();
 
-                for (const auto& p : pathnames)
-                {
-                    auto pn = p.data();
-
-                    configs.emplace_back(match_type::parser,
-                        std::string(pn, pn + p.size()), g_flags,
-                        g_conditions);
-                }
-
-                g_flags = 0;
-                g_conditions.clear();
+                configs.emplace_back(match_type::parser,
+                    std::string(pn, pn + p.size()), g_flags,
+                    g_conditions);
             }
-            else
-                throw gg_error(std::format("Missing pathname following {}.",
-                    argv[i - 1]));
 
+            g_flags = 0;
+            g_conditions.clear();
             break;
+        }
         case 'F':
+            if (i + 1 == argc)
+                throw gg_error(std::format("Missing text following -{}.",
+                    *param));
+
             // Text
             ++i;
-
-            if (i < argc)
-            {
-                configs.emplace_back(match_type::text, argv[i], g_flags,
-                    std::move(g_conditions));
-                g_flags = 0;
-            }
-            else
-                throw gg_error(std::format("Missing text following {}.",
-                    argv[i - 1]));
-
+            configs.emplace_back(match_type::text, argv[i], g_flags,
+                std::move(g_conditions));
+            g_flags = 0;
             break;
         case 'h':
             show_help();
@@ -597,15 +584,13 @@ static void process_short(int& i, const int argc, const char* const argv[],
             g_flags |= config_flags::icase;
             break;
         case 'I':
+            if (i + 1 == argc)
+                throw gg_error(std::format("Missing condition following -{}.",
+                    *param));
+
             // Condition
             ++i;
-
-            if (i < argc)
-                parse_condition(argv[i]);
-            else
-                throw gg_error(std::format("Missing condition following {}.",
-                    argv[i - 1]));
-
+            parse_condition(argv[i]);
             break;
         case 'l':
             g_pathname_only = true;
@@ -614,58 +599,48 @@ static void process_short(int& i, const int argc, const char* const argv[],
             g_output = true;
             break;
         case 'P':
+            if (i + 1 == argc)
+                throw gg_error(std::format("Missing regex following -{}.",
+                    *param));
+
             // Perl style regex
             ++i;
-
-            if (i < argc)
-            {
-                configs.emplace_back(match_type::regex, argv[i], g_flags,
-                    std::move(g_conditions));
-                g_flags = 0;
-            }
-            else
-                throw gg_error(std::format("Missing regex following {}.",
-                    argv[i - 1]));
-
+            configs.emplace_back(match_type::regex, argv[i], g_flags,
+                std::move(g_conditions));
+            g_flags = 0;
             break;
         case 'p':
+            if (i + 1 == argc)
+                throw gg_error(std::format("Missing text following -{}.",
+                    *param));
+
             ++i;
-
-            if (i < argc)
-                g_print = unescape(argv[i]);
-            else
-                throw gg_error(std::format("Missing text following {}.",
-                    argv[i - 1]));
-
+            g_print = unescape(argv[i]);
             break;
         case 'R':
         case 'r':
             g_recursive = true;
             break;
         case 'S':
+            if (i + 1 == argc)
+                throw gg_error(std::format("Missing pathname following -{}.",
+                    *param));
+
             ++i;
-
-            if (i < argc)
-                // "C:\Program Files (x86)\Microsoft Visual Studio 14.0\Common7\IDE\tf.exe"
-                // /delete /collection:http://tfssrv01:8080/tfs/PartnerDev gram_grep /noprompt
-                g_shutdown = argv[i];
-            else
-                throw gg_error(std::format("Missing pathname following {}.",
-                    argv[i - 1]));
-
+            // "C:\Program Files (x86)\Microsoft Visual Studio 14.0\Common7\IDE\tf.exe"
+            // /delete /collection:http://tfssrv01:8080/tfs/PartnerDev gram_grep /noprompt
+            g_shutdown = argv[i];
             break;
         case 's':
+            if (i + 1 == argc)
+                throw gg_error(std::format("Missing pathname following -{}.",
+                    *param));
+
             ++i;
-
-            if (i < argc)
-                // "C:\Program Files (x86)\Microsoft Visual Studio 14.0\Common7\IDE\tf.exe"
-                // workspace /new /collection:http://tfssrv01:8080/tfs/PartnerDev gram_grep
-                // /noprompt
-                g_startup = argv[i];
-            else
-                throw gg_error(std::format("Missing pathname following {}.",
-                    argv[i - 1]));
-
+            // "C:\Program Files (x86)\Microsoft Visual Studio 14.0\Common7\IDE\tf.exe"
+            // workspace /new /collection:http://tfssrv01:8080/tfs/PartnerDev gram_grep
+            // /noprompt
+            g_startup = argv[i];
             break;
         case 't':
             g_show_hits = true;
@@ -674,176 +649,156 @@ static void process_short(int& i, const int argc, const char* const argv[],
             g_force_unicode = true;
             break;
         case 'V':
-            ++param;
-
             if (g_flags & config_flags::extend_search)
-                throw gg_error(std::format("Cannot mix --extend-search with {}",
-                    argv[i]));
+                throw gg_error(std::format("Cannot mix --extend-search with -{}",
+                    *param));
+
+            if (!*(param+ 1))
+                throw gg_error("Missing option following -V.");
+
+            ++param;
 
             switch (*param)
             {
             case 'E':
+                if (i + 1 == argc)
+                    throw gg_error(std::format("Missing regex following -V{}.",
+                        *param));
+
                 // DFA regex
                 ++i;
-
-                if (i < argc)
-                {
-                    configs.emplace_back(match_type::dfa_regex, argv[i],
-                        config_flags::negate | config_flags::all | g_flags,
-                        std::move(g_conditions));
-                    g_flags = 0;
-                }
-                else
-                    throw gg_error(std::format("Missing regex following {}.",
-                        argv[i - 1]));
-
+                configs.emplace_back(match_type::dfa_regex, argv[i],
+                    config_flags::negate | config_flags::all | g_flags,
+                    std::move(g_conditions));
+                g_flags = 0;
                 break;
             case 'f':
+            {
+                if (i + 1 == argc)
+                    throw gg_error(std::format("Missing pathname following -V{}.",
+                        *param));
+
                 ++i;
 
-                if (i < argc)
+                auto pathnames = split(argv[i], ';');
+
+                for (const auto& p : pathnames)
                 {
-                    auto pathnames = split(argv[i], ';');
+                    auto pn = p.data();
 
-                    for (const auto& p : pathnames)
-                    {
-                        auto pn = p.data();
-
-                        configs.emplace_back(match_type::parser,
-                            std::string(pn, pn + p.size()),
-                            config_flags::negate | config_flags::all | g_flags,
-                            g_conditions);
-                    }
-
-                    g_flags = 0;
-                    g_conditions.clear();
-                }
-                else
-                    throw gg_error(std::format("Missing pathname following {}.",
-                        argv[i - 1]));
-
-                break;
-            case 'F':
-                ++i;
-
-                if (i < argc)
-                {
-                    configs.emplace_back(match_type::text, argv[i],
+                    configs.emplace_back(match_type::parser,
+                        std::string(pn, pn + p.size()),
                         config_flags::negate | config_flags::all | g_flags,
-                        std::move(g_conditions));
-                    g_flags = 0;
+                        g_conditions);
                 }
-                else
-                    throw gg_error(std::format("Missing text following {}.",
-                        argv[i - 1]));
 
+                g_flags = 0;
+                g_conditions.clear();
+                break;
+            }
+            case 'F':
+                if (i + 1 == argc)
+                    throw gg_error(std::format("Missing text following -V{}.",
+                        *param));
+
+                ++i;
+                configs.emplace_back(match_type::text, argv[i],
+                    config_flags::negate | config_flags::all | g_flags,
+                    std::move(g_conditions));
+                g_flags = 0;
                 break;
             case 'P':
+                if (i + 1 == argc)
+                    throw gg_error(std::format("Missing regex following -V{}.",
+                        *param));
+
                 // Perl style regex
                 ++i;
-
-                if (i < argc)
-                {
-                    configs.emplace_back(match_type::regex, argv[i],
-                        config_flags::negate | config_flags::all | g_flags,
-                        std::move(g_conditions));
-                    g_flags = 0;
-                }
-                else
-                    throw gg_error(std::format("Missing regex following {}.",
-                        argv[i - 1]));
-
+                configs.emplace_back(match_type::regex, argv[i],
+                    config_flags::negate | config_flags::all | g_flags,
+                    std::move(g_conditions));
+                g_flags = 0;
                 break;
             default:
-                throw gg_error(std::format("Unknown switch {}", argv[i]));
+                throw gg_error(std::format("Unknown switch -V{}", *param));
                 break;
             }
 
             break;
         case 'v':
-            ++param;
-
             if (g_flags & config_flags::extend_search)
-                throw gg_error(std::format("Cannot mix --extend-search with {}",
-                    argv[i]));
+                throw gg_error(std::format("Cannot mix --extend-search with -{}",
+                    *param));
+
+            if (!*(param + 1))
+                throw gg_error("Missing option following -v.");
+
+            ++param;
 
             switch (*param)
             {
             case 'E':
+                if (i + 1 == argc)
+                    throw gg_error(std::format("Missing regex following -v{}.",
+                        *param));
+
                 // DFA regex
                 ++i;
-
-                if (i < argc)
-                {
-                    configs.emplace_back(match_type::dfa_regex, argv[i],
-                        config_flags::negate | g_flags,
-                        std::move(g_conditions));
-                    g_flags = 0;
-                }
-                else
-                    throw gg_error(std::format("Missing regex following {}.",
-                        argv[i - 1]));
-
+                configs.emplace_back(match_type::dfa_regex, argv[i],
+                    config_flags::negate | g_flags,
+                    std::move(g_conditions));
+                g_flags = 0;
                 break;
             case 'f':
+            {
+                if (i + 1 == argc)
+                    throw gg_error(std::format("Missing pathname following -v{}.",
+                        *param));
+
                 ++i;
 
-                if (i < argc)
+                auto pathnames = split(argv[i], ';');
+
+                for (const auto& p : pathnames)
                 {
-                    auto pathnames = split(argv[i], ';');
+                    auto pn = p.data();
 
-                    for (const auto& p : pathnames)
-                    {
-                        auto pn = p.data();
-
-                        configs.emplace_back(match_type::parser,
-                            std::string(pn, pn + p.size()),
-                            config_flags::negate | g_flags,
-                            g_conditions);
-                    }
-
-                    g_flags = 0;
-                    g_conditions.clear();
-                }
-                else
-                    throw gg_error(std::format("Missing pathname following {}.",
-                        argv[i - 1]));
-
-                break;
-            case 'F':
-                ++i;
-
-                if (i < argc)
-                {
-                    configs.emplace_back(match_type::text, argv[i],
+                    configs.emplace_back(match_type::parser,
+                        std::string(pn, pn + p.size()),
                         config_flags::negate | g_flags,
-                        std::move(g_conditions));
-                    g_flags = 0;
+                        g_conditions);
                 }
-                else
-                    throw gg_error(std::format("Missing text following {}.",
-                        argv[i - 1]));
 
+                g_flags = 0;
+                g_conditions.clear();
+                break;
+            }
+            case 'F':
+                if (i + 1 == argc)
+                    throw gg_error(std::format("Missing text following -v{}.",
+                        *param));
+
+                ++i;
+                configs.emplace_back(match_type::text, argv[i],
+                    config_flags::negate | g_flags,
+                    std::move(g_conditions));
+                g_flags = 0;
                 break;
             case 'P':
+                if (i + 1 == argc)
+                    throw gg_error(std::format("Missing regex following -v{}.",
+                        *param));
+
                 // Perl style regex
                 ++i;
-
-                if (i < argc)
-                {
-                    configs.emplace_back(match_type::regex, argv[i],
-                        config_flags::negate | g_flags,
-                        std::move(g_conditions));
-                    g_flags = 0;
-                }
-                else
-                    throw gg_error(std::format("Missing regex following {}.",
-                        argv[i - 1]));
-
+                configs.emplace_back(match_type::regex, argv[i],
+                    config_flags::negate | g_flags,
+                    std::move(g_conditions));
+                g_flags = 0;
                 break;
             default:
-                throw gg_error(std::format("Unknown switch {}",
-                    argv[i]));
+                throw gg_error(std::format("Unknown switch -v{}",
+                    *param));
                 break;
             }
 
@@ -856,32 +811,30 @@ static void process_short(int& i, const int argc, const char* const argv[],
             break;
         case 'x':
         {
+            if (i + 1 == argc)
+                throw gg_error(std::format("Missing wildcard following -{}.",
+                    *param));
+
             ++i;
 
-            if (i < argc)
+            auto pathnames = split(argv[i], ';');
+
+            for (const auto& p : pathnames)
             {
-                auto pathnames = split(argv[i], ';');
+                auto pn = p.data();
 
-                for (const auto& p : pathnames)
-                {
-                    auto pn = p.data();
-
-                    if (*pn == '!')
-                        g_exclude.second.emplace_back(pn, pn + p.size(),
-                            is_windows());
-                    else
-                        g_exclude.first.emplace_back(pn, pn + p.size(),
-                            is_windows());
-                }
+                if (*pn == '!')
+                    g_exclude.second.emplace_back(pn, pn + p.size(),
+                        is_windows());
+                else
+                    g_exclude.first.emplace_back(pn, pn + p.size(),
+                        is_windows());
             }
-            else
-                throw gg_error(std::format("Missing wildcard following {}.",
-                    argv[i - 1]));
 
             break;
         }
         default:
-            throw gg_error(std::format("Unknown switch {}", argv[i]));
+            throw gg_error(std::format("Unknown switch -{}", *param));
             break;
         }
 
