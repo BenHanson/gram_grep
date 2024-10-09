@@ -1,11 +1,13 @@
 #include "pch.h"
 
+#include "colours.hpp"
 #include <format>
 //#include <parsertl/debug.hpp>
 #include <parsertl/generator.hpp>
 #include "gg_error.hpp"
 #include "types.hpp"
 
+extern bool g_colour;
 extern condition_parser g_condition_parser;
 extern config_parser g_config_parser;
 extern parser* g_curr_parser;
@@ -1097,7 +1099,15 @@ void build_config_parser()
     parsertl::generator::build(grules, g_config_parser._gsm, &warnings);
 
     if (!warnings.empty())
+    {
+        if (g_colour)
+            std::cerr << szRedText;
+
         std::cerr << "Config parser warnings: " << warnings;
+
+        if (g_colour)
+            std::cerr << szDefaultText;
+    }
 
     lrules.push_state("OPTION");
     lrules.push_state("GRULE");

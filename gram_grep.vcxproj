@@ -178,6 +178,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="args.hpp" />
+    <ClInclude Include="colours.hpp" />
     <ClInclude Include="gg_error.hpp" />
     <ClInclude Include="parser.hpp" />
     <ClInclude Include="pch.h" />

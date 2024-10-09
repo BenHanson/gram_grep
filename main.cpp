@@ -4,9 +4,11 @@
 #include "pch.h"
 
 #include "args.hpp"
+#include "colours.hpp"
 #include <lexertl/debug.hpp>
 #include <lexertl/dot.hpp>
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include "gg_error.hpp"
 #include <lexertl/memory_file.hpp>
@@ -14,12 +16,6 @@
 #include "search.hpp"
 #include <type_traits>
 #include <wildcardtl/wildcard.hpp>
-
-constexpr const char szPurpleText[] = "\x1b[38;5;141m\x1b[K";
-constexpr const char szBlueText[] = "\x1b[36m\x1b[K";
-constexpr const char szGreenText[] = "\x1b[92m\x1b[K";
-constexpr const char szRedText[] = "\x1b[01;91m\x1b[K";
-constexpr const char szDefaultText[] = "\x1b[m\x1b[K";
 
 extern std::string build_text(const std::string& input,
     const capture_vector& captures);
@@ -194,8 +190,15 @@ static bool process_matches(const std::vector<match>& ranges,
 
         if (first < tuple._first || first > tuple._second)
         {
+            if (g_colour)
+                std::cerr << szYellowText;
+
             std::cerr << "Cannot replace text when source "
                 "is not contained in original string.\n";
+
+            if (g_colour)
+                std::cerr << szDefaultText;
+
             return true;
         }
         else
@@ -233,8 +236,15 @@ static bool process_matches(const std::vector<match>& ranges,
                             replace += captures[idx].front();
                         else
                         {
+                            if (g_colour)
+                                std::cerr << szYellowText;
+
                             std::cerr << "Capture $" << idx <<
                                 " is out of range.\n";
+
+                            if (g_colour)
+                                std::cerr << szDefaultText;
+
                             skip = true;
                         }
                     }
@@ -378,7 +388,7 @@ static void perform_output(const std::size_t hits, const std::string& pathname,
             }
 
             if (::system(checkout.c_str()) != 0)
-                std::cerr << "Failed to execute " << g_checkout << ".\n";
+                throw gg_error(std::format("Failed to execute {}.\n", g_checkout));
         }
         else if (g_force_write)
             fs::permissions(pathname.c_str(), perms | fs::perms::owner_write);
@@ -402,7 +412,13 @@ static void perform_output(const std::size_t hits, const std::string& pathname,
         if ((fs::status(pathname.c_str()).permissions() &
             fs::perms::owner_write) != fs::perms::owner_write)
         {
+            if (g_colour)
+                std::cerr << szYellowText;
+
             std::cerr << pathname << " is read only.\n";
+
+            if (g_colour)
+                std::cerr << szDefaultText;
         }
         else
         {
@@ -529,7 +545,14 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
 
     if (!mf.data() && !cin)
     {
+        if (g_colour)
+            std::cerr << szYellowText;
+
         std::cerr << "Error: failed to open " << pathname << ".\n";
+
+        if (g_colour)
+            std::cerr << szDefaultText;
+
         return;
     }
 
@@ -679,7 +702,13 @@ static void process_file(const fs::path& path,
     }
     catch (const std::exception& e)
     {
+        if (g_colour)
+            std::cerr << szYellowText;
+
         std::cerr << e.what() << '\n';
+
+        if (g_colour)
+            std::cerr << szDefaultText;
     }
 }
 
@@ -967,7 +996,13 @@ int main(int argc, char* argv[])
         {
             if (::system(g_startup.c_str()))
             {
+                if (g_colour)
+                    std::cerr << szYellowText;
+
                 std::cerr << "Failed to execute " << g_startup << ".\n";
+
+                if (g_colour)
+                    std::cerr << szDefaultText;
                 run = false;
             }
         }
@@ -986,7 +1021,15 @@ int main(int argc, char* argv[])
 
         if (!g_shutdown.empty())
             if (::system(g_shutdown.c_str()))
+            {
+                if (g_colour)
+                    std::cerr << (run ? szRedText : szYellowText);
+
                 std::cerr << "Failed to execute " << g_shutdown << ".\n";
+
+                if (g_colour)
+                    std::cerr << szDefaultText;
+            }
 
         if (!g_pathname_only && g_print.empty() && !g_rule_print)
             std::cout << "Matches: " << g_hits << "    Matching files: " <<
@@ -996,7 +1039,14 @@ int main(int argc, char* argv[])
     }
     catch (const std::exception& e)
     {
+        if (g_colour)
+            std::cerr << szDarkRedText;
+
         std::cerr << e.what() << '\n';
+
+        if (g_colour)
+            std::cerr << szDefaultText;
+
         return 1;
     }
 }

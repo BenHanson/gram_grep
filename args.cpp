@@ -653,7 +653,7 @@ static void process_short(int& i, const int argc, const char* const argv[],
                 throw gg_error(std::format("Cannot mix --extend-search with -{}",
                     *param));
 
-            if (!*(param+ 1))
+            if (!*(param + 1))
                 throw gg_error("Missing option following -V.");
 
             ++param;

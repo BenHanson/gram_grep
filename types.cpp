@@ -1,5 +1,6 @@
 #include "pch.h"
 
+#include "colours.hpp"
 #include <format>
 #include <lexertl/generator.hpp>
 #include <parsertl/generator.hpp>
@@ -7,6 +8,7 @@
 #include <parsertl/lookup.hpp>
 #include "types.hpp"
 
+extern bool g_colour;
 extern config_parser g_config_parser;
 extern parser* g_curr_parser;
 extern uparser* g_curr_uparser;
@@ -288,8 +290,16 @@ void config_state::parse(const unsigned int flags,
         _grules.terminals(terminals);
 
         if (!warnings.empty())
+        {
+            if (g_colour)
+                std::cerr << szYellowText;
+
             std::cerr << "Warnings from config " << config_pathname << " : " <<
-            warnings;
+                warnings;
+
+            if (g_colour)
+                std::cerr << szDefaultText;
+        }
 
         for (const auto& p : grammar)
         {
@@ -326,14 +336,28 @@ void config_state::parse(const unsigned int flags,
             }
 
             if (!found_id)
+            {
+                if (g_colour)
+                    std::cerr << szYellowText;
+
                 std::cerr << "Warning: Token \"" << terminals[i] <<
-                "\" does not have a lexer definiton.\n";
+                    "\" does not have a lexer definiton.\n";
+
+                if (g_colour)
+                    std::cerr << szDefaultText;
+            }
 
             if (!used_tokens.contains(i) && !used_prec.contains(i) &&
                 std::ranges::find(_consume, terminals[i]) == _consume.end())
             {
+                if (g_colour)
+                    std::cerr << szYellowText;
+
                 std::cerr << "Warning: Token \"" << terminals[i] <<
                     "\" is not used in the grammar.\n";
+
+                if (g_colour)
+                    std::cerr << szDefaultText;
             }
         }
     }
