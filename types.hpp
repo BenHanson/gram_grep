@@ -339,15 +339,20 @@ struct uparser : parser_base
     lexertl::u32state_machine _lsm;
 };
 
+struct word_list : match_type_base
+{
+    std::vector<std::string_view> _list;
+};
+
 enum class match_type
 {
     // Must match order of variant in pipeline (below).
     // Note that dfa_regex always goes on the end
     // as it is converted to lexer or ulexer
-    text, regex, lexer, ulexer, parser, uparser, dfa_regex
+    text, regex, lexer, ulexer, parser, uparser, word_list, dfa_regex
 };
 
-using pipeline = std::vector<std::variant<text, regex, lexer, ulexer, parser, uparser>>;
+using pipeline = std::vector<std::variant<text, regex, lexer, ulexer, parser, uparser, word_list>>;
 
 struct config
 {

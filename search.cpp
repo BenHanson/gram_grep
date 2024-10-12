@@ -12,6 +12,7 @@ extern std::regex g_capture_rx;
 extern bool g_output;
 extern pipeline g_pipeline;
 
+extern lexertl::state_machine word_lexer();
 extern std::string unescape(const std::string_view& vw);
 
 using results = std::vector<std::vector<std::pair
@@ -1017,6 +1018,132 @@ bool process_parser(parser_t& p, const char* data_first,
     return success;
 }
 
+static bool process_word_list(const word_list& w, const char* data_first,
+    std::vector<match>& ranges, capture_vector& captures)
+{
+    std::string_view text;
+    const lexertl::state_machine sm = word_lexer();
+    lexertl::citerator iter(ranges.back()._first, ranges.back()._eoi, sm);
+    const char* first = ranges.back()._first;
+    const char* second = ranges.back()._eoi;
+    results cap_vec;
+    bool success = false;
+
+    cap_vec.emplace_back();
+    cap_vec.back().emplace_back();
+
+    for (; iter->id != 0; ++iter)
+    {
+        text = iter->view();
+
+        if (w._flags & config_flags::icase)
+        {
+            auto list_iter = std::find_if(w._list.begin(), w._list.end(),
+                [&text](const std::string_view& rhs)
+                {
+                    if (text.size() != rhs.size())
+                        return false;
+                    else
+                    {
+                        for (std::size_t idx = 0, size = text.size(); idx < size; ++idx)
+                        {
+                            if (::tolower(text[idx]) != ::tolower(rhs[idx]))
+                                return false;
+                        }
+
+                        return true;
+                    }
+                });
+
+            success = list_iter != w._list.end();
+        }
+        else
+        {
+            auto list_iter = std::ranges::lower_bound(w._list, text);
+
+            success = list_iter != w._list.end() && *list_iter == text;
+        }
+
+        first = iter->first;
+        second = iter->second;
+
+        if (success)
+        {
+            cap_vec.back().back().first = first;
+            cap_vec.back().back().second = second;
+            success = is_whole_word(data_first, first, second,
+                ranges.front()._eoi, w._flags) &&
+                conditions_met(w._conditions, cap_vec);
+
+            if (success)
+                break;
+        }
+    }
+
+    if (success)
+    {
+        if (w._flags & config_flags::negate)
+        {
+            if (w._flags & config_flags::all)
+                success = false;
+            else
+            {
+                const char* last_start = ranges.back()._first;
+
+                if (!(w._flags & config_flags::ret_prev_match))
+                    ranges.back()._second = first + text.size();
+
+                if (last_start == first)
+                {
+                    if (!(w._flags & config_flags::ret_prev_match))
+                        // The match is right at the beginning, so skip.
+                        ranges.emplace_back(second, second, second);
+
+                    success = false;
+                }
+                else if (!(w._flags & config_flags::ret_prev_match))
+                    ranges.emplace_back(ranges.back()._first, first, first);
+            }
+        }
+        else if (!(w._flags & config_flags::ret_prev_match))
+        {
+            // Store start of match
+            ranges.back()._first = first;
+            // Store end of match
+            ranges.back()._second = second;
+            ranges.emplace_back((w._flags & config_flags::extend_search) ?
+                second :
+                first,
+                (w._flags & config_flags::extend_search) ?
+                second :
+                first,
+                (w._flags & config_flags::extend_search) ?
+                ranges.back()._eoi :
+                second);
+        }
+    }
+    else if (w._flags & config_flags::negate &&
+        ranges.back()._first != ranges.back()._eoi)
+    {
+        if (!(w._flags & config_flags::ret_prev_match))
+        {
+            ranges.back()._second = first;
+            ranges.emplace_back(ranges.back()._first, first, first);
+        }
+
+        success = true;
+    }
+
+    if (success && !(w._flags & config_flags::ret_prev_match))
+    {
+        captures.clear();
+        captures.emplace_back();
+        captures.back().emplace_back(ranges.back()._first, ranges.back()._eoi);
+    }
+
+    return success;
+}
+
 std::pair<bool, bool> search(std::vector<match>& ranges, const char* data_first,
     std::stack<std::string>& matches,
     std::map<std::pair<std::size_t, std::size_t>, std::string>& replacements,
@@ -1078,6 +1205,14 @@ std::pair<bool, bool> search(std::vector<match>& ranges, const char* data_first,
             success = process_parser(p, data_first, ranges, matches,
                 replacements, captures);
             negate = (p._flags & config_flags::negate) != 0;
+            break;
+        }
+        case match_type::word_list:
+        {
+            auto& words = std::get<word_list>(v);
+
+            success = process_word_list(words, data_first, ranges, captures);
+            negate = (words._flags & config_flags::negate) != 0;
             break;
         }
         default:

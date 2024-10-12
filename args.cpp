@@ -27,6 +27,7 @@ extern bool g_show_hits;
 extern std::string g_shutdown;
 extern std::string g_startup;
 extern bool g_whole_match;
+extern std::vector<lexertl::memory_file> g_word_list_files;
 extern bool g_writable;
 
 extern void build_condition_parser();
@@ -484,6 +485,21 @@ static void process_long(int& i, const int argc, const char* const argv[],
     }
     else if (strcmp("whole-word", param) == 0)
         g_flags |= config_flags::whole_word;
+    else if (strcmp("word-list", param) == 0)
+    {
+        ++i;
+
+        if (i < argc)
+        {
+            g_word_list_files = std::vector<lexertl::memory_file>(g_word_list_files.size() + 1);
+            configs.emplace_back(match_type::word_list, argv[i], g_flags,
+                std::move(g_conditions));
+            g_flags = 0;
+        }
+        else
+            throw gg_error(std::format("Missing pathname following {}.",
+                argv[i - 1]));
+    }
     else if (strcmp("writable", param) == 0)
         g_writable = true;
     else if (strcmp("utf8", param) == 0)
@@ -899,6 +915,7 @@ void show_help()
         "-s, --startup <cmd>\t\t\t\tCommand to run at startup.\n"
         "-u, --utf8\t\t\t\t\tIn the absence of a BOM assume UTF-8.\n"
         "-w, --whole-word\t\t\t\tForce match to match only whole words.\n"
+        "    --word-list <pathname>\t\t\tSearch for a word from the supplied word list.\n"
         "-W, --writable\t\t\t\t\tOnly process files that are writable.\n"
         "<pathname>...\t\t\t\t\tFiles to search (wildcards supported).\n\n"
         "Config file format:\n\n"

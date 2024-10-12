@@ -61,6 +61,7 @@ bool g_show_hits = false;
 std::string g_startup;
 std::string g_shutdown;
 bool g_whole_match = false;
+std::vector<lexertl::memory_file> g_word_list_files;
 bool g_writable = false;
 
 file_type fetch_file_type(const char* data, std::size_t size)
@@ -776,8 +777,26 @@ void add_pathname(std::string pn,
         positive.emplace_back(pn, is_windows());
 }
 
+lexertl::state_machine word_lexer()
+{
+    static lexertl::state_machine sm;
+
+    if (sm.empty())
+    {
+        lexertl::rules rules;
+
+        rules.push(R"([A-Z_a-z]\w*)", 1);
+        rules.push("(?s:.)", lexertl::rules::skip());
+        lexertl::generator::build(rules, sm);
+    }
+
+    return sm;
+}
+
 static void fill_pipeline(std::vector<config>&& configs)
 {
+    std::size_t word_list_idx = 0;
+
     // Postponed to allow -i to be processed first.
     for (auto&& config : std::move(configs))
     {
@@ -829,19 +848,6 @@ static void fill_pipeline(std::vector<config>&& configs)
                 g_pipeline.emplace_back(std::move(lexer));
             }
 
-            break;
-        }
-        case match_type::regex:
-        {
-            regex regex;
-
-            regex._flags = config._flags;
-            regex._conditions = std::move(config._conditions);
-            regex._rx.assign(config._param, (regex._flags & config_flags::icase) ?
-                (std::regex_constants::ECMAScript |
-                    std::regex_constants::icase) :
-                std::regex_constants::ECMAScript);
-            g_pipeline.emplace_back(std::move(regex));
             break;
         }
         case match_type::parser:
@@ -901,6 +907,19 @@ static void fill_pipeline(std::vector<config>&& configs)
 
             break;
         }
+        case match_type::regex:
+        {
+            regex regex;
+
+            regex._flags = config._flags;
+            regex._conditions = std::move(config._conditions);
+            regex._rx.assign(config._param, (regex._flags & config_flags::icase) ?
+                (std::regex_constants::ECMAScript |
+                    std::regex_constants::icase) :
+                std::regex_constants::ECMAScript);
+            g_pipeline.emplace_back(std::move(regex));
+            break;
+        }
         case match_type::text:
         {
             text text;
@@ -909,6 +928,31 @@ static void fill_pipeline(std::vector<config>&& configs)
             text._conditions = std::move(config._conditions);
             text._text = config._param;
             g_pipeline.emplace_back(std::move(text));
+            break;
+        }
+        case match_type::word_list:
+        {
+            word_list words;
+            lexertl::memory_file& mf = g_word_list_files[word_list_idx];
+            const lexertl::state_machine sm = word_lexer();
+            lexertl::citerator iter;
+
+            words._flags = config._flags;
+            words._conditions = std::move(config._conditions);
+            mf.open(config._param.c_str());
+
+            if (mf.data() == nullptr)
+                throw gg_error(std::format("Cannot open {}", config._param));
+
+            iter = lexertl::citerator(mf.data(), mf.data() + mf.size(), sm);
+
+            for (; iter->id != 0; ++iter)
+            {
+                words._list.push_back(iter->view());
+            }
+
+            std::ranges::sort(words._list);
+            g_pipeline.emplace_back(std::move(words));
             break;
         }
         default:
