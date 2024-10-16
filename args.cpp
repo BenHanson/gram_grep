@@ -245,178 +245,10 @@ static void process_long(int& i, const int argc, const char* const argv[],
     }
     else if (strcmp("ignore-case", param) == 0)
         g_flags |= config_flags::icase;
-    else if (strcmp("invert-extended-regexp", param) == 0)
-    {
-        if (g_flags & config_flags::extend_search)
-            throw gg_error(std::format("Cannot mix --extend-search "
-                "with {}", argv[i]));
-
-        // DFA regex
-        ++i;
-
-        if (i < argc)
-        {
-            configs.emplace_back(match_type::dfa_regex, argv[i],
-                config_flags::negate | g_flags, std::move(g_conditions));
-            g_flags = 0;
-        }
-        else
-            throw gg_error(std::format("Missing regex following {}.",
-                argv[i - 1]));
-    }
-    else if (strcmp("invert-file", param) == 0)
-    {
-        if (g_flags & config_flags::extend_search)
-            throw gg_error(std::format("Cannot mix --extend-search with {}",
-                argv[i]));
-
-        ++i;
-
-        if (i < argc)
-        {
-            auto pathnames = split(argv[i], ';');
-
-            for (const auto& p : pathnames)
-            {
-                auto pn = p.data();
-
-                configs.emplace_back(match_type::parser,
-                    std::string(pn, pn + p.size()),
-                    config_flags::negate | g_flags, g_conditions);
-            }
-
-            g_flags = 0;
-            g_conditions.clear();
-        }
-        else
-            throw gg_error(std::format("Missing pathname following {}.",
-                argv[i - 1]));
-    }
-    else if (strcmp("invert-perl-regexp", param) == 0)
-    {
-        if (g_flags & config_flags::extend_search)
-            throw gg_error(std::format("Cannot mix --extend-search "
-                "with {}", argv[i]));
-
-        // Perl style regex
-        ++i;
-
-        if (i < argc)
-        {
-            configs.emplace_back(match_type::regex, argv[i],
-                config_flags::negate | g_flags, std::move(g_conditions));
-            g_flags = 0;
-        }
-        else
-            throw gg_error(std::format("Missing regex following {}.",
-                argv[i - 1]));
-    }
-    else if (strcmp("invert-text", param) == 0)
-    {
-        if (g_flags & config_flags::extend_search)
-            throw gg_error(std::format("Cannot mix --extend-search "
-                "with {}", argv[i]));
-
-        ++i;
-
-        if (i < argc)
-        {
-            configs.emplace_back(match_type::text, argv[i],
-                config_flags::negate | g_flags, std::move(g_conditions));
-            g_flags = 0;
-        }
-        else
-            throw gg_error(std::format("Missing text following {}.",
-                argv[i - 1]));
-    }
-    else if (strcmp("invert-all-extended-regexp", param) == 0)
-    {
-        if (g_flags & config_flags::extend_search)
-            throw gg_error(std::format("Cannot mix --extend-search "
-                "with {}", argv[i]));
-
-        // DFA regex
-        ++i;
-
-        if (i < argc)
-        {
-            configs.emplace_back(match_type::dfa_regex, argv[i],
-                config_flags::negate | config_flags::all | g_flags,
-                std::move(g_conditions));
-            g_flags = 0;
-        }
-        else
-            throw gg_error(std::format("Missing regex following {}.",
-                argv[i - 1]));
-    }
-    else if (strcmp("invert-all-file", param) == 0)
-    {
-        if (g_flags & config_flags::extend_search)
-            throw gg_error(std::format("Cannot mix --extend-search "
-                "with {}", argv[i]));
-
-        ++i;
-
-        if (i < argc)
-        {
-            auto pathnames = split(argv[i], ';');
-
-            for (const auto& p : pathnames)
-            {
-                auto pn = p.data();
-
-                configs.emplace_back(match_type::parser,
-                    std::string(pn, pn + p.size()),
-                    config_flags::negate | config_flags::all | g_flags,
-                    g_conditions);
-            }
-
-            g_flags = 0;
-            g_conditions.clear();
-        }
-        else
-            throw gg_error(std::format("Missing pathname following {}.",
-                argv[i - 1]));
-    }
-    else if (strcmp("invert-all-perl-regexp", param) == 0)
-    {
-        if (g_flags & config_flags::extend_search)
-            throw gg_error(std::format("Cannot mix --extend-search "
-                "with {}", argv[i]));
-
-        // Perl style regex
-        ++i;
-
-        if (i < argc)
-        {
-            configs.emplace_back(match_type::regex, argv[i],
-                config_flags::negate | config_flags::all | g_flags,
-                std::move(g_conditions));
-            g_flags = 0;
-        }
-        else
-            throw gg_error(std::format("Missing regex following {}.",
-                argv[i - 1]));
-    }
-    else if (strcmp("invert-all-text", param) == 0)
-    {
-        if (g_flags & config_flags::extend_search)
-            throw gg_error(std::format("Cannot mix --extend-search with {}",
-                argv[i]));
-
-        ++i;
-
-        if (i < argc)
-        {
-            configs.emplace_back(match_type::text, argv[i],
-                config_flags::negate | config_flags::all | g_flags,
-                std::move(g_conditions));
-            g_flags = 0;
-        }
-        else
-            throw gg_error(std::format("Missing text following {}.",
-                argv[i - 1]));
-    }
+    else if (strcmp("invert-match", param) == 0)
+        g_flags |= config_flags::negate;
+    else if (strcmp("invert-match-all", param) == 0)
+        g_flags |= config_flags::negate | config_flags::all;
     else if (strcmp("perform-output", param) == 0)
         g_output = true;
     else if (strcmp("perl-regexp", param) == 0)
@@ -665,159 +497,10 @@ static void process_short(int& i, const int argc, const char* const argv[],
             g_force_unicode = true;
             break;
         case 'V':
-            if (g_flags & config_flags::extend_search)
-                throw gg_error(std::format("Cannot mix --extend-search with -{}",
-                    *param));
-
-            if (!*(param + 1))
-                throw gg_error("Missing option following -V.");
-
-            ++param;
-
-            switch (*param)
-            {
-            case 'E':
-                if (i + 1 == argc)
-                    throw gg_error(std::format("Missing regex following -V{}.",
-                        *param));
-
-                // DFA regex
-                ++i;
-                configs.emplace_back(match_type::dfa_regex, argv[i],
-                    config_flags::negate | config_flags::all | g_flags,
-                    std::move(g_conditions));
-                g_flags = 0;
-                break;
-            case 'f':
-            {
-                if (i + 1 == argc)
-                    throw gg_error(std::format("Missing pathname following -V{}.",
-                        *param));
-
-                ++i;
-
-                auto pathnames = split(argv[i], ';');
-
-                for (const auto& p : pathnames)
-                {
-                    auto pn = p.data();
-
-                    configs.emplace_back(match_type::parser,
-                        std::string(pn, pn + p.size()),
-                        config_flags::negate | config_flags::all | g_flags,
-                        g_conditions);
-                }
-
-                g_flags = 0;
-                g_conditions.clear();
-                break;
-            }
-            case 'F':
-                if (i + 1 == argc)
-                    throw gg_error(std::format("Missing text following -V{}.",
-                        *param));
-
-                ++i;
-                configs.emplace_back(match_type::text, argv[i],
-                    config_flags::negate | config_flags::all | g_flags,
-                    std::move(g_conditions));
-                g_flags = 0;
-                break;
-            case 'P':
-                if (i + 1 == argc)
-                    throw gg_error(std::format("Missing regex following -V{}.",
-                        *param));
-
-                // Perl style regex
-                ++i;
-                configs.emplace_back(match_type::regex, argv[i],
-                    config_flags::negate | config_flags::all | g_flags,
-                    std::move(g_conditions));
-                g_flags = 0;
-                break;
-            default:
-                throw gg_error(std::format("Unknown switch -V{}", *param));
-                break;
-            }
-
+            g_flags |= config_flags::negate | config_flags::all;
             break;
         case 'v':
-            if (g_flags & config_flags::extend_search)
-                throw gg_error(std::format("Cannot mix --extend-search with -{}",
-                    *param));
-
-            if (!*(param + 1))
-                throw gg_error("Missing option following -v.");
-
-            ++param;
-
-            switch (*param)
-            {
-            case 'E':
-                if (i + 1 == argc)
-                    throw gg_error(std::format("Missing regex following -v{}.",
-                        *param));
-
-                // DFA regex
-                ++i;
-                configs.emplace_back(match_type::dfa_regex, argv[i],
-                    config_flags::negate | g_flags,
-                    std::move(g_conditions));
-                g_flags = 0;
-                break;
-            case 'f':
-            {
-                if (i + 1 == argc)
-                    throw gg_error(std::format("Missing pathname following -v{}.",
-                        *param));
-
-                ++i;
-
-                auto pathnames = split(argv[i], ';');
-
-                for (const auto& p : pathnames)
-                {
-                    auto pn = p.data();
-
-                    configs.emplace_back(match_type::parser,
-                        std::string(pn, pn + p.size()),
-                        config_flags::negate | g_flags,
-                        g_conditions);
-                }
-
-                g_flags = 0;
-                g_conditions.clear();
-                break;
-            }
-            case 'F':
-                if (i + 1 == argc)
-                    throw gg_error(std::format("Missing text following -v{}.",
-                        *param));
-
-                ++i;
-                configs.emplace_back(match_type::text, argv[i],
-                    config_flags::negate | g_flags,
-                    std::move(g_conditions));
-                g_flags = 0;
-                break;
-            case 'P':
-                if (i + 1 == argc)
-                    throw gg_error(std::format("Missing regex following -v{}.",
-                        *param));
-
-                // Perl style regex
-                ++i;
-                configs.emplace_back(match_type::regex, argv[i],
-                    config_flags::negate | g_flags,
-                    std::move(g_conditions));
-                g_flags = 0;
-                break;
-            default:
-                throw gg_error(std::format("Unknown switch -v{}",
-                    *param));
-                break;
-            }
-
+            g_flags |= config_flags::negate;
             break;
         case 'w':
             g_flags |= config_flags::whole_word;
@@ -877,47 +560,39 @@ void read_switches(const int argc, const char* const argv[],
 
 void show_help()
 {
-    std::cout << "-h, --help\t\t\t\t\tShows help.\n"
-        "-c, --checkout <cmd>\t\t\t\tCheckout command (include $1 for pathname).\n"
-        "    --colour, --color\t\t\t\tUse markers to highlight the matching strings.\n"
-        "    --display-whole-match\t\t\tDisplay a multiline match.\n"
-        "-D, --dot\t\t\t\t\tDump DFA regexp in DOT format.\n"
-        "-d, --dump\t\t\t\t\tDump DFA regexp.\n"
-        "    --dump-argv\t\t\t\t\tDump command line arguments.\n"
-        "-x, --exclude <wildcard>\t\t\tExclude pathnames matching wildcard.\n"
-        "    --extend-search\t\t\t\tExtend the end of the next match to be the end of the current match.\n"
-        "-E, --extended-regexp <regexp>\t\t\tSearch using DFA regexp.\n"
-        "-f, --file <config file>\t\t\tSearch using config file.\n"
-        "-l, --files-with-matches\t\t\tOutput pathname only.\n"
-        "-F, --fixed-strings <text>\t\t\tSearch for plain text with support for capture ($n) "
+    std::cout << "-h, --help\t\t\tShows help.\n"
+        "-c, --checkout <cmd>\t\tCheckout command (include $1 for pathname).\n"
+        "    --colour, --color\t\tUse markers to highlight the matching strings.\n"
+        "    --display-whole-match\tDisplay a multiline match.\n"
+        "-D, --dot\t\t\tDump DFA regexp in DOT format.\n"
+        "-d, --dump\t\t\tDump DFA regexp.\n"
+        "    --dump-argv\t\t\tDump command line arguments.\n"
+        "-x, --exclude <wildcard>\tExclude pathnames matching wildcard.\n"
+        "    --extend-search\t\tExtend the end of the next match to be the end of the current match.\n"
+        "-E, --extended-regexp <regexp>\tSearch using DFA regexp.\n"
+        "-f, --file <config file>\tSearch using config file.\n"
+        "-l, --files-with-matches\tOutput pathname only.\n"
+        "-F, --fixed-strings <text>\tSearch for plain text with support for capture ($n) "
         "syntax.\n"
-        "-e, --force-write\t\t\t\tIf a file is read only, force it to be writable.\n"
-        "-t, --hits\t\t\t\t\tShow hit count per file.\n"
-        "-I, --if <condition>\t\t\t\tMake search conditional.\n"
-        "-i, --ignore-case\t\t\t\tCase insensitive searching.\n"
-        "-VE, --invert-all-extended-regexp <regexp>\tSearch using DFA regexp (all negated).\n"
-        "-Vf, --invert-all-file <config file>\t\tSearch using config file (all negated).\n"
-        "-VP, --invert-all-perl-regexp <regexp>\t\tSearch using std::regex (all negated).\n"
-        "-VF, --invert-all-text <text>\t\t\tSearch for plain text with support for capture "
-        "($n) syntax (all negated).\n"
-        "-vE, --invert-extended-regexp <regexp>\t\tSearch using DFA regexp (negated).\n"
-        "-vf, --invert-file <config file>\t\tSearch using config file (negated).\n"
-        "-vP, --invert-perl-regexp <regexp>\t\tSearch using std::regex (negated).\n"
-        "-vF, --invert-text <text>\t\t\tSearch for plain text with support for "
-        "capture ($n) syntax (negated).\n"
-        "-o, --perform-output\t\t\t\tOutput changes to matching file.\n"
-        "-P, --perl-regexp <regexp>\t\t\tSearch using std::regex.\n"
-        "-p, --print <text>\t\t\t\tPrint text instead of line of match.\n"
-        "-r, -R, --recursive\t\t\t\tRecurse subdirectories.\n"
-        "-a, --replace <text>\t\t\t\tReplace matching text.\n"
-        "    --return-previous-match\t\t\tReturn the previous match instead of the current one.\n"
-        "-S, --shutdown <cmd>\t\t\t\tCommand to run when exiting.\n"
-        "-s, --startup <cmd>\t\t\t\tCommand to run at startup.\n"
-        "-u, --utf8\t\t\t\t\tIn the absence of a BOM assume UTF-8.\n"
-        "-w, --whole-word\t\t\t\tForce match to match only whole words.\n"
-        "    --word-list <pathname>\t\t\tSearch for a word from the supplied word list.\n"
-        "-W, --writable\t\t\t\t\tOnly process files that are writable.\n"
-        "<pathname>...\t\t\t\t\tFiles to search (wildcards supported).\n\n"
+        "-e, --force-write\t\tIf a file is read only, force it to be writable.\n"
+        "-t, --hits\t\t\tShow hit count per file.\n"
+        "-I, --if <condition>\t\tMake search conditional.\n"
+        "-i, --ignore-case\t\tCase insensitive searching.\n"
+        "-v, --invert-match\t\tFind all text that does not match.\n"
+        "-V, --invert-match-all\t\tOnly match if the search does not match at all.\n"
+        "-o, --perform-output\t\tOutput changes to matching file.\n"
+        "-P, --perl-regexp <regexp>\tSearch using std::regex.\n"
+        "-p, --print <text>\t\tPrint text instead of line of match.\n"
+        "-r, -R, --recursive\t\tRecurse subdirectories.\n"
+        "-a, --replace <text>\t\tReplace matching text.\n"
+        "    --return-previous-match\tReturn the previous match instead of the current one.\n"
+        "-S, --shutdown <cmd>\t\tCommand to run when exiting.\n"
+        "-s, --startup <cmd>\t\tCommand to run at startup.\n"
+        "-u, --utf8\t\t\tIn the absence of a BOM assume UTF-8.\n"
+        "-w, --whole-word\t\tForce match to match only whole words.\n"
+        "    --word-list <pathname>\tSearch for a word from the supplied word list.\n"
+        "-W, --writable\t\t\tOnly process files that are writable.\n"
+        "<pathname>...\t\t\tFiles to search (wildcards supported).\n\n"
         "Config file format:\n\n"
         "<grammar directives>\n"
         "%%\n"

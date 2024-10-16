@@ -1080,6 +1080,11 @@ static bool process_word_list(const word_list& w, const char* data_first,
         }
     }
 
+    if (!success)
+    {
+        first = second = ranges.back()._eoi;
+    }
+
     if (success)
     {
         if (w._flags & config_flags::negate)
