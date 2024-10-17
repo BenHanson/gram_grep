@@ -319,7 +319,7 @@ struct actions
         _cmd_stack.pop_back();
     }
 
-    std::string system(cmd* command);
+    std::string exec(cmd* command);
 };
 
 struct parser_base : match_type_base
@@ -352,7 +352,8 @@ enum class match_type
     text, regex, lexer, ulexer, parser, uparser, word_list, dfa_regex
 };
 
-using pipeline = std::vector<std::variant<text, regex, lexer, ulexer, parser, uparser, word_list>>;
+using pipeline = std::vector<std::variant<text, regex, lexer, ulexer,
+    parser, uparser, word_list>>;
 
 struct config
 {

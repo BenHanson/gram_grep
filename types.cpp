@@ -42,7 +42,7 @@ extern bool g_force_unicode;
     return result;
 }
 
-std::string actions::system(cmd* command)
+std::string actions::exec(cmd* command)
 {
     std::string output;
     std::vector<cmd_data> stack;

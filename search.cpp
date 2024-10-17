@@ -23,6 +23,16 @@ using uresults = std::vector<std::vector<std::pair
 using uprod_map_t = std::vector<std::pair<uint16_t,
     parsertl::token<crutf8iterator>::token_vector>>;
 
+static const char* get_ptr(const char* ptr)
+{
+    return ptr;
+}
+
+static const char* get_ptr(const utf8_iterator& iter)
+{
+    return iter.get();
+}
+
 static const char* get_first(const std::pair<const char*, const char*>& pair)
 {
     return pair.first;
@@ -69,10 +79,10 @@ static std::size_t production_size(const parsertl::state_machine& sm,
     return sm._rules[index_]._rhs.size();
 }
 
-template<typename token_type>
-const token_type& dollar(const uint16_t rule_, const std::size_t index_,
+template<typename token_vector>
+const auto& dollar(const uint16_t rule_, const std::size_t index_,
     const parsertl::state_machine& sm_,
-    const typename token_type::token_vector& productions)
+    const token_vector& productions)
 {
     return productions[productions.size() -
         production_size(sm_, rule_) + index_];
@@ -156,23 +166,26 @@ bool conditions_met(const condition_map& conditions, const T& cap_vec)
     return success;
 }
 
-static void process_action(const parser& p, const char* start,
+template<typename parser_t, typename token_vector>
+void process_action(const parser_t& p, const char* start,
     const std::map<uint16_t, actions>::iterator& action_iter,
-    const std::pair<uint16_t, token::token_vector>& item,
+    const std::pair<uint16_t, token_vector>& item,
     std::stack<std::string>& matches,
     std::map<std::pair<std::size_t, std::size_t>, std::string>& replacements)
 {
     for (const auto cmd : action_iter->second._commands)
     {
-        const token::token_vector& productions = item.second;
+        const token_vector& productions = item.second;
 
         switch (cmd->_type)
         {
         case cmd::type::append:
         {
             const auto c = static_cast<match_cmd*>(cmd);
-            const std::string_view temp = dollar<token>(item.first,
-                cmd->_param1, p._gsm, productions).view();
+            const auto &token = dollar(item.first,
+                cmd->_param1, p._gsm, productions);
+            const std::string_view temp(get_ptr(token.first),
+                get_ptr(token.second));
             const uint16_t size = c->_front + c->_back;
 
             if (c->_front == 0 && c->_back == 0)
@@ -197,157 +210,9 @@ static void process_action(const parser& p, const char* start,
         case cmd::type::assign:
         {
             const auto& c = static_cast<match_cmd*>(cmd);
-            std::string temp = dollar<token>(item.first, cmd->_param1, p._gsm,
-                productions).str();
-
-            if (c->_front == 0 && c->_back == 0)
-                matches.top() = std::move(temp);
-            else
-            {
-                const uint16_t size = c->_front + c->_back;
-
-                if (c->_front >= temp.size() || size > temp.size())
-                {
-                    throw gg_error(std::format("substr(${}, {}, {}) out of "
-                        "range for string '{}'.",
-                        cmd->_param1 + 1,
-                        c->_front,
-                        c->_back,
-                        temp));
-                }
-
-                matches.top() = temp.substr(c->_front, temp.size() - size);
-            }
-
-            break;
-        }
-        case cmd::type::erase:
-            if (g_output)
-            {
-                const auto& param1 = dollar<token>(item.first, cmd->_param1,
-                    p._gsm, productions);
-                const auto& param2 = dollar<token>(item.first, cmd->_param2,
-                    p._gsm, productions);
-                const auto index1 =
-                    (cmd->_second1 ? param1.second : param1.first) - start;
-                const auto index2 =
-                    (cmd->_second2 ? param2.second : param2.first) - start;
-
-                replacements[std::pair(index1, index2 - index1)] =
-                    std::string();
-            }
-
-            break;
-        case cmd::type::insert:
-            if (g_output)
-            {
-                const auto c = static_cast<insert_cmd*>(cmd);
-                const auto& param = dollar<token>(item.first, cmd->_param1,
-                    p._gsm, productions);
-                const auto index = (cmd->_second1 ?
-                    param.second :
-                    param.first) - start;
-
-                replacements[std::pair(index, 0)] =
-                    action_iter->second.system(c->_param);
-            }
-
-            break;
-        case cmd::type::print:
-            std::cout << format_item(action_iter->second.system(cmd), item);
-            break;
-        case cmd::type::replace:
-            if (g_output)
-            {
-                const auto c = static_cast<replace_cmd*>(cmd);
-                const auto size = productions.size() -
-                    production_size(p._gsm, item.first);
-                const auto& param1 = productions[size + c->_param1];
-                const auto& param2 = productions[size + c->_param2];
-                const auto index1 =
-                    (c->_second1 ? param1.second : param1.first) - start;
-                const auto index2 =
-                    (c->_second2 ? param2.second : param2.first) - start;
-
-                replacements[std::pair(index1, index2 - index1)] =
-                    action_iter->second.system(c->_param);
-            }
-
-            break;
-        case cmd::type::replace_all_inplace:
-            if (g_output)
-            {
-                const auto c = static_cast<replace_all_inplace_cmd*>(cmd);
-                const auto size = productions.size() -
-                    production_size(p._gsm, item.first);
-                const auto& param = productions[size + c->_param1];
-                const auto index1 = param.first - start;
-                const auto index2 = param.second - start;
-                auto pair = std::pair(index1, index2 - index1);
-                auto iter = replacements.find(pair);
-                const std::regex rx(action_iter->second.system(c->_params[0]));
-                const std::string text =
-                    std::regex_replace(iter == replacements.end() ?
-                        std::string(param.first, param.second) : iter->second,
-                        rx, action_iter->second.system(c->_params[1]));
-
-                replacements[pair] = text;
-            }
-
-            break;
-        default:
-            break;
-        }
-    }
-}
-
-static void process_action(const uparser& p, const char* start,
-    const std::map<uint16_t, actions>::iterator& action_iter,
-    const std::pair<uint16_t,
-    parsertl::token<crutf8iterator>::token_vector>& item,
-    std::stack<std::string>& matches,
-    std::map<std::pair<std::size_t, std::size_t>, std::string>& replacements)
-{
-    for (const auto cmd : action_iter->second._commands)
-    {
-        using token_type = parsertl::token<crutf8iterator>;
-        const token_type::token_vector& productions = item.second;
-
-        switch (cmd->_type)
-        {
-        case cmd::type::append:
-        {
-            const auto c = static_cast<match_cmd*>(cmd);
-            auto& token = dollar<token_type>
-                (item.first, cmd->_param1, p._gsm, productions);
-            std::string temp(token.first.get(), token.second.get());
-            const uint16_t size = c->_front + c->_back;
-
-            if (c->_front == 0 && c->_back == 0)
-                matches.top() += temp;
-            else
-            {
-                if (c->_front >= temp.size() || size > temp.size())
-                {
-                    throw gg_error(std::format("substr(${}, {}, {}) out of "
-                        "range for string '{}'.",
-                        cmd->_param1 + 1,
-                        c->_front,
-                        c->_back,
-                        temp));
-                }
-
-                matches.top() += temp.substr(c->_front, temp.size() - size);
-            }
-
-            break;
-        }
-        case cmd::type::assign:
-        {
-            const auto c = static_cast<match_cmd*>(cmd);
-            auto& token = dollar<token_type>(item.first, cmd->_param1, p._gsm,
+            const auto& token = dollar(item.first, cmd->_param1, p._gsm,
                 productions);
-            std::string temp(token.first.get(), token.second.get());
+            std::string temp(get_ptr(token.first), get_ptr(token.second));
 
             if (c->_front == 0 && c->_back == 0)
                 matches.top() = std::move(temp);
@@ -373,14 +238,16 @@ static void process_action(const uparser& p, const char* start,
         case cmd::type::erase:
             if (g_output)
             {
-                const auto& param1 = dollar<token_type>(item.first, cmd->_param1,
-                    p._gsm, productions);
-                const auto& param2 = dollar<token_type>(item.first, cmd->_param2,
-                    p._gsm, productions);
-                const auto index1 = (cmd->_second1 ? param1.second.get() :
-                    param1.first.get()) - start;
-                const auto index2 = (cmd->_second2 ? param2.second.get() :
-                    param2.first.get()) - start;
+                const auto& param1 = dollar(item.first, cmd->_param1, p._gsm,
+                    productions);
+                const auto& param2 = dollar(item.first, cmd->_param2, p._gsm,
+                    productions);
+                const auto index1 = (cmd->_second1 ?
+                    get_ptr(param1.second) :
+                    get_ptr(param1.first)) - start;
+                const auto index2 = (cmd->_second2 ?
+                    get_ptr(param2.second) :
+                    get_ptr(param2.first)) - start;
 
                 replacements[std::pair(index1, index2 - index1)] =
                     std::string();
@@ -391,33 +258,39 @@ static void process_action(const uparser& p, const char* start,
             if (g_output)
             {
                 const auto c = static_cast<insert_cmd*>(cmd);
-                const auto& param = dollar<token_type>(item.first, cmd->_param1,
-                    p._gsm, productions);
-                const auto index = (cmd->_second1 ? param.second.get() :
-                    param.first.get()) - start;
+                const auto& param = dollar(item.first, cmd->_param1, p._gsm,
+                    productions);
+                const auto index = (cmd->_second1 ?
+                    get_ptr(param.second) :
+                    get_ptr(param.first)) - start;
 
                 replacements[std::pair(index, 0)] =
-                    action_iter->second.system(c->_param);
+                    action_iter->second.exec(c->_param);
             }
 
             break;
         case cmd::type::print:
-            std::cout << format_item(action_iter->second.system(cmd), item);
+            std::cout << format_item(action_iter->second.exec(cmd), item);
             break;
         case cmd::type::replace:
             if (g_output)
             {
                 const auto c = static_cast<replace_cmd*>(cmd);
-                const auto size = production_size(p._gsm, item.first);
+                const auto size = productions.size() -
+                    production_size(p._gsm, item.first);
                 const auto& param1 = productions[size + c->_param1];
                 const auto& param2 = productions[size + c->_param2];
-                const auto index1 = (c->_second1 ? param1.second.get() :
-                    param1.first.get()) - start;
-                const auto index2 = (c->_second2 ? param2.second.get() :
-                    param2.first.get()) - start;
+                const auto index1 =
+                    (c->_second1 ?
+                        get_ptr(param1.second) :
+                        get_ptr(param1.first)) - start;
+                const auto index2 =
+                    (c->_second2 ?
+                        get_ptr(param2.second) :
+                        get_ptr(param2.first)) - start;
 
                 replacements[std::pair(index1, index2 - index1)] =
-                    action_iter->second.system(c->_param);
+                    action_iter->second.exec(c->_param);
             }
 
             break;
@@ -425,18 +298,19 @@ static void process_action(const uparser& p, const char* start,
             if (g_output)
             {
                 const auto c = static_cast<replace_all_inplace_cmd*>(cmd);
-                const auto size = production_size(p._gsm, item.first);
+                const auto size = productions.size() -
+                    production_size(p._gsm, item.first);
                 const auto& param = productions[size + c->_param1];
-                const auto index1 = param.first.get() - start;
-                const auto index2 = param.second.get() - start;
+                const auto index1 = get_ptr(param.first) - start;
+                const auto index2 = get_ptr(param.second) - start;
                 auto pair = std::pair(index1, index2 - index1);
                 auto iter = replacements.find(pair);
-                const std::regex rx(action_iter->second.system(c->_params[0]));
+                const std::regex rx(action_iter->second.exec(c->_params[0]));
                 const std::string text =
                     std::regex_replace(iter == replacements.end() ?
-                        std::string(param.first.get(), param.second.get()) :
+                        std::string(get_ptr(param.first), get_ptr(param.second)) :
                         iter->second,
-                        rx, action_iter->second.system(c->_params[1]));
+                        rx, action_iter->second.exec(c->_params[1]));
 
                 replacements[pair] = text;
             }
@@ -937,8 +811,8 @@ bool process_parser(parser_t& p, const char* data_first,
 
                 if (action_iter != p._actions.end())
                 {
-                    process_action(p, data_first, action_iter, item,
-                        matches, replacements);
+                    process_action(p, data_first, action_iter, item, matches,
+                        replacements);
 
                     if (!(p._flags & config_flags::ret_prev_match))
                     {
@@ -1196,6 +1070,8 @@ std::pair<bool, bool> search(std::vector<match>& ranges, const char* data_first,
         }
         case match_type::parser:
         {
+            // Not const as the parser holds state
+            // that needs to be mutable (unlike other types)
             auto& p = std::get<parser>(v);
 
             success = process_parser(p, data_first, ranges, matches,
@@ -1205,6 +1081,8 @@ std::pair<bool, bool> search(std::vector<match>& ranges, const char* data_first,
         }
         case match_type::uparser:
         {
+            // Not const as the uparser holds state
+            // that needs to be mutable (unlike other types)
             auto& p = std::get<uparser>(v);
 
             success = process_parser(p, data_first, ranges, matches,
@@ -1214,7 +1092,7 @@ std::pair<bool, bool> search(std::vector<match>& ranges, const char* data_first,
         }
         case match_type::word_list:
         {
-            auto& words = std::get<word_list>(v);
+            const auto& words = std::get<word_list>(v);
 
             success = process_word_list(words, data_first, ranges, captures);
             negate = (words._flags & config_flags::negate) != 0;
