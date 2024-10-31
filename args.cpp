@@ -532,6 +532,17 @@ static void process_short(int& i, const int argc, const char* const argv[],
             // /delete /collection:http://tfssrv01:8080/tfs/PartnerDev gram_grep /noprompt
             g_shutdown = argv[i];
             break;
+        case 's':
+            if (i + 1 == argc)
+                throw gg_error(std::format("Missing pathname following -{}.",
+                    *param));
+
+            ++i;
+            // "C:\Program Files (x86)\Microsoft Visual Studio 14.0\Common7\IDE\tf.exe"
+            // workspace /new /collection:http://tfssrv01:8080/tfs/PartnerDev gram_grep
+            // /noprompt
+            g_startup = argv[i];
+            break;
         case 'T':
             g_initial_tab = true;
             break;
@@ -539,7 +550,15 @@ static void process_short(int& i, const int argc, const char* const argv[],
             g_flags |= config_flags::negate;
             break;
         case 'W':
-            g_writable = true;
+            if (i + 1 == argc)
+                throw gg_error(std::format("Missing pathname following -{}.",
+                    *param));
+
+            ++i;
+            g_word_list_files = std::vector<lexertl::memory_file>(g_word_list_files.size() + 1);
+            configs.emplace_back(match_type::word_list, argv[i], g_flags,
+                std::move(g_conditions));
+            g_flags = 0;
             break;
         case 'w':
             g_flags |= config_flags::whole_word;
@@ -618,8 +637,8 @@ void show_help()
         "      --config <config file>\tsearch using config file\n"
         "      --display-whole-match\tdisplay a multiline match\n"
         "      --dump\t\t\tdump DFA regexp\n"
-        "      --dump-dot\t\tdump DFA regexp in DOT format\n"
         "      --dump-argv\t\tdump command line arguments\n"
+        "      --dump-dot\t\tdump DFA regexp in DOT format\n"
         "      --exclude <wildcard>\texclude pathnames matching wildcard\n"
         "      --exec <text>\t\tExecutes the supplied text\n"
         "      --extend-search\t\textend the end of the next match to be the end of the current match\n"
@@ -631,11 +650,11 @@ void show_help()
         "      --replace <text>\t\treplace matching text\n"
         "      --return-previous-match\treturn the previous match instead of the current one\n"
         "  -S, --shutdown <cmd>\t\tcommand to run when exiting\n"
-        "      --startup <cmd>\t\tcommand to run at startup\n"
+        "  -s, --startup <cmd>\t\tcommand to run at startup\n"
         "      --summary\t\t\tshow match count footer\n"
         "      --utf8\t\t\tin the absence of a BOM assume UTF-8\n"
-        "      --word-list <pathname>\tsearch for a word from the supplied word list\n"
-        "  -W, --writable\t\tonly process files that are writable\n"
+        "  -W, --word-list <pathname>\tsearch for a word from the supplied word list\n"
+        "      --writable\t\tonly process files that are writable\n"
         "  <pathname>...\t\t\tfiles to search (wildcards supported)\n\n"
         "Config file format:\n"
         "  <grammar directives>\n"
