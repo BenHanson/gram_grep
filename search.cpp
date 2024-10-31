@@ -485,7 +485,9 @@ static bool process_regex(const regex& r, const char* data_first,
     bool success = iter != end;
 
     cap_vec.emplace_back();
-    cap_vec.back().emplace_back((*iter)[0]);
+    cap_vec.back().emplace_back(iter == end ?
+        std::csub_match{} :
+        (*iter)[0]);
 
     while (success && (!is_whole_word(data_first,
         (*iter)[0].first, (*iter)[0].second, ranges.front()._eoi, r._flags) ||

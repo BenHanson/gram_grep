@@ -12,10 +12,10 @@
 #include <fstream>
 #include "gg_error.hpp"
 #include <lexertl/memory_file.hpp>
+#include "output.hpp"
 #include "parser.hpp"
 #include "search.hpp"
 #include <type_traits>
-#include <wildcardtl/wildcard.hpp>
 
 extern std::string build_text(const std::string& input,
     const capture_vector& captures);
@@ -28,38 +28,50 @@ enum class file_type
 
 namespace fs = std::filesystem;
 
+bool g_byte_count = false;
 std::regex g_capture_rx(R"(\$\d+)");
 std::string g_checkout;
 bool g_colour = false;
 condition_map g_conditions;
 condition_parser g_condition_parser;
 config_parser g_config_parser;
-std::pair<std::vector<wildcardtl::wildcard>,
-    std::vector<wildcardtl::wildcard>> g_exclude;
+wildcards g_exclude;
 parser* g_curr_parser = nullptr;
 uparser* g_curr_uparser = nullptr;
 bool g_dot = false;
 bool g_dump = false;
 bool g_dump_argv = false;
+std::string g_exec;
 std::size_t g_files = 0;
 unsigned int g_flags = 0;
 bool g_force_unicode = false;
 bool g_force_write = false;
+show_filename g_show_filename = show_filename::undefined;
 std::size_t g_hits = 0;
+bool g_initial_tab = false;
+bool g_line_buffered = false;
+bool g_line_numbers = false;
+std::size_t g_max_count = 0;
 bool g_modify = false; // Set when grammar has modifying operations
+bool g_null_data = false;
+bool g_only_matching = false;
 bool g_output = false;
 bool g_pathname_only = false;
-std::map<std::string, std::pair<std::vector<wildcardtl::wildcard>,
-    std::vector<wildcardtl::wildcard>>> g_pathnames;
+bool g_pathname_only_negated = false;
+// maps path to pair.
+// pair is wildcards and negated wildcards
+std::map<std::string, wildcards> g_pathnames;
 pipeline g_pipeline;
 std::string g_print;
+bool g_print_null = false;
 bool g_recursive = false;
 std::string g_replace;
 bool g_rule_print = false;
 std::size_t g_searched = 0;
-bool g_show_hits = false;
+bool g_show_count = false;
 std::string g_startup;
 std::string g_shutdown;
+bool g_summary = false;
 bool g_whole_match = false;
 std::vector<lexertl::memory_file> g_word_list_files;
 bool g_writable = false;
@@ -269,12 +281,22 @@ static bool process_matches(const std::vector<match>& ranges,
             const char* curr = iter->_first;
             const char* eoi = data_second;
 
-            if (!g_show_hits && g_print.empty() && !g_rule_print)
+            if (!g_pathname_only_negated && !g_show_count &&
+                g_print.empty() && !g_rule_print &&
+                !(g_show_filename == show_filename::no && !g_pathname_only))
             {
                 if (g_colour)
                     std::cout << szPurpleText;
 
                 std::cout << pathname;
+
+                if (g_print_null)
+                    std::cout << '\0';
+
+                if (g_colour)
+                    std::cout << szBlueText;
+
+                std::cout << ':';
 
                 if (g_colour)
                     std::cout << szDefaultText;
@@ -282,7 +304,7 @@ static bool process_matches(const std::vector<match>& ranges,
 
             if (g_pathname_only)
             {
-                std::cout << std::endl;
+                std::cout << output_nl;
                 finished = true;
                 break;
             }
@@ -290,48 +312,87 @@ static bool process_matches(const std::vector<match>& ranges,
             {
                 std::cout << build_text(g_print, captures);
             }
-            else if (!g_show_hits && !g_rule_print)
+            else if (!g_exec.empty())
+            {
+                const std::string cmd = build_text(g_exec, captures);
+
+                std::cout << "Executing: " << cmd << '\n';
+                std::cout << exec_ret(cmd);
+            }
+            else if (!g_pathname_only_negated &&
+                !g_show_count && !g_rule_print)
             {
                 const auto count = std::count(data_first, curr, '\n');
 
+                if (!g_only_matching && !g_whole_match)
+                {
+                    if (count == 0)
+                        curr = data_first;
+                    else
+                        for (; *(curr - 1) != '\n'; --curr);
+                }
+
                 if (!pathname.empty())
                 {
-                    if (g_colour)
-                        std::cout << szBlueText;
+                    if (g_line_numbers)
+                    {
+                        if (g_colour)
+                            std::cout << szGreenText;
 
-                    std::cout << '(';
+                        std::cout << 1 + count;
 
-                    if (g_colour)
-                        std::cout << szGreenText;
+                        if (g_colour)
+                            std::cout << szBlueText;
 
-                    std::cout << 1 + count;
+                        std::cout << ':';
+                    }
 
-                    if (g_colour)
-                        std::cout << szBlueText;
+                    if (g_byte_count)
+                    {
+                        if (g_colour)
+                            std::cout << szGreenText;
 
-                    std::cout << "):";
+                        std::cout << curr - data_first;
+
+                        if (g_colour)
+                            std::cout << szBlueText;
+
+                        std::cout << ':';
+                    }
 
                     if (g_colour)
                         std::cout << szDefaultText;
                 }
+
+                if (g_initial_tab)
+                    std::cout << '\t';
 
                 if (g_whole_match)
                 {
                     if (g_colour)
                         std::cout << szRedText;
 
-                    std::cout << iter->view() << '\n';
+                    std::cout << iter->view() << output_nl;
+
+                    if (g_colour)
+                        std::cout << szDefaultText;
+                }
+                else if (g_only_matching)
+                {
+                    if (g_colour)
+                        std::cout << szRedText;
+
+                    for (; curr != iter->_eoi &&
+                        *curr != '\r' && *curr != '\n'; ++curr)
+                    {
+                        std::cout << *curr;
+                    }
 
                     if (g_colour)
                         std::cout << szDefaultText;
                 }
                 else
                 {
-                    if (count == 0)
-                        curr = data_first;
-                    else
-                        for (; *(curr - 1) != '\n'; --curr);
-
                     for (; curr != eoi && *curr != '\r' && *curr != '\n'; ++curr)
                     {
                         if (g_colour)
@@ -350,16 +411,19 @@ static bool process_matches(const std::vector<match>& ranges,
                 }
             }
 
-            if (!g_show_hits && g_print.empty() && !g_rule_print)
+            if (!g_pathname_only_negated && !g_show_count &&
+                g_print.empty() && !g_rule_print)
             {
-                // Flush buffer, to give fast feedback to user
-                std::cout << std::endl;
+                std::cout << output_nl;
             }
 
             ++hits;
             break;
         }
     }
+
+    if (hits == g_max_count)
+        finished = true;
 
     return finished;
 }
@@ -620,17 +684,22 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
     {
         perform_output(hits, pathname, replacements, data_first, data_second,
             mf, type, utf8.size());
+    }
 
-        if (g_show_hits)
-            std::cout << pathname << ": " << hits << " hit(s)." << std::endl;
+    if (g_show_count)
+    {
+        std::cout << pathname << ':' << hits << output_nl;
+    }
+
+    if (g_pathname_only_negated && !hits)
+    {
+        std::cout << pathname << output_nl;
     }
 
     ++g_searched;
 }
 
-static void process_file(const fs::path& path,
-    const std::pair<std::vector<wildcardtl::wildcard>,
-    std::vector<wildcardtl::wildcard>>& include)
+static void process_file(const fs::path& path, const wildcards &wcs)
 {
     try
     {
@@ -649,9 +718,9 @@ static void process_file(const fs::path& path,
         // Don't throw if there is a Unicode pathname
         const std::string pathname =
             reinterpret_cast<const char*>(path.u8string().c_str());
-        bool skip = !g_exclude.second.empty();
+        bool skip = !g_exclude._negative.empty();
 
-        for (const auto& wc : g_exclude.second)
+        for (const auto& wc : g_exclude._negative)
         {
             if (!wc.match(pathname))
             {
@@ -662,7 +731,7 @@ static void process_file(const fs::path& path,
 
         if (!skip)
         {
-            for (const auto& wc : g_exclude.first)
+            for (const auto& wc : g_exclude._positive)
             {
                 if (wc.match(pathname))
                 {
@@ -674,9 +743,9 @@ static void process_file(const fs::path& path,
 
         if (!skip)
         {
-            bool process = !include.second.empty();
+            bool process = !wcs._negative.empty();
 
-            for (const auto& wc : include.second)
+            for (const auto& wc : wcs._negative)
             {
                 if (!wc.match(pathname))
                 {
@@ -687,7 +756,7 @@ static void process_file(const fs::path& path,
 
             if (!process)
             {
-                for (const auto& wc : include.first)
+                for (const auto& wc : wcs._positive)
                 {
                     if (wc.match(pathname))
                     {
@@ -706,7 +775,7 @@ static void process_file(const fs::path& path,
         if (g_colour)
             std::cerr << szYellowText;
 
-        std::cerr << e.what() << '\n';
+        std::cerr << e.what() << output_nl;
 
         if (g_colour)
             std::cerr << szDefaultText;
@@ -715,7 +784,7 @@ static void process_file(const fs::path& path,
 
 static void process()
 {
-    for (const auto& [pathname, pair] : g_pathnames)
+    for (const auto& [pathname, wcs] : g_pathnames)
     {
         if (g_recursive)
         {
@@ -723,7 +792,7 @@ static void process()
                 fs::directory_options::skip_permission_denied),
                 end = fs::recursive_directory_iterator(); iter != end; ++iter)
             {
-                process_file(iter->path(), pair);
+                process_file(iter->path(), wcs);
             }
         }
         else
@@ -732,15 +801,14 @@ static void process()
                 fs::directory_options::skip_permission_denied),
                 end = fs::directory_iterator(); iter != end; ++iter)
             {
-                process_file(iter->path(), pair);
+                process_file(iter->path(), wcs);
             }
         }
     }
 }
 
 void add_pathname(std::string pn,
-    std::map<std::string, std::pair<std::vector<wildcardtl::wildcard>,
-    std::vector<wildcardtl::wildcard>>>& map)
+    std::map<std::string, wildcards>& map)
 {
     const std::size_t wc_idx = pn.find_first_of("*?[");
     const std::size_t sep_idx = pn.rfind(fs::path::preferred_separator,
@@ -748,7 +816,14 @@ void add_pathname(std::string pn,
     const bool negate = pn[0] == '!';
     const std::string path = sep_idx == std::string::npos ? "." :
         pn.substr(negate ? 1 : 0, sep_idx + (negate ? 0 : 1));
-    auto& [positive, negative] = map[path];
+    auto& wcs = map[path];
+
+    if (g_recursive ||
+        (g_show_filename == show_filename::undefined &&
+        (wc_idx != std::string::npos || negate)))
+    {
+        g_show_filename = show_filename::yes;
+    }
 
     if (sep_idx == std::string::npos)
     {
@@ -772,9 +847,9 @@ void add_pathname(std::string pn,
     }
 
     if (negate)
-        negative.emplace_back(pn, is_windows());
+        wcs._negative.emplace_back(pn, is_windows());
     else
-        positive.emplace_back(pn, is_windows());
+        wcs._positive.emplace_back(pn, is_windows());
 }
 
 lexertl::state_machine word_lexer()
@@ -910,13 +985,22 @@ static void fill_pipeline(std::vector<config>&& configs)
         case match_type::regex:
         {
             regex regex;
+            std::regex::flag_type rx_flags{};
 
             regex._flags = config._flags;
             regex._conditions = std::move(config._conditions);
-            regex._rx.assign(config._param, (regex._flags & config_flags::icase) ?
-                (std::regex_constants::ECMAScript |
-                    std::regex_constants::icase) :
-                std::regex_constants::ECMAScript);
+
+            if (regex._flags & config_flags::icase)
+                rx_flags |= std::regex_constants::icase;
+
+            if (regex._flags & config_flags::grep)
+                rx_flags |= std::regex_constants::grep;
+            else if (regex._flags & config_flags::egrep)
+                rx_flags |= std::regex_constants::egrep;
+            else
+                rx_flags |= std::regex_constants::ECMAScript;
+
+            regex._rx.assign(config._param, rx_flags);
             g_pipeline.emplace_back(std::move(regex));
             break;
         }
@@ -992,13 +1076,25 @@ int main(int argc, char* argv[])
             }
         }
 
+        if (g_show_filename == show_filename::undefined &&
+            g_pathnames.size() == 1)
+        {
+            auto iter = g_pathnames.begin();
+
+            if (iter->second._negative.size() +
+                iter->second._positive.size() == 1)
+            {
+                g_show_filename = show_filename::no;
+            }
+        }
+
         if (g_dump_argv)
         {
             std::cout << "argv[] =\n";
 
             for (int idx = 0; idx != argc; ++idx)
             {
-                std::cout << "  " << argv[idx] << '\n';
+                std::cout << "  " << argv[idx] << output_nl;
             }
 
             return 0;
@@ -1026,14 +1122,14 @@ int main(int argc, char* argv[])
         if (g_pipeline.empty())
             throw gg_error("No actions have been specified.");
 
-        if (g_pathname_only && g_show_hits)
-            throw gg_error("Cannot combine -l and -hits.");
+        if (g_pathname_only && g_show_count)
+            throw gg_error("Cannot combine -l and --count.");
 
         if (g_output && g_pathnames.empty())
             throw gg_error("Cannot combine stdin with -o.");
 
         if (!g_replace.empty() && g_modify)
-            throw gg_error("Cannot combine -replace with grammar "
+            throw gg_error("Cannot combine --replace with grammar "
                 "actions that modify the input.");
 
         if (!g_startup.empty())
@@ -1075,9 +1171,12 @@ int main(int argc, char* argv[])
                     std::cerr << szDefaultText;
             }
 
-        if (!g_pathname_only && g_print.empty() && !g_rule_print)
+        if (g_summary)
+        {
             std::cout << "Matches: " << g_hits << "    Matching files: " <<
-            g_files << "    Total files searched: " << g_searched << std::endl;
+                g_files << "    Total files searched: " << g_searched <<
+                output_nl;
+        }
 
         return 0;
     }
@@ -1086,7 +1185,7 @@ int main(int argc, char* argv[])
         if (g_colour)
             std::cerr << szDarkRedText;
 
-        std::cerr << e.what() << '\n';
+        std::cerr << e.what() << output_nl;
 
         if (g_colour)
             std::cerr << szDefaultText;

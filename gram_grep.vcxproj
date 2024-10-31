@@ -180,8 +180,10 @@
     <ClInclude Include="args.hpp" />
     <ClInclude Include="colours.hpp" />
     <ClInclude Include="gg_error.hpp" />
+    <ClInclude Include="output.hpp" />
     <ClInclude Include="parser.hpp" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="resource.h" />
     <ClInclude Include="search.hpp" />
     <ClInclude Include="types.hpp" />
   </ItemGroup>
@@ -200,6 +202,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="config.y" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="gram_grep.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

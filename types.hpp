@@ -13,6 +13,7 @@
 #include <lexertl/utf_iterators.hpp>
 #include <variant>
 #include <vector>
+#include <wildcardtl/wildcard.hpp>
 
 enum config_flags
 {
@@ -22,7 +23,22 @@ enum config_flags
     negate = 4,
     all = 8,
     extend_search = 16,
-    ret_prev_match = 32
+    ret_prev_match = 32,
+    grep = 64,
+    egrep = 128
+};
+
+enum class show_filename
+{
+    undefined,
+    no,
+    yes
+};
+
+struct wildcards
+{
+    std::vector<wildcardtl::wildcard> _positive;
+    std::vector<wildcardtl::wildcard> _negative;
 };
 
 using condition_map = std::map<uint16_t, std::regex>;
@@ -435,3 +451,5 @@ using utf8_iterator = lexertl::basic_utf8_in_iterator<const char*, char32_t>;
 using utf8results = lexertl::recursive_match_results<utf8_iterator>;
 using crutf8iterator =
     lexertl::iterator<utf8_iterator, lexertl::u32state_machine, utf8results>;
+
+[[nodiscard]] std::string exec_ret(const std::string& cmd);
