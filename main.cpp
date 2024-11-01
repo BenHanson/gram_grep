@@ -16,6 +16,7 @@
 #include "parser.hpp"
 #include "search.hpp"
 #include <type_traits>
+#include "version.hpp"
 
 extern std::string build_text(const std::string& input,
     const capture_vector& captures);
@@ -49,6 +50,7 @@ bool g_force_write = false;
 show_filename g_show_filename = show_filename::undefined;
 std::size_t g_hits = 0;
 bool g_initial_tab = false;
+std::string g_label;
 bool g_line_buffered = false;
 bool g_line_numbers = false;
 std::size_t g_max_count = 0;
@@ -72,6 +74,7 @@ bool g_show_count = false;
 std::string g_startup;
 std::string g_shutdown;
 bool g_summary = false;
+bool g_show_version = false;
 bool g_whole_match = false;
 std::vector<lexertl::memory_file> g_word_list_files;
 bool g_writable = false;
@@ -288,7 +291,10 @@ static bool process_matches(const std::vector<match>& ranges,
                 if (g_colour)
                     std::cout << szPurpleText;
 
-                std::cout << pathname;
+                if (pathname.empty())
+                    std::cout << g_label;
+                else
+                    std::cout << pathname;
 
                 if (g_print_null)
                     std::cout << '\0';
@@ -1116,6 +1122,13 @@ int main(int argc, char* argv[])
                 }
             }
 
+            return 0;
+        }
+
+        if (g_show_version)
+        {
+            std::cout << "gram_grep " << g_version_string;
+            std::cout << output_nl;
             return 0;
         }
 

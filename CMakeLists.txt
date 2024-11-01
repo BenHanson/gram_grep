@@ -30,6 +30,8 @@ main.cpp
 parser.cpp
 search.cpp
 types.cpp
+$<$<BOOL:${WIN32}>:
+gram_grep.rc>
 )
 
 set(HEADERS
@@ -39,6 +41,8 @@ gg_error.hpp
 parser.hpp
 search.hpp
 types.hpp
+$<$<BOOL:${WIN32}>:
+resource.h>
 )
 
 if(WIN32)

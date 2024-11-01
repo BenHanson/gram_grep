@@ -20,6 +20,7 @@ extern bool g_force_unicode;
 extern bool g_force_write;
 extern show_filename g_show_filename;
 extern bool g_initial_tab;
+extern std::string g_label;
 extern bool g_line_buffered;
 extern bool g_line_numbers;
 extern std::size_t g_max_count;
@@ -36,6 +37,7 @@ extern bool g_show_count;
 extern std::string g_shutdown;
 extern std::string g_startup;
 extern bool g_summary;
+extern bool g_show_version;
 extern bool g_whole_match;
 extern std::vector<lexertl::memory_file> g_word_list_files;
 extern bool g_writable;
@@ -301,6 +303,12 @@ static void process_long(int& i, const int argc, const char* const argv[],
         g_flags |= config_flags::negate;
     else if (param == "invert-match-all")
         g_flags |= config_flags::negate | config_flags::all;
+    else if (param == "label")
+        if (!equal)
+            throw gg_error(std::format("Missing NUM following -{}.",
+                param));
+        else
+            g_label = equal + 1;
     else if (param == "line-buffered")
         g_line_buffered = true;
     else if (param == "line-number")
@@ -392,6 +400,8 @@ static void process_long(int& i, const int argc, const char* const argv[],
     }
     else if (param == "summary")
         g_summary = true;
+    else if (param == "version")
+        g_show_version = true;
     else if (param == "with-filename")
         g_show_filename = show_filename::yes;
     else if (param == "word-regexp")
@@ -549,6 +559,9 @@ static void process_short(int& i, const int argc, const char* const argv[],
         case 'v':
             g_flags |= config_flags::negate;
             break;
+        case 'V':
+            g_show_version = true;
+            break;
         case 'W':
             if (i + 1 == argc)
                 throw gg_error(std::format("Missing pathname following -{}.",
@@ -614,6 +627,7 @@ void show_help()
         "\n"
         "Miscellaneous:\n"
         "  -v, --invert-match\t\tselect non-matching text\n"
+        "  -V, --version\t\t\tprint version information and exit\n"
         "      --help\t\t\tdisplay this help and exit\n"
         "\n"
         "Output control:\n"
@@ -623,6 +637,7 @@ void show_help()
         "      --line-buffered\t\tflush output on every line\n"
         "  -H, --with-filename\t\tprint the filename for each match\n"
         "  -h, --no-filename\t\tsuppress the prefixing filename on output\n"
+        "      --label=LABEL\t\tprint LABEL as filename for standard input\n"
         "  -o, --only-matching\t\tshow only the part of a line matching PATTERN\n"
         "  -R, -r, --recursive\t\trecurse subdirectories\n"
         "  -L, --files-without-match\tprint only names of FILEs containing no match\n"
