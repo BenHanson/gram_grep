@@ -14,6 +14,7 @@ extern bool g_dump;
 extern bool g_dot;
 extern bool g_dump_argv;
 extern wildcards g_exclude;
+extern wildcards g_exclude_dirs;
 extern std::string g_exec;
 extern unsigned int g_flags;
 extern bool g_force_unicode;
@@ -198,28 +199,46 @@ static void process_long(int& i, const int argc, const char* const argv[],
         g_dump_argv = true;
     else if (param == "exclude")
     {
-        ++i;
+        if (!equal)
+            throw gg_error(std::format("Missing FILE_PATTERN following -{}.",
+                param));
 
-        if (i < argc)
+        auto pathnames = split(equal + 1, ';');
+
+        for (const auto& p : pathnames)
         {
-            auto pathnames = split(argv[i], ';');
+            auto pn = p.data();
+
+            if (*pn == '!')
+                g_exclude._negative.emplace_back(pn, pn + p.size(),
+                    is_windows());
+            else
+                g_exclude._positive.emplace_back(pn, pn + p.size(),
+                    is_windows());
+        }
+    }
+    else if (param == "exclude-dir")
+        if (!equal)
+            throw gg_error(std::format("Missing PATTERN following -{}.",
+                param));
+        else
+        {
+            auto pathnames = split(equal + 1, ';');
 
             for (const auto& p : pathnames)
             {
-                auto pn = p.data();
-
-                if (*pn == '!')
-                    g_exclude._negative.emplace_back(pn, pn + p.size(),
-                        is_windows());
+                if (p[0] == '!')
+                {
+                    g_exclude_dirs._negative.emplace_back(std::string(&p[1],
+                        std::to_address(p.end())), is_windows());
+                }
                 else
-                    g_exclude._positive.emplace_back(pn, pn + p.size(),
-                        is_windows());
+                {
+                    g_exclude_dirs._positive.
+                        emplace_back(std::string(p), is_windows());
+                }
             }
         }
-        else
-            throw gg_error(std::format("Missing wildcard following {}.",
-                argv[i - 1]));
-    }
     else if (param == "exec")
     {
         if (i + 1 == argc)
@@ -528,7 +547,6 @@ static void process_short(int& i, const int argc, const char* const argv[],
             ++i;
             g_print = unescape(argv[i]);
             break;
-        case 'R':
         case 'r':
             g_recursive = true;
             break;
@@ -639,7 +657,10 @@ void show_help()
         "  -h, --no-filename\t\tsuppress the prefixing filename on output\n"
         "      --label=LABEL\t\tprint LABEL as filename for standard input\n"
         "  -o, --only-matching\t\tshow only the part of a line matching PATTERN\n"
-        "  -R, -r, --recursive\t\trecurse subdirectories\n"
+        "  -r, --recursive\t\trecurse subdirectories\n"
+        "      --exclude FILE_PATTERN"
+        "    skip files and directories matching FILE_PATTERN\n"
+        "      --exclude-dir=PATTERN  directories that match PATTERN will be skipped\n"
         "  -L, --files-without-match\tprint only names of FILEs containing no match\n"
         "  -l, --files-with-matches\tprint only names of FILEs containing matches\n"
         "  -c, --count\t\t\tprint only a count of matches per FILE\n"
@@ -654,7 +675,6 @@ void show_help()
         "      --dump\t\t\tdump DFA regexp\n"
         "      --dump-argv\t\tdump command line arguments\n"
         "      --dump-dot\t\tdump DFA regexp in DOT format\n"
-        "      --exclude <wildcard>\texclude pathnames matching wildcard\n"
         "      --exec <text>\t\tExecutes the supplied text\n"
         "      --extend-search\t\textend the end of the next match to be the end of the current match\n"
         "      --force-write\t\tif a file is read only, force it to be writable\n"

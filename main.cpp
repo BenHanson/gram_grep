@@ -14,6 +14,7 @@
 #include <lexertl/memory_file.hpp>
 #include "output.hpp"
 #include "parser.hpp"
+#include <queue>
 #include "search.hpp"
 #include <type_traits>
 #include "version.hpp"
@@ -36,12 +37,13 @@ bool g_colour = false;
 condition_map g_conditions;
 condition_parser g_condition_parser;
 config_parser g_config_parser;
-wildcards g_exclude;
 parser* g_curr_parser = nullptr;
 uparser* g_curr_uparser = nullptr;
 bool g_dot = false;
 bool g_dump = false;
 bool g_dump_argv = false;
+wildcards g_exclude;
+wildcards g_exclude_dirs;
 std::string g_exec;
 std::size_t g_files = 0;
 unsigned int g_flags = 0;
@@ -705,30 +707,17 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
     ++g_searched;
 }
 
-static void process_file(const fs::path& path, const wildcards &wcs)
+static void process_file(const std::string& pathname, const wildcards &wcs)
 {
     try
     {
-        // Skip directories
-        if (fs::is_directory(path) ||
-            (g_writable && (fs::status(path).permissions() &
-                fs::perms::owner_write) == fs::perms::none))
-        {
-            return;
-        }
-
-        // Skip zero length files
-        if (fs::file_size(path) == 0)
-            return;
-
-        // Don't throw if there is a Unicode pathname
-        const std::string pathname =
-            reinterpret_cast<const char*>(path.u8string().c_str());
+        const char* filename = pathname.c_str() +
+            pathname.rfind(fs::path::preferred_separator) + 1;
         bool skip = !g_exclude._negative.empty();
 
         for (const auto& wc : g_exclude._negative)
         {
-            if (!wc.match(pathname))
+            if (!wc.match(filename))
             {
                 skip = false;
                 break;
@@ -739,7 +728,7 @@ static void process_file(const fs::path& path, const wildcards &wcs)
         {
             for (const auto& wc : g_exclude._positive)
             {
-                if (wc.match(pathname))
+                if (wc.match(filename))
                 {
                     skip = true;
                     break;
@@ -788,26 +777,63 @@ static void process_file(const fs::path& path, const wildcards &wcs)
     }
 }
 
+bool include_dir(const std::string& path)
+{
+    return (g_exclude_dirs._negative.empty() ||
+        std::ranges::any_of(g_exclude_dirs._negative,
+        [&path](const auto& wc)
+        {
+            return wc.match(path);
+        })) &&
+    std::ranges::none_of(g_exclude_dirs._positive,
+        [&path](const auto& wc)
+        {
+            return wc.match(path);
+        });
+}
+
 static void process()
 {
-    for (const auto& [pathname, wcs] : g_pathnames)
+    std::queue<std::pair<std::string, const wildcards*>> queue;
+    
+    for (const auto& [path, wcs] : g_pathnames)
     {
-        if (g_recursive)
+        queue.emplace(path, &wcs);
+    }
+
+    for (; !queue.empty(); queue.pop())
+    {
+        const auto& [path, wcs] = queue.front();
+
+        for (auto iter = fs::directory_iterator(path,
+            fs::directory_options::skip_permission_denied),
+            end = fs::directory_iterator(); iter != end; ++iter)
         {
-            for (auto iter = fs::recursive_directory_iterator(pathname,
-                fs::directory_options::skip_permission_denied),
-                end = fs::recursive_directory_iterator(); iter != end; ++iter)
+            const auto& p = iter->path();
+
+            // Don't throw if there is a Unicode pathname
+            const std::string pathname =
+                reinterpret_cast<const char*>(p.u8string().c_str());
+
+            if (fs::is_directory(p))
             {
-                process_file(iter->path(), wcs);
+                if (g_recursive && include_dir(pathname.
+                    substr(pathname.rfind(fs::path::preferred_separator) + 1)))
+                {
+                    queue.emplace(pathname, wcs);
+                }
             }
-        }
-        else
-        {
-            for (auto iter = fs::directory_iterator(pathname,
-                fs::directory_options::skip_permission_denied),
-                end = fs::directory_iterator(); iter != end; ++iter)
+            else 
             {
-                process_file(iter->path(), wcs);
+                if ((g_writable && (fs::status(p).permissions() &
+                    fs::perms::owner_write) == fs::perms::none) ||
+                    // Skip zero length files
+                    fs::file_size(p) == 0)
+                {
+                    continue;
+                }
+
+                process_file(pathname, *wcs);
             }
         }
     }
