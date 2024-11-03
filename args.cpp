@@ -332,6 +332,8 @@ static void process_long(int& i, const int argc, const char* const argv[],
         g_line_buffered = true;
     else if (param == "line-number")
         g_line_numbers = true;
+    else if (param == "line-regexp")
+        g_flags |= config_flags::bol_eol;
     else if (param == "max-count")
     {
         if (!equal)
@@ -594,6 +596,9 @@ static void process_short(int& i, const int argc, const char* const argv[],
         case 'w':
             g_flags |= config_flags::whole_word;
             break;
+        case 'x':
+            g_flags |= config_flags::bol_eol;
+            break;
         case 'Z':
             g_print_null = true;
             break;
@@ -641,6 +646,7 @@ void show_help()
         "      --flex-regexp PATTERN\tPATTERN is a flex style regexp\n"
         "  -i, --ignore-case\t\tignore case distinctions\n"
         "  -w, --word-regexp\t\tforce PATTERN to match only whole words\n"
+        "  -x, --line-regexp\t\tforce PATTERN to match only whole lines\n"
         "  -z, --null-data\t\ta data line ends in 0 byte, not newline\n"
         "\n"
         "Miscellaneous:\n"

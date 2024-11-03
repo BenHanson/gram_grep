@@ -368,6 +368,17 @@ static bool is_whole_word(const char* data_first, const char* first,
             (!is_word_char(*prev_second) && is_word_char(*second))));
 }
 
+static bool is_bol_eol(const char* data_first, const char* first,
+    const char* second, const char* eoi, const unsigned int flags)
+{
+    const char* prev_first = first == data_first ? nullptr : first - 1;
+
+    return !(flags & config_flags::bol_eol) ||
+        ((first == data_first || *prev_first == '\n') &&
+            (second == eoi || *second == '\r' || *second == '\n'));
+
+}
+
 static bool process_text(const text& t, const char* data_first,
     std::vector<match>& ranges, capture_vector& captures)
 {
@@ -402,6 +413,8 @@ static bool process_text(const text& t, const char* data_first,
         cap_vec.back().back().second = second;
         success = is_whole_word(data_first, first, second,
             ranges.front()._eoi, t._flags) &&
+            is_bol_eol(data_first, first, second, ranges.front()._eoi,
+                t._flags) &&
             conditions_met(t._conditions, cap_vec);
 
         if (!success)
@@ -491,6 +504,8 @@ static bool process_regex(const regex& r, const char* data_first,
 
     while (success && (!is_whole_word(data_first,
         (*iter)[0].first, (*iter)[0].second, ranges.front()._eoi, r._flags) ||
+        !is_bol_eol(data_first, (*iter)[0].first, (*iter)[0].second,
+            ranges.front()._eoi, r._flags) ||
         !conditions_met(r._conditions, cap_vec)))
     {
         iter = std::cregex_iterator((*iter)[0].second, ranges.back()._eoi, r._rx);
@@ -591,6 +606,8 @@ static std::pair<bool, lexertl::criterator> lexer_search(const lexer& l,
 
     while (success && (!is_whole_word(data_first,
         iter->first, iter->second, ranges.front()._eoi, l._flags) ||
+        !is_bol_eol(data_first, iter->first, iter->second, ranges.front()._eoi,
+            l._flags) ||
         !conditions_met(l._conditions, cap_vec)))
     {
         iter = lexertl::criterator(iter->second, iter->eoi, l._sm);
@@ -614,8 +631,10 @@ static std::pair<bool, crutf8iterator> lexer_search(const ulexer& l,
     cap_vec.emplace_back();
     cap_vec.back().emplace_back(iter->first.get(), iter->second.get());
 
-    while (success && (!is_whole_word(data_first,
-        iter->first.get(), iter->second.get(), ranges.front()._eoi, l._flags) ||
+    while (success && (!is_whole_word(data_first, iter->first.get(),
+        iter->second.get(), ranges.front()._eoi, l._flags) ||
+        !is_bol_eol(data_first, iter->first.get(), iter->second.get(),
+            ranges.front()._eoi, l._flags) ||
         !conditions_met(l._conditions, cap_vec)))
     {
         iter = crutf8iterator(utf8_iterator(iter->second.get(), iter->eoi.get()),
@@ -743,8 +762,10 @@ bool process_parser(parser_t& p, const char* data_first,
         if (!success)
             break;
 
-        success = is_whole_word(data_first, get_first(iter),
-            get_first(end), ranges.front()._eoi, p._flags) &&
+        success = is_whole_word(data_first, get_first(iter), get_first(end),
+            ranges.front()._eoi, p._flags) &&
+            is_bol_eol(data_first, get_first(iter), get_first(end),
+                ranges.front()._eoi, p._flags) &&
             conditions_met(p._conditions, cap_vec);
 
         if (!success)
@@ -949,6 +970,8 @@ static bool process_word_list(const word_list& w, const char* data_first,
             cap_vec.back().back().second = second;
             success = is_whole_word(data_first, first, second,
                 ranges.front()._eoi, w._flags) &&
+                is_bol_eol(data_first, first, second, ranges.front()._eoi,
+                    w._flags) &&
                 conditions_met(w._conditions, cap_vec);
 
             if (success)

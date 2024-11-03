@@ -19,13 +19,14 @@ enum config_flags
 {
     none = 0,
     icase = 1,
-    whole_word = 2,
-    negate = 4,
-    all = 8,
-    extend_search = 16,
-    ret_prev_match = 32,
-    grep = 64,
-    egrep = 128
+    bol_eol = 2,
+    whole_word = 4,
+    negate = 8,
+    all = 16,
+    extend_search = 32,
+    ret_prev_match = 64,
+    grep = 128,
+    egrep = 256
 };
 
 enum class show_filename
