@@ -131,7 +131,7 @@ void build_condition_parser()
     lrules.push(R"(\))", grules.token_id("')'"));
     lrules.push(",", grules.token_id("','"));
     lrules.push(R"(\|\|)", grules.token_id("'||'"));
-    lrules.push(R"($[1-9]\d*)", grules.token_id("Index"));
+    lrules.push(R"($(0|[1-9]\d*))", grules.token_id("Index"));
     lrules.push("regex_search", grules.token_id("'regex_search'"));
     lrules.push("'([^']|'')*'", grules.token_id("String"));
     lrules.push(R"(\s+)", lexertl::rules::skip());
