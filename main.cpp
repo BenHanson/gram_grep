@@ -10,7 +10,9 @@
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <parsertl/generator.hpp>
 #include "gg_error.hpp"
+#include <parsertl/iterator.hpp>
 #include <lexertl/memory_file.hpp>
 #include "output.hpp"
 #include "parser.hpp"
@@ -292,18 +294,21 @@ static bool process_matches(const std::vector<match>& ranges,
                 !(g_show_filename == show_filename::no && !g_pathname_only))
             {
                 if (g_colour)
-                    std::cout << szPurpleText;
+                    std::cout << g_fn_text;
 
                 if (pathname.empty())
                     std::cout << g_label;
                 else
                     std::cout << pathname;
 
+                if (g_colour)
+                    std::cout << szDefaultText;
+
                 if (g_print_null)
                     std::cout << '\0';
 
                 if (g_colour)
-                    std::cout << szBlueText;
+                    std::cout << g_se_text;
 
                 if (g_line_numbers_parens)
                     std::cout << '(';
@@ -349,30 +354,39 @@ static bool process_matches(const std::vector<match>& ranges,
                     if (g_line_numbers)
                     {
                         if (g_colour)
-                            std::cout << szGreenText;
+                            std::cout << g_ln_text;
 
                         std::cout << 1 + count;
 
                         if (g_colour)
-                            std::cout << szBlueText;
+                            std::cout << szDefaultText;
+
+                        if (g_colour)
+                            std::cout << g_se_text;
 
                         if (g_line_numbers_parens)
                             std::cout << ')';
 
                         std::cout << ':';
+
+                        if (g_colour)
+                            std::cout << szDefaultText;
                     }
 
                     if (g_byte_count)
                     {
                         if (g_colour)
-                            std::cout << szGreenText;
+                            std::cout << g_bn_text;
 
                         std::cout << curr - data_first;
 
                         if (g_colour)
-                            std::cout << szBlueText;
+                            std::cout << g_se_text;
 
                         std::cout << ':';
+
+                        if (g_colour)
+                            std::cout << szDefaultText;
                     }
 
                     if (g_colour)
@@ -385,7 +399,7 @@ static bool process_matches(const std::vector<match>& ranges,
                 if (g_whole_match)
                 {
                     if (g_colour)
-                        std::cout << szRedText;
+                        std::cout << g_ms_text;
 
                     std::cout << iter->view() << output_nl;
 
@@ -395,7 +409,7 @@ static bool process_matches(const std::vector<match>& ranges,
                 else if (g_only_matching)
                 {
                     if (g_colour)
-                        std::cout << szRedText;
+                        std::cout << g_ms_text;
 
                     for (; curr != iter->_eoi &&
                         *curr != '\r' && *curr != '\n'; ++curr)
@@ -413,7 +427,7 @@ static bool process_matches(const std::vector<match>& ranges,
                         if (g_colour)
                         {
                             if (curr == iter->_first)
-                                std::cout << szRedText;
+                                std::cout << g_ms_text;
                             else if (curr == iter->_eoi)
                                 std::cout << szDefaultText;
                         }
@@ -1083,6 +1097,95 @@ static void fill_pipeline(std::vector<config>&& configs)
     }
 }
 
+void parse_colours(const char* colours)
+{
+    parsertl::rules grules;
+    parsertl::state_machine gsm;
+    lexertl::rules lrules;
+    lexertl::state_machine lsm;
+
+    grules.token("VALUE");
+    grules.push("start", "list");
+    grules.push("list", "item | list ':' item");
+
+    const uint16_t idx = grules.push("item", "name '=' value");
+
+    grules.push("name",
+        "'bn' | 'cx' | 'fn' | 'ln' | 'mc' | 'ms' | 'se' | 'sl'");
+    grules.push("value", "%empty | VALUE");
+    parsertl::generator::build(grules, gsm);
+
+    lrules.push(":", grules.token_id("':'"));
+    lrules.push("=", grules.token_id("'='"));
+    lrules.push("bn", grules.token_id("'bn'"));
+    lrules.push("cx", grules.token_id("'cx'"));
+    lrules.push("fn", grules.token_id("'fn'"));
+    lrules.push("ln", grules.token_id("'ln'"));
+    lrules.push("mc", grules.token_id("'mc'"));
+    lrules.push("ms", grules.token_id("'ms'"));
+    lrules.push("se", grules.token_id("'se'"));
+    lrules.push("sl", grules.token_id("'sl'"));
+    lrules.push(R"(\d{1,3}(;\d{1,3}){0,2})", grules.token_id("VALUE"));
+    lexertl::generator::build(lrules, lsm);
+
+    lexertl::citerator liter(colours, colours + strlen(colours), lsm);
+    parsertl::citerator giter(liter, gsm);
+
+    for (; giter->entry.action != parsertl::action::accept &&
+        giter->entry.action != parsertl::action::error; ++giter)
+    {
+        if (giter->entry.param == idx)
+        {
+            const auto value = giter.dollar(2).view();
+
+            if (value.empty())
+                // Ignore blank value
+                continue;
+
+            const auto name = giter.dollar(0).view();
+
+            if (name == "bn")
+                g_bn_text = std::format("\x1b[{}m\x1b[K", value);
+            /*else if (name == "cx")
+                ;*/
+            else if (name == "fn")
+                g_fn_text = std::format("\x1b[{}m\x1b[K", value);
+            else if (name == "ln")
+                g_ln_text = std::format("\x1b[{}m\x1b[K", value);
+            /*else if (name == "mc")
+                ;*/
+            else if (name == "ms")
+                g_ms_text = std::format("\x1b[{}m\x1b[K", value);
+            else if (name == "se")
+                g_se_text = std::format("\x1b[{}m\x1b[K", value);
+            /*else if (name == "sl")
+                ;*/
+        }
+    }
+}
+
+void read_colours()
+{
+#ifdef _WIN32
+    const DWORD dwSize = ::GetEnvironmentVariableA("GREP_COLORS", nullptr, 0);
+
+    // Only process GREP_COLOURS if it exists
+    if (dwSize)
+    {
+        std::vector<char> grep_colours(dwSize);
+
+        ::GetEnvironmentVariableA("GREP_COLORS", &grep_colours.front(), dwSize);
+        parse_colours(&grep_colours.front());
+    }
+#else
+    const char* grep_colours = std::getenv("GREP_COLORS");
+
+    // Only process GREP_COLOURS if it exists
+    if (grep_colours)
+        parse_colours(grep_colours);
+#endif
+}
+
 int main(int argc, char* argv[])
 {
     try
@@ -1097,6 +1200,7 @@ int main(int argc, char* argv[])
         std::vector<std::string> files;
         bool run = true;
 
+        read_colours();
         read_switches(argc, argv, configs, files);
         fill_pipeline(std::move(configs));
 
@@ -1208,7 +1312,7 @@ int main(int argc, char* argv[])
             if (::system(g_shutdown.c_str()))
             {
                 if (g_colour)
-                    std::cerr << (run ? szRedText : szYellowText);
+                    std::cerr << (run ? g_ms_text : szYellowText);
 
                 std::cerr << "Failed to execute " << g_shutdown << ".\n";
 

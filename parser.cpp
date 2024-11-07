@@ -1101,7 +1101,7 @@ void build_config_parser()
     if (!warnings.empty())
     {
         if (g_colour)
-            std::cerr << szRedText;
+            std::cerr << g_ms_text;
 
         std::cerr << "Config parser warnings: " << warnings;
 
