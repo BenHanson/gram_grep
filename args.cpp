@@ -696,7 +696,7 @@ void show_help()
         "      --force-write\t\tif a file is read only, force it to be writable\n"
         "      --if <condition>\t\tmake search conditional\n"
         "      --invert-match-all\tonly match if the search does not match at all\n"
-        "  -N, --line-number-parens\tprint line number with output lines in parenthesis\n"
+        "  -N, --line-number-parens\tprint line number in parenthesis with output lines\n"
         "      --perform-output\t\toutput changes to matching file\n"
         "  -p, --print <text>\t\tprint text instead of line of match\n"
         "      --replace <text>\t\treplace matching text\n"
