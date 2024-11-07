@@ -55,6 +55,7 @@ bool g_initial_tab = false;
 std::string g_label;
 bool g_line_buffered = false;
 bool g_line_numbers = false;
+bool g_line_numbers_parens = false;
 std::size_t g_max_count = 0;
 bool g_modify = false; // Set when grammar has modifying operations
 bool g_null_data = false;
@@ -304,7 +305,10 @@ static bool process_matches(const std::vector<match>& ranges,
                 if (g_colour)
                     std::cout << szBlueText;
 
-                std::cout << ':';
+                if (g_line_numbers_parens)
+                    std::cout << '(';
+                else
+                    std::cout << ':';
 
                 if (g_colour)
                     std::cout << szDefaultText;
@@ -351,6 +355,9 @@ static bool process_matches(const std::vector<match>& ranges,
 
                         if (g_colour)
                             std::cout << szBlueText;
+
+                        if (g_line_numbers_parens)
+                            std::cout << ')';
 
                         std::cout << ':';
                     }
@@ -850,9 +857,8 @@ void add_pathname(std::string pn,
         pn.substr(negate ? 1 : 0, sep_idx + (negate ? 0 : 1));
     auto& wcs = map[path];
 
-    if (g_recursive ||
-        (g_show_filename == show_filename::undefined &&
-        (wc_idx != std::string::npos || negate)))
+    if (g_show_filename == show_filename::undefined && (g_recursive ||
+        wc_idx != std::string::npos || negate))
     {
         g_show_filename = show_filename::yes;
     }

@@ -24,6 +24,7 @@ extern bool g_initial_tab;
 extern std::string g_label;
 extern bool g_line_buffered;
 extern bool g_line_numbers;
+extern bool g_line_numbers_parens;
 extern std::size_t g_max_count;
 extern bool g_null_data;
 extern bool g_only_matching;
@@ -332,6 +333,11 @@ static void process_long(int& i, const int argc, const char* const argv[],
         g_line_buffered = true;
     else if (param == "line-number")
         g_line_numbers = true;
+    else if (param == "line-number-parens")
+    {
+        g_line_numbers = true;
+        g_line_numbers_parens = true;
+    }
     else if (param == "line-regexp")
         g_flags |= config_flags::bol_eol;
     else if (param == "max-count")
@@ -524,6 +530,10 @@ static void process_short(int& i, const int argc, const char* const argv[],
             ++i;
             g_max_count = atoi(argv[i]);
             break;
+        case 'N':
+            g_line_numbers = true;
+            g_line_numbers_parens = true;
+            break;
         case 'n':
             g_line_numbers = true;
             break;
@@ -686,6 +696,7 @@ void show_help()
         "      --force-write\t\tif a file is read only, force it to be writable\n"
         "      --if <condition>\t\tmake search conditional\n"
         "      --invert-match-all\tonly match if the search does not match at all\n"
+        "  -N, --line-number-parens\tprint line number with output lines in parenthesis\n"
         "      --perform-output\t\toutput changes to matching file\n"
         "  -p, --print <text>\t\tprint text instead of line of match\n"
         "      --replace <text>\t\treplace matching text\n"
