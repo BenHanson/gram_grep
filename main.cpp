@@ -1097,7 +1097,7 @@ static void fill_pipeline(std::vector<config>&& configs)
     }
 }
 
-void parse_colours(const char* colours)
+void parse_colours(const std::string& colours)
 {
     parsertl::rules grules;
     parsertl::state_machine gsm;
@@ -1128,7 +1128,8 @@ void parse_colours(const char* colours)
     lrules.push(R"(\d{1,3}(;\d{1,3}){0,2})", grules.token_id("VALUE"));
     lexertl::generator::build(lrules, lsm);
 
-    lexertl::citerator liter(colours, colours + strlen(colours), lsm);
+    lexertl::citerator liter(colours.c_str(),
+        colours.c_str() + colours.size(), lsm);
     parsertl::citerator giter(liter, gsm);
 
     for (; giter->entry.action != parsertl::action::accept &&
@@ -1164,26 +1165,56 @@ void parse_colours(const char* colours)
     }
 }
 
-void read_colours()
+std::vector<const char*> to_vector(std::string& grep_options)
 {
-#ifdef _WIN32
-    const DWORD dwSize = ::GetEnvironmentVariableA("GREP_COLORS", nullptr, 0);
+    std::vector<const char*> ret;
+    char* prev = &grep_options.front();
+    char* options = prev;
 
-    // Only process GREP_COLOURS if it exists
+    // Append dummy entry
+    ret.push_back(prev + grep_options.size());
+
+    for (; *options; ++options)
+    {
+        if (strchr(" \t", *options))
+        {
+            *options = '\0';
+            ++options;
+
+            ret.push_back(prev);
+
+            if (!*options)
+                break;
+
+            prev = options;
+        }
+    }
+
+    if (*prev)
+        ret.push_back(prev);
+
+    return ret;
+}
+
+std::string env_var(const char* var)
+{
+    std::string ret;
+#ifdef _WIN32
+    const DWORD dwSize = ::GetEnvironmentVariableA(var, nullptr, 0);
+
     if (dwSize)
     {
-        std::vector<char> grep_colours(dwSize);
-
-        ::GetEnvironmentVariableA("GREP_COLORS", &grep_colours.front(), dwSize);
-        parse_colours(&grep_colours.front());
+        ret.resize(dwSize - 1, ' ');
+        ::GetEnvironmentVariableA(var, &ret.front(), dwSize);
     }
 #else
-    const char* grep_colours = std::getenv("GREP_COLORS");
+    const char* str = std::getenv(var);
 
-    // Only process GREP_COLOURS if it exists
-    if (grep_colours)
-        parse_colours(grep_colours);
+    if (str)
+        ret = str;
 #endif
+
+    return ret;
 }
 
 int main(int argc, char* argv[])
@@ -1199,8 +1230,12 @@ int main(int argc, char* argv[])
         std::vector<config> configs;
         std::vector<std::string> files;
         bool run = true;
+        std::string grep_options = env_var("GREP_OPTIONS");
+        auto options = to_vector(grep_options);
 
-        read_colours();
+        read_switches(static_cast<int>(options.size()),
+            &options.front(), configs, files);
+        parse_colours(env_var("GREP_COLORS"));
         read_switches(argc, argv, configs, files);
         fill_pipeline(std::move(configs));
 
