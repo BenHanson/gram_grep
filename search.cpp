@@ -7,9 +7,8 @@
 #include <parsertl/search.hpp>
 #include "search.hpp"
 
-extern unsigned int g_flags;
 extern std::regex g_capture_rx;
-extern bool g_output;
+extern options g_options;
 extern pipeline g_pipeline;
 
 extern lexertl::state_machine word_lexer();
@@ -236,7 +235,7 @@ void process_action(const parser_t& p, const char* start,
             break;
         }
         case cmd::type::erase:
-            if (g_output)
+            if (g_options._perform_output)
             {
                 const auto& param1 = dollar(item.first, cmd->_param1, p._gsm,
                     productions);
@@ -255,7 +254,7 @@ void process_action(const parser_t& p, const char* start,
 
             break;
         case cmd::type::insert:
-            if (g_output)
+            if (g_options._perform_output)
             {
                 const auto c = static_cast<insert_cmd*>(cmd);
                 const auto& param = dollar(item.first, cmd->_param1, p._gsm,
@@ -273,7 +272,7 @@ void process_action(const parser_t& p, const char* start,
             std::cout << format_item(action_iter->second.exec(cmd), item);
             break;
         case cmd::type::replace:
-            if (g_output)
+            if (g_options._perform_output)
             {
                 const auto c = static_cast<replace_cmd*>(cmd);
                 const auto size = productions.size() -
@@ -295,7 +294,7 @@ void process_action(const parser_t& p, const char* start,
 
             break;
         case cmd::type::replace_all_inplace:
-            if (g_output)
+            if (g_options._perform_output)
             {
                 const auto c = static_cast<replace_all_inplace_cmd*>(cmd);
                 const auto size = productions.size() -

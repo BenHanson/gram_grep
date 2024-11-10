@@ -36,13 +36,53 @@ enum class show_filename
     yes
 };
 
+using condition_map = std::map<uint16_t, std::regex>;
+
 struct wildcards
 {
     std::vector<wildcardtl::wildcard> _positive;
     std::vector<wildcardtl::wildcard> _negative;
 };
 
-using condition_map = std::map<uint16_t, std::regex>;
+struct options
+{
+    bool _byte_offset = false;
+    std::string _checkout;
+    bool _colour = false;
+    condition_map _conditions;
+    bool _dot = false;
+    bool _dump = false;
+    bool _dump_argv = false;
+    wildcards _exclude;
+    wildcards _exclude_dirs;
+    std::string _exec;
+    bool _force_unicode = false;
+    bool _force_write = false;
+    bool _initial_tab = false;
+    std::string _label;
+    bool _line_buffered = false;
+    bool _line_numbers = false;
+    bool _line_numbers_parens = false;
+    std::size_t _max_count = 0;
+    bool _null_data = false;
+    bool _only_matching = false;
+    bool _pathname_only = false;
+    bool _pathname_only_negated = false;
+    bool _perform_output = false;
+    std::string _print;
+    bool _print_null = false;
+    bool _recursive = false;
+    std::string _replace;
+    bool _show_count = false;
+    show_filename _show_filename = show_filename::undefined;
+    bool _show_version = false;
+    std::string _shutdown;
+    bool _summary = false;
+    std::string _startup;
+    bool _whole_match = false;
+    std::vector<lexertl::memory_file> _word_list_files;
+    bool _writable = false;
+};
 
 struct match_type_base
 {
@@ -379,7 +419,7 @@ struct config
     unsigned int _flags = config_flags::none;
     condition_map _conditions;
 
-    config(const match_type type, const std::string& param,
+    config(const match_type type, const std::string_view& param,
         const unsigned int flags, condition_map conditions) :
         _type(type),
         _param(param),

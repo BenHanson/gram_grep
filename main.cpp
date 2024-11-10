@@ -32,57 +32,23 @@ enum class file_type
 
 namespace fs = std::filesystem;
 
-bool g_byte_count = false;
+options g_options;
+
 std::regex g_capture_rx(R"(\$\d+)");
-std::string g_checkout;
-bool g_colour = false;
 condition_map g_conditions;
 condition_parser g_condition_parser;
 config_parser g_config_parser;
 parser* g_curr_parser = nullptr;
 uparser* g_curr_uparser = nullptr;
-bool g_dot = false;
-bool g_dump = false;
-bool g_dump_argv = false;
-wildcards g_exclude;
-wildcards g_exclude_dirs;
-std::string g_exec;
 std::size_t g_files = 0;
-unsigned int g_flags = 0;
-bool g_force_unicode = false;
-bool g_force_write = false;
-show_filename g_show_filename = show_filename::undefined;
 std::size_t g_hits = 0;
-bool g_initial_tab = false;
-std::string g_label;
-bool g_line_buffered = false;
-bool g_line_numbers = false;
-bool g_line_numbers_parens = false;
-std::size_t g_max_count = 0;
 bool g_modify = false; // Set when grammar has modifying operations
-bool g_null_data = false;
-bool g_only_matching = false;
-bool g_output = false;
-bool g_pathname_only = false;
-bool g_pathname_only_negated = false;
 // maps path to pair.
 // pair is wildcards and negated wildcards
 std::map<std::string, wildcards> g_pathnames;
 pipeline g_pipeline;
-std::string g_print;
-bool g_print_null = false;
-bool g_recursive = false;
-std::string g_replace;
 bool g_rule_print = false;
 std::size_t g_searched = 0;
-bool g_show_count = false;
-std::string g_startup;
-std::string g_shutdown;
-bool g_summary = false;
-bool g_show_version = false;
-bool g_whole_match = false;
-std::vector<lexertl::memory_file> g_word_list_files;
-bool g_writable = false;
 
 file_type fetch_file_type(const char* data, std::size_t size)
 {
@@ -205,19 +171,19 @@ static bool process_matches(const std::vector<match>& ranges,
     temp_replacements.clear();
 
     // Only allow g_replace if g_modify (grammar actions) not set
-    if (g_output && !g_modify)
+    if (g_options._perform_output && !g_modify)
     {
         const char* first = negate ? iter->_first : iter->_second;
 
         if (first < tuple._first || first > tuple._second)
         {
-            if (g_colour)
+            if (g_options._colour)
                 std::cerr << szYellowText;
 
             std::cerr << "Cannot replace text when source "
                 "is not contained in original string.\n";
 
-            if (g_colour)
+            if (g_options._colour)
                 std::cerr << szDefaultText;
 
             return true;
@@ -229,7 +195,7 @@ static bool process_matches(const std::vector<match>& ranges,
 
             if (captures.empty())
                 replacements[std::make_pair(first - data_first,
-                    second - first)] = g_replace;
+                    second - first)] = g_options._replace;
             else
             {
                 std::string replace;
@@ -243,8 +209,9 @@ static bool process_matches(const std::vector<match>& ranges,
                     lexertl::generator::build(rules, cap_sm);
                 }
 
-                lexertl::citerator i(g_replace.c_str(),
-                    g_replace.c_str() + g_replace.size(), cap_sm);
+                lexertl::citerator i(g_options._replace.c_str(),
+                    g_options._replace.c_str() + g_options._replace.size(),
+                    cap_sm);
                 lexertl::citerator e;
 
                 for (; i != e; ++i)
@@ -257,13 +224,13 @@ static bool process_matches(const std::vector<match>& ranges,
                             replace += captures[idx].front();
                         else
                         {
-                            if (g_colour)
+                            if (g_options._colour)
                                 std::cerr << szYellowText;
 
                             std::cerr << "Capture $" << idx <<
                                 " is out of range.\n";
 
-                            if (g_colour)
+                            if (g_options._colour)
                                 std::cerr << szDefaultText;
 
                             skip = true;
@@ -289,59 +256,60 @@ static bool process_matches(const std::vector<match>& ranges,
             const char* curr = iter->_first;
             const char* eoi = data_second;
 
-            if (!g_pathname_only_negated && !g_show_count &&
-                g_print.empty() && !g_rule_print &&
-                !(g_show_filename == show_filename::no && !g_pathname_only))
+            if (!g_options._pathname_only_negated && !g_options._show_count &&
+                g_options._print.empty() && !g_rule_print &&
+                !(g_options._show_filename == show_filename::no &&
+                    !g_options._pathname_only))
             {
-                if (g_colour)
+                if (g_options._colour)
                     std::cout << g_fn_text;
 
                 if (pathname.empty())
-                    std::cout << g_label;
+                    std::cout << g_options._label;
                 else
                     std::cout << pathname;
 
-                if (g_colour)
+                if (g_options._colour)
                     std::cout << szDefaultText;
 
-                if (g_print_null)
+                if (g_options._print_null)
                     std::cout << '\0';
 
-                if (g_colour)
+                if (g_options._colour)
                     std::cout << g_se_text;
 
-                if (g_line_numbers_parens)
+                if (g_options._line_numbers_parens)
                     std::cout << '(';
                 else
                     std::cout << ':';
 
-                if (g_colour)
+                if (g_options._colour)
                     std::cout << szDefaultText;
             }
 
-            if (g_pathname_only)
+            if (g_options._pathname_only)
             {
                 std::cout << output_nl;
                 finished = true;
                 break;
             }
-            else if (!g_print.empty())
+            else if (!g_options._print.empty())
             {
-                std::cout << build_text(g_print, captures);
+                std::cout << build_text(g_options._print, captures);
             }
-            else if (!g_exec.empty())
+            else if (!g_options._exec.empty())
             {
-                const std::string cmd = build_text(g_exec, captures);
+                const std::string cmd = build_text(g_options._exec, captures);
 
                 std::cout << "Executing: " << cmd << '\n';
                 std::cout << exec_ret(cmd);
             }
-            else if (!g_pathname_only_negated &&
-                !g_show_count && !g_rule_print)
+            else if (!g_options._pathname_only_negated &&
+                !g_options._show_count && !g_rule_print)
             {
                 const auto count = std::count(data_first, curr, '\n');
 
-                if (!g_only_matching && !g_whole_match)
+                if (!g_options._only_matching && !g_options._whole_match)
                 {
                     if (count == 0)
                         curr = data_first;
@@ -351,64 +319,64 @@ static bool process_matches(const std::vector<match>& ranges,
 
                 if (!pathname.empty())
                 {
-                    if (g_line_numbers)
+                    if (g_options._line_numbers)
                     {
-                        if (g_colour)
+                        if (g_options._colour)
                             std::cout << g_ln_text;
 
                         std::cout << 1 + count;
 
-                        if (g_colour)
+                        if (g_options._colour)
+                        {
                             std::cout << szDefaultText;
-
-                        if (g_colour)
                             std::cout << g_se_text;
+                        }
 
-                        if (g_line_numbers_parens)
+                        if (g_options._line_numbers_parens)
                             std::cout << ')';
 
                         std::cout << ':';
 
-                        if (g_colour)
+                        if (g_options._colour)
                             std::cout << szDefaultText;
                     }
 
-                    if (g_byte_count)
+                    if (g_options._byte_offset)
                     {
-                        if (g_colour)
+                        if (g_options._colour)
                             std::cout << g_bn_text;
 
                         std::cout << curr - data_first;
 
-                        if (g_colour)
+                        if (g_options._colour)
                             std::cout << g_se_text;
 
                         std::cout << ':';
 
-                        if (g_colour)
+                        if (g_options._colour)
                             std::cout << szDefaultText;
                     }
 
-                    if (g_colour)
+                    if (g_options._colour)
                         std::cout << szDefaultText;
                 }
 
-                if (g_initial_tab)
+                if (g_options._initial_tab)
                     std::cout << '\t';
 
-                if (g_whole_match)
+                if (g_options._whole_match)
                 {
-                    if (g_colour)
+                    if (g_options._colour)
                         std::cout << g_ms_text;
 
                     std::cout << iter->view() << output_nl;
 
-                    if (g_colour)
+                    if (g_options._colour)
                         std::cout << szDefaultText;
                 }
-                else if (g_only_matching)
+                else if (g_options._only_matching)
                 {
-                    if (g_colour)
+                    if (g_options._colour)
                         std::cout << g_ms_text;
 
                     for (; curr != iter->_eoi &&
@@ -417,14 +385,14 @@ static bool process_matches(const std::vector<match>& ranges,
                         std::cout << *curr;
                     }
 
-                    if (g_colour)
+                    if (g_options._colour)
                         std::cout << szDefaultText;
                 }
                 else
                 {
                     for (; curr != eoi && *curr != '\r' && *curr != '\n'; ++curr)
                     {
-                        if (g_colour)
+                        if (g_options._colour)
                         {
                             if (curr == iter->_first)
                                 std::cout << g_ms_text;
@@ -435,13 +403,13 @@ static bool process_matches(const std::vector<match>& ranges,
                         std::cout << *curr;
                     }
 
-                    if (g_colour && (*curr == '\r' || *curr == '\n'))
+                    if (g_options._colour && (*curr == '\r' || *curr == '\n'))
                         std::cout << szDefaultText;
                 }
             }
 
-            if (!g_pathname_only_negated && !g_show_count &&
-                g_print.empty() && !g_rule_print)
+            if (!g_options._pathname_only_negated && !g_options._show_count &&
+                g_options._print.empty() && !g_rule_print)
             {
                 std::cout << output_nl;
             }
@@ -451,7 +419,7 @@ static bool process_matches(const std::vector<match>& ranges,
         }
     }
 
-    if (hits == g_max_count)
+    if (hits == g_options._max_count)
         finished = true;
 
     return finished;
@@ -470,9 +438,9 @@ static void perform_output(const std::size_t hits, const std::string& pathname,
     if ((perms & fs::perms::owner_write) != fs::perms::owner_write)
     {
         // Read-only
-        if (!g_checkout.empty())
+        if (!g_options._checkout.empty())
         {
-            std::string checkout = g_checkout;
+            std::string checkout = g_options._checkout;
 
             if (const std::size_t index = checkout.find("$1");
                 index != std::string::npos)
@@ -482,9 +450,10 @@ static void perform_output(const std::size_t hits, const std::string& pathname,
             }
 
             if (::system(checkout.c_str()) != 0)
-                throw gg_error(std::format("Failed to execute {}.\n", g_checkout));
+                throw gg_error(std::format("Failed to execute {}.\n",
+                    g_options._checkout));
         }
-        else if (g_force_write)
+        else if (g_options._force_write)
             fs::permissions(pathname.c_str(), perms | fs::perms::owner_write);
     }
 
@@ -506,12 +475,12 @@ static void perform_output(const std::size_t hits, const std::string& pathname,
         if ((fs::status(pathname.c_str()).permissions() &
             fs::perms::owner_write) != fs::perms::owner_write)
         {
-            if (g_colour)
+            if (g_options._colour)
                 std::cerr << szYellowText;
 
             std::cerr << pathname << " is read only.\n";
 
-            if (g_colour)
+            if (g_options._colour)
                 std::cerr << szDefaultText;
         }
         else
@@ -618,7 +587,7 @@ static void perform_output(const std::size_t hits, const std::string& pathname,
 
 static void process_file(const std::string& pathname, std::string* cin = nullptr)
 {
-    if (g_writable && (fs::status(pathname).permissions() &
+    if (g_options._writable && (fs::status(pathname).permissions() &
         fs::perms::owner_write) == fs::perms::none)
     {
         return;
@@ -639,12 +608,12 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
 
     if (!mf.data() && !cin)
     {
-        if (g_colour)
+        if (g_options._colour)
             std::cerr << szYellowText;
 
         std::cerr << "Error: failed to open " << pathname << ".\n";
 
-        if (g_colour)
+        if (g_options._colour)
             std::cerr << szDefaultText;
 
         return;
@@ -715,12 +684,12 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
             mf, type, utf8.size());
     }
 
-    if (g_show_count)
+    if (g_options._show_count)
     {
         std::cout << pathname << ':' << hits << output_nl;
     }
 
-    if (g_pathname_only_negated && !hits)
+    if (g_options._pathname_only_negated && !hits)
     {
         std::cout << pathname << output_nl;
     }
@@ -734,9 +703,9 @@ static void process_file(const std::string& pathname, const wildcards &wcs)
     {
         const char* filename = pathname.c_str() +
             pathname.rfind(fs::path::preferred_separator) + 1;
-        bool skip = !g_exclude._negative.empty();
+        bool skip = !g_options._exclude._negative.empty();
 
-        for (const auto& wc : g_exclude._negative)
+        for (const auto& wc : g_options._exclude._negative)
         {
             if (!wc.match(filename))
             {
@@ -747,7 +716,7 @@ static void process_file(const std::string& pathname, const wildcards &wcs)
 
         if (!skip)
         {
-            for (const auto& wc : g_exclude._positive)
+            for (const auto& wc : g_options._exclude._positive)
             {
                 if (wc.match(filename))
                 {
@@ -788,25 +757,25 @@ static void process_file(const std::string& pathname, const wildcards &wcs)
     }
     catch (const std::exception& e)
     {
-        if (g_colour)
+        if (g_options._colour)
             std::cerr << szYellowText;
 
         std::cerr << e.what() << output_nl;
 
-        if (g_colour)
+        if (g_options._colour)
             std::cerr << szDefaultText;
     }
 }
 
 bool include_dir(const std::string& path)
 {
-    return (g_exclude_dirs._negative.empty() ||
-        std::ranges::any_of(g_exclude_dirs._negative,
+    return (g_options._exclude_dirs._negative.empty() ||
+        std::ranges::any_of(g_options._exclude_dirs._negative,
         [&path](const auto& wc)
         {
             return wc.match(path);
         })) &&
-    std::ranges::none_of(g_exclude_dirs._positive,
+    std::ranges::none_of(g_options._exclude_dirs._positive,
         [&path](const auto& wc)
         {
             return wc.match(path);
@@ -838,7 +807,7 @@ static void process()
 
             if (fs::is_directory(p))
             {
-                if (g_recursive && include_dir(pathname.
+                if (g_options._recursive && include_dir(pathname.
                     substr(pathname.rfind(fs::path::preferred_separator) + 1)))
                 {
                     queue.emplace(pathname, wcs);
@@ -846,7 +815,7 @@ static void process()
             }
             else 
             {
-                if ((g_writable && (fs::status(p).permissions() &
+                if ((g_options._writable && (fs::status(p).permissions() &
                     fs::perms::owner_write) == fs::perms::none) ||
                     // Skip zero length files
                     fs::file_size(p) == 0)
@@ -871,17 +840,17 @@ void add_pathname(std::string pn,
         pn.substr(negate ? 1 : 0, sep_idx + (negate ? 0 : 1));
     auto& wcs = map[path];
 
-    if (g_show_filename == show_filename::undefined && (g_recursive ||
-        wc_idx != std::string::npos || negate))
+    if (g_options._show_filename == show_filename::undefined &&
+        (g_options._recursive || wc_idx != std::string::npos || negate))
     {
-        g_show_filename = show_filename::yes;
+        g_options._show_filename = show_filename::yes;
     }
 
     if (sep_idx == std::string::npos)
     {
         if (!((!negate && wc_idx == 0) || (negate && wc_idx == 1)))
         {
-            if (g_recursive)
+            if (g_options._recursive)
                 pn.insert(negate ? 1 : 0, std::string(1, '*') +
                     static_cast<char>(fs::path::preferred_separator));
             else
@@ -889,7 +858,7 @@ void add_pathname(std::string pn,
                     static_cast<char>(fs::path::preferred_separator));
         }
     }
-    else if (g_recursive &&
+    else if (g_options._recursive &&
         !((!negate && wc_idx == 0) || (negate && wc_idx == 1)))
     {
         pn = std::string(1, '*') + pn.substr(sep_idx);
@@ -931,7 +900,7 @@ static void fill_pipeline(std::vector<config>&& configs)
         {
         case match_type::dfa_regex:
         {
-            if (g_force_unicode)
+            if (g_options._force_unicode)
             {
                 using rules_type = lexertl::basic_rules<char, char32_t>;
                 using generator = lexertl::basic_generator<rules_type,
@@ -948,7 +917,7 @@ static void fill_pipeline(std::vector<config>&& configs)
 
                 rules.push(config._param, 1);
 
-                if (!g_dump)
+                if (!g_options._dump)
                     rules.push(".{+}[\r\n]", rules_type::skip());
 
                 generator::build(rules, lexer._sm);
@@ -968,7 +937,7 @@ static void fill_pipeline(std::vector<config>&& configs)
 
                 rules.push(config._param, 1);
 
-                if (!g_dump)
+                if (!g_options._dump)
                     rules.push(".{+}[\r\n]", lexertl::rules::skip());
 
                 lexertl::generator::build(rules, lexer._sm);
@@ -979,7 +948,7 @@ static void fill_pipeline(std::vector<config>&& configs)
         }
         case match_type::parser:
         {
-            if (g_force_unicode)
+            if (g_options._force_unicode)
             {
                 uparser parser;
                 config_state state;
@@ -1069,7 +1038,8 @@ static void fill_pipeline(std::vector<config>&& configs)
         case match_type::word_list:
         {
             word_list words;
-            lexertl::memory_file& mf = g_word_list_files[word_list_idx];
+            lexertl::memory_file& mf =
+                g_options._word_list_files[word_list_idx];
             const lexertl::state_machine sm = word_lexer();
             lexertl::citerator iter;
 
@@ -1253,7 +1223,7 @@ int main(int argc, char* argv[])
             }
         }
 
-        if (g_show_filename == show_filename::undefined &&
+        if (g_options._show_filename == show_filename::undefined &&
             g_pathnames.size() == 1)
         {
             auto iter = g_pathnames.begin();
@@ -1261,11 +1231,11 @@ int main(int argc, char* argv[])
             if (iter->second._negative.size() +
                 iter->second._positive.size() == 1)
             {
-                g_show_filename = show_filename::no;
+                g_options._show_filename = show_filename::no;
             }
         }
 
-        if (g_dump_argv)
+        if (g_options._dump_argv)
         {
             std::cout << "argv[] =\n";
 
@@ -1277,16 +1247,16 @@ int main(int argc, char* argv[])
             return 0;
         }
 
-        if (g_dump)
+        if (g_options._dump)
         {
             for (const auto& v : g_pipeline)
             {
                 if (static_cast<match_type>(v.index()) == match_type::lexer &&
-                    !g_force_unicode)
+                    !g_options._force_unicode)
                 {
                     const auto& l = std::get<lexer>(v);
 
-                    if (g_dot)
+                    if (g_options._dot)
                         lexertl::dot::dump(l._sm, lexertl::rules(), std::cout);
                     else
                         lexertl::debug::dump(l._sm, std::cout);
@@ -1296,7 +1266,7 @@ int main(int argc, char* argv[])
             return 0;
         }
 
-        if (g_show_version)
+        if (g_options._show_version)
         {
             std::cout << "gram_grep " << g_version_string;
             std::cout << output_nl;
@@ -1306,26 +1276,27 @@ int main(int argc, char* argv[])
         if (g_pipeline.empty())
             throw gg_error("No actions have been specified.");
 
-        if (g_pathname_only && g_show_count)
+        if (g_options._pathname_only && g_options._show_count)
             throw gg_error("Cannot combine -l and --count.");
 
-        if (g_output && g_pathnames.empty())
+        if (g_options._perform_output && g_pathnames.empty())
             throw gg_error("Cannot combine stdin with -o.");
 
-        if (!g_replace.empty() && g_modify)
+        if (!g_options._replace.empty() && g_modify)
             throw gg_error("Cannot combine --replace with grammar "
                 "actions that modify the input.");
 
-        if (!g_startup.empty())
+        if (!g_options._startup.empty())
         {
-            if (::system(g_startup.c_str()))
+            if (::system(g_options._startup.c_str()))
             {
-                if (g_colour)
+                if (g_options._colour)
                     std::cerr << szYellowText;
 
-                std::cerr << "Failed to execute " << g_startup << ".\n";
+                std::cerr << "Failed to execute " <<
+                    g_options._startup << ".\n";
 
-                if (g_colour)
+                if (g_options._colour)
                     std::cerr << szDefaultText;
                 run = false;
             }
@@ -1343,19 +1314,20 @@ int main(int argc, char* argv[])
                 process();
         }
 
-        if (!g_shutdown.empty())
-            if (::system(g_shutdown.c_str()))
+        if (!g_options._shutdown.empty())
+            if (::system(g_options._shutdown.c_str()))
             {
-                if (g_colour)
+                if (g_options._colour)
                     std::cerr << (run ? g_ms_text : szYellowText);
 
-                std::cerr << "Failed to execute " << g_shutdown << ".\n";
+                std::cerr << "Failed to execute " <<
+                    g_options._shutdown << ".\n";
 
-                if (g_colour)
+                if (g_options._colour)
                     std::cerr << szDefaultText;
             }
 
-        if (g_summary)
+        if (g_options._summary)
         {
             std::cout << "Matches: " << g_hits << "    Matching files: " <<
                 g_files << "    Total files searched: " << g_searched <<
@@ -1366,12 +1338,12 @@ int main(int argc, char* argv[])
     }
     catch (const std::exception& e)
     {
-        if (g_colour)
+        if (g_options._colour)
             std::cerr << szDarkRedText;
 
         std::cerr << e.what() << output_nl;
 
-        if (g_colour)
+        if (g_options._colour)
             std::cerr << szDefaultText;
 
         return 1;

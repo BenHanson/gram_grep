@@ -26,23 +26,26 @@ set(target_name gram_grep)
 
 set(SOURCES
 args.cpp
+$<$<BOOL:${WIN32}>:
+gram_grep.rc>
 main.cpp
 parser.cpp
 search.cpp
 types.cpp
-$<$<BOOL:${WIN32}>:
-gram_grep.rc>
 )
 
 set(HEADERS
 args.hpp
 colours.hpp
 gg_error.hpp
+option.hpp
+output.hpp
 parser.hpp
 search.hpp
 types.hpp
 $<$<BOOL:${WIN32}>:
 resource.h>
+version.hpp
 )
 
 if(WIN32)

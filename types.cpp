@@ -8,11 +8,10 @@
 #include <parsertl/lookup.hpp>
 #include "types.hpp"
 
-extern bool g_colour;
+extern options g_options;
 extern config_parser g_config_parser;
 extern parser* g_curr_parser;
 extern uparser* g_curr_uparser;
-extern bool g_force_unicode;
 
 [[nodiscard]] std::string exec_ret(const std::string& cmd)
 {
@@ -193,7 +192,7 @@ void config_state::parse(const unsigned int flags,
     {
         using enum lexertl::regex_flags;
 
-        if (g_force_unicode)
+        if (g_options._force_unicode)
             _lurules.flags(*icase | *dot_not_cr_lf);
         else
             _lrules.flags(*icase | *dot_not_cr_lf);
@@ -266,7 +265,7 @@ void config_state::parse(const unsigned int flags,
 
     if (_grules.grammar().empty())
     {
-        if (g_force_unicode)
+        if (g_options._force_unicode)
             _lurules.push(".{+}[\r\n]", lurules::skip());
         else
             _lrules.push(".{+}[\r\n]", lexertl::rules::skip());
@@ -276,11 +275,13 @@ void config_state::parse(const unsigned int flags,
         std::string warnings;
         parsertl::rules::string_vector terminals;
         const auto& grammar = _grules.grammar();
-        const auto& ids = g_force_unicode ? _lurules.ids() : _lrules.ids();
+        const auto& ids = g_options._force_unicode ?
+            _lurules.ids() :
+            _lrules.ids();
         std::set<std::size_t> used_tokens;
         std::set<std::size_t> used_prec;
 
-        if (g_force_unicode)
+        if (g_options._force_unicode)
             parsertl::generator::build(_grules, g_curr_uparser->_gsm,
                 &warnings);
         else
@@ -291,13 +292,13 @@ void config_state::parse(const unsigned int flags,
 
         if (!warnings.empty())
         {
-            if (g_colour)
+            if (g_options._colour)
                 std::cerr << szYellowText;
 
             std::cerr << "Warnings from config " << config_pathname << " : " <<
                 warnings;
 
-            if (g_colour)
+            if (g_options._colour)
                 std::cerr << szDefaultText;
         }
 
@@ -337,32 +338,32 @@ void config_state::parse(const unsigned int flags,
 
             if (!found_id)
             {
-                if (g_colour)
+                if (g_options._colour)
                     std::cerr << szYellowText;
 
                 std::cerr << "Warning: Token \"" << terminals[i] <<
                     "\" does not have a lexer definiton.\n";
 
-                if (g_colour)
+                if (g_options._colour)
                     std::cerr << szDefaultText;
             }
 
             if (!used_tokens.contains(i) && !used_prec.contains(i) &&
                 std::ranges::find(_consume, terminals[i]) == _consume.end())
             {
-                if (g_colour)
+                if (g_options._colour)
                     std::cerr << szYellowText;
 
                 std::cerr << "Warning: Token \"" << terminals[i] <<
                     "\" is not used in the grammar.\n";
 
-                if (g_colour)
+                if (g_options._colour)
                     std::cerr << szDefaultText;
             }
         }
     }
 
-    if (g_force_unicode)
+    if (g_options._force_unicode)
     {
         using rules_type = lexertl::basic_rules<char, char32_t>;
         using generator = lexertl::basic_generator<rules_type,

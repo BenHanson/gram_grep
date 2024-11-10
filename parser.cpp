@@ -7,12 +7,11 @@
 #include "gg_error.hpp"
 #include "types.hpp"
 
-extern bool g_colour;
+extern options g_options;
 extern condition_parser g_condition_parser;
 extern config_parser g_config_parser;
 extern parser* g_curr_parser;
 extern uparser* g_curr_uparser;
-extern bool g_force_unicode;
 extern bool g_modify;
 
 std::string unescape(const std::string_view& vw)
@@ -65,7 +64,7 @@ void push_ret_kwd(const config_state& state)
     auto command = std::make_shared<T>();
     actions* ptr = nullptr;
 
-    if (g_force_unicode)
+    if (g_options._force_unicode)
     {
         ptr = &g_curr_uparser->_actions[rule_idx];
     }
@@ -85,7 +84,7 @@ void push_kwd(const config_state& state)
     auto command = std::make_shared<T>();
     actions* ptr = nullptr;
 
-    if (g_force_unicode)
+    if (g_options._force_unicode)
     {
         ptr = &g_curr_uparser->_actions[rule_idx];
     }
@@ -105,7 +104,7 @@ static void pop_ret_cmd(const config_state& state)
     const uint16_t rule_idx = state._grules.grammar().size() & 0xffff;
     actions* ptr = nullptr;
 
-    if (g_force_unicode)
+    if (g_options._force_unicode)
     {
         ptr = &g_curr_uparser->_actions[rule_idx];
     }
@@ -259,7 +258,7 @@ void build_config_parser()
         "'%option' 'caseless' NL")] =
         [](config_state& state, const config_parser&)
         {
-            if (g_force_unicode)
+            if (g_options._force_unicode)
                 state._lurules.flags(state._lurules.flags() |
                     *lexertl::regex_flags::icase);
             else
@@ -279,7 +278,7 @@ void build_config_parser()
             {
                 if (*curr == ' ' || *curr == '\t')
                 {
-                    if (g_force_unicode)
+                    if (g_options._force_unicode)
                         state._lurules.push_state(std::string(start, curr).c_str());
                     else
                         state._lrules.push_state(std::string(start, curr).c_str());
@@ -296,7 +295,7 @@ void build_config_parser()
 
             if (start != curr)
             {
-                if (g_force_unicode)
+                if (g_options._force_unicode)
                     state._lurules.push_state(std::string(start, curr).c_str());
                 else
                     state._lrules.push_state(std::string(start, curr).c_str());
@@ -328,11 +327,11 @@ void build_config_parser()
                 state._productions);
             const auto rhs = std::string(item1.first, item2.second);
             const uint16_t prod_index = state._grules.push(state._lhs, rhs);
-            auto iter = g_force_unicode ?
+            auto iter = g_options._force_unicode ?
                 g_curr_uparser->_actions.find(prod_index) :
                 g_curr_parser->_actions.find(prod_index);
 
-            if (iter != (g_force_unicode ? g_curr_uparser->_actions.end() :
+            if (iter != (g_options._force_unicode ? g_curr_uparser->_actions.end() :
                 g_curr_parser->_actions.end()))
             {
                 for (const auto& cmd : iter->second._commands)
@@ -391,7 +390,7 @@ void build_config_parser()
                 const uint16_t size = state._grules.grammar().size() & 0xffff;
 
                 // No commands
-                if (g_force_unicode)
+                if (g_options._force_unicode)
                     g_curr_uparser->_reduce_set.insert(size);
                 else
                     g_curr_parser->_reduce_set.insert(size);
@@ -414,7 +413,7 @@ void build_config_parser()
 
             command->_front = atoi(token.first) & 0xffff;
 
-            if (g_force_unicode)
+            if (g_options._force_unicode)
             {
                 ptr = &g_curr_uparser->_actions[rule_idx];
             }
@@ -443,7 +442,7 @@ void build_config_parser()
             command->_front = atoi(token6.first) & 0xffff;
             command->_back = atoi(token8.first) & 0xffff;
 
-            if (g_force_unicode)
+            if (g_options._force_unicode)
             {
                 ptr = &g_curr_uparser->_actions[rule_idx];
             }
@@ -464,7 +463,7 @@ void build_config_parser()
             auto command = std::make_shared<match_cmd>(cmd::type::append, index);
             actions* ptr = nullptr;
 
-            if (g_force_unicode)
+            if (g_options._force_unicode)
             {
                 ptr = &g_curr_uparser->_actions[rule_idx];
             }
@@ -493,7 +492,7 @@ void build_config_parser()
             command->_front = atoi(token6.first) & 0xffff;
             command->_back = atoi(token8.first) & 0xffff;
 
-            if (g_force_unicode)
+            if (g_options._force_unicode)
             {
                 ptr = &g_curr_uparser->_actions[rule_idx];
             }
@@ -511,7 +510,7 @@ void build_config_parser()
             const uint16_t rule_idx = state._grules.grammar().size() & 0xffff;
             actions* ptr = nullptr;
 
-            if (g_force_unicode)
+            if (g_options._force_unicode)
             {
                 ptr = &g_curr_uparser->_actions[rule_idx];
             }
@@ -530,7 +529,7 @@ void build_config_parser()
             auto command = std::make_shared<print_cmd>();
             actions* ptr = nullptr;
 
-            if (g_force_unicode)
+            if (g_options._force_unicode)
             {
                 ptr = &g_curr_uparser->_actions[rule_idx];
             }
@@ -558,7 +557,7 @@ void build_config_parser()
             auto command = std::make_shared<erase_cmd>(index);
             actions* ptr = nullptr;
 
-            if (g_force_unicode)
+            if (g_options._force_unicode)
             {
                 ptr = &g_curr_uparser->_actions[rule_idx];
             }
@@ -583,7 +582,7 @@ void build_config_parser()
             auto command = std::make_shared<erase_cmd>(index1, index2);
             actions* ptr = nullptr;
 
-            if (g_force_unicode)
+            if (g_options._force_unicode)
             {
                 ptr = &g_curr_uparser->_actions[rule_idx];
             }
@@ -613,7 +612,7 @@ void build_config_parser()
                 (index1, second1, index2, second2);
             actions* ptr = nullptr;
 
-            if (g_force_unicode)
+            if (g_options._force_unicode)
             {
                 ptr = &g_curr_uparser->_actions[rule_idx];
             }
@@ -636,7 +635,7 @@ void build_config_parser()
             actions* ptr = nullptr;
             cmd* command = nullptr;
 
-            if (g_force_unicode)
+            if (g_options._force_unicode)
             {
                 ptr = &g_curr_uparser->_actions[rule_idx];
             }
@@ -661,7 +660,7 @@ void build_config_parser()
             actions* ptr = nullptr;
             cmd* command = nullptr;
 
-            if (g_force_unicode)
+            if (g_options._force_unicode)
             {
                 ptr = &g_curr_uparser->_actions[rule_idx];
             }
@@ -692,7 +691,7 @@ void build_config_parser()
             actions* ptr = nullptr;
             cmd* command = nullptr;
 
-            if (g_force_unicode)
+            if (g_options._force_unicode)
             {
                 ptr = &g_curr_uparser->_actions[rule_idx];
             }
@@ -720,7 +719,7 @@ void build_config_parser()
             actions* ptr = nullptr;
             cmd* command = nullptr;
 
-            if (g_force_unicode)
+            if (g_options._force_unicode)
             {
                 ptr = &g_curr_uparser->_actions[rule_idx];
             }
@@ -754,7 +753,7 @@ void build_config_parser()
             actions* ptr = nullptr;
             cmd* command = nullptr;
 
-            if (g_force_unicode)
+            if (g_options._force_unicode)
             {
                 ptr = &g_curr_uparser->_actions[rule_idx];
             }
@@ -789,7 +788,7 @@ void build_config_parser()
             actions* ptr = nullptr;
             cmd* command = nullptr;
 
-            if (g_force_unicode)
+            if (g_options._force_unicode)
             {
                 ptr = &g_curr_uparser->_actions[rule_idx];
             }
@@ -817,7 +816,7 @@ void build_config_parser()
                 state._productions);
             actions* ptr = nullptr;
 
-            if (g_force_unicode)
+            if (g_options._force_unicode)
             {
                 ptr = &g_curr_uparser->_actions[rule_idx];
             }
@@ -881,7 +880,7 @@ void build_config_parser()
             const std::string regex = state._results.dollar(2, parser._gsm,
                 state._productions).str();
 
-            if (g_force_unicode)
+            if (g_options._force_unicode)
                 state._lurules.insert_macro(name.c_str(), regex.c_str());
             else
                 state._lrules.insert_macro(name.c_str(), regex.c_str());
@@ -898,7 +897,7 @@ void build_config_parser()
             const std::string number = state._results.dollar(2, parser._gsm,
                 state._productions).str();
 
-            if (g_force_unicode)
+            if (g_options._force_unicode)
                 state._lurules.push(regex, atoi(number.c_str()) & 0xffff);
             else
                 state._lrules.push(regex, atoi(number.c_str()) & 0xffff);
@@ -914,7 +913,7 @@ void build_config_parser()
             const auto& exit_state = state._results.dollar(3, parser._gsm,
                 state._productions);
 
-            if (g_force_unicode)
+            if (g_options._force_unicode)
                 state._lurules.push(std::string(start_state.first + 1,
                     start_state.second - 1).c_str(), regex,
                     std::string(exit_state.first + 1,
@@ -938,7 +937,7 @@ void build_config_parser()
             const std::string number = state._results.dollar(4, parser._gsm,
                 state._productions).str();
 
-            if (g_force_unicode)
+            if (g_options._force_unicode)
                 state._lurules.push(std::string(start_state.first + 1,
                     start_state.second - 1).c_str(),
                     regex, atoi(number.c_str()) & 0xffff,
@@ -961,7 +960,7 @@ void build_config_parser()
             const std::string literal = state._results.dollar(2, parser._gsm,
                 state._productions).str();
 
-            if (g_force_unicode)
+            if (g_options._force_unicode)
                 state._lurules.push(regex, state._grules.token_id(literal.c_str()));
             else
                 state._lrules.push(regex, state._grules.token_id(literal.c_str()));
@@ -979,7 +978,7 @@ void build_config_parser()
             const std::string literal = state._results.dollar(4, parser._gsm,
                 state._productions).str();
 
-            if (g_force_unicode)
+            if (g_options._force_unicode)
                 state._lurules.push(std::string(start_state.first + 1,
                     start_state.second - 1).c_str(),
                     regex, state._grules.token_id(literal.c_str()),
@@ -1001,7 +1000,7 @@ void build_config_parser()
             const std::string name = state._results.dollar(2, parser._gsm,
                 state._productions).str();
 
-            if (g_force_unicode)
+            if (g_options._force_unicode)
                 state._lurules.push(regex, state._grules.token_id(name.c_str()));
             else
                 state._lrules.push(regex, state._grules.token_id(name.c_str()));
@@ -1019,7 +1018,7 @@ void build_config_parser()
             const std::string name = state._results.dollar(4, parser._gsm,
                 state._productions).str();
 
-            if (g_force_unicode)
+            if (g_options._force_unicode)
                 state._lurules.push(std::string(start_state.first + 1,
                     start_state.second - 1).c_str(),
                     regex, state._grules.token_id(name.c_str()),
@@ -1040,7 +1039,7 @@ void build_config_parser()
                 state._productions);
             const std::string regex = token.str();
 
-            if (g_force_unicode)
+            if (g_options._force_unicode)
                 state._lurules.push(regex, config_state::lurules::skip());
             else
                 state._lrules.push(regex, lexertl::rules::skip());
@@ -1056,7 +1055,7 @@ void build_config_parser()
             const auto& exit_state = state._results.dollar(3, parser._gsm,
                 state._productions);
 
-            if (g_force_unicode)
+            if (g_options._force_unicode)
                 state._lurules.push(std::string(start_state.first + 1,
                     start_state.second - 1).c_str(),
                     regex, config_state::lurules::skip(),
@@ -1100,12 +1099,12 @@ void build_config_parser()
 
     if (!warnings.empty())
     {
-        if (g_colour)
+        if (g_options._colour)
             std::cerr << g_ms_text;
 
         std::cerr << "Config parser warnings: " << warnings;
 
-        if (g_colour)
+        if (g_options._colour)
             std::cerr << szDefaultText;
     }
 
