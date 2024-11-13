@@ -267,7 +267,14 @@ static bool process_matches(const std::vector<match>& ranges,
                 if (pathname.empty())
                     std::cout << g_options._label;
                 else
-                    std::cout << pathname;
+                {
+                    const std::string_view pn = (pathname[0] == '.' &&
+                        pathname[1] == fs::path::preferred_separator) ?
+                        pathname.c_str() + 2 :
+                        pathname.c_str();
+
+                    std::cout << pn;
+                }
 
                 if (g_options._colour)
                     std::cout << szDefaultText;
@@ -802,8 +809,8 @@ static void process()
             const auto& p = iter->path();
 
             // Don't throw if there is a Unicode pathname
-            const std::string pathname =
-                reinterpret_cast<const char*>(p.u8string().c_str());
+            const std::string pathname = reinterpret_cast<const char*>
+                (p.u8string().c_str());
 
             if (fs::is_directory(p))
             {
@@ -1187,14 +1194,20 @@ std::string env_var(const char* var)
     return ret;
 }
 
+void show_usage()
+{
+    std::cerr << "Usage: gram_grep [OPTION]... [FILE]...\n"
+        "Try `gram_grep --help' for more information.\n";
+}
+
 int main(int argc, char* argv[])
 {
     try
     {
         if (argc == 1)
         {
-            show_help();
-            return 1;
+            show_usage();
+            return 2;
         }
 
         std::vector<config> configs;

@@ -22,12 +22,12 @@ struct option
     const char* _long;
     const char* _param;
     const char* _help;
-    void (*_func)(int& i, const bool longp, const int argc,
+    void (*_func)(int& i, const bool longp,
         const char* const argv[], std::string_view param,
         std::vector<config>& configs);
 };
 
-void colour(int&, const bool, const int, const char* const [], std::string_view,
+void colour(int&, const bool, const char* const [], std::string_view,
     std::vector<config>&)
 {
     g_options._colour = true;
@@ -45,34 +45,20 @@ void colour(int&, const bool, const int, const char* const [], std::string_view,
 #endif
 }
 
-void validate_value(int& i, const int argc, const char* const argv[],
-    const bool longp, std::string_view& value, const char*type)
+void validate_value(int& i, const char* const argv[],
+    const bool longp, std::string_view& value)
 {
-    if (longp)
+    if (!longp)
     {
-        if (value.empty())
-            throw gg_error(std::format("Missing {} following {}.",
-                type, argv[i]));
-    }
-    else
-    {
-        if (i + 1 == argc)
-        {
-            throw gg_error(std::format("Missing {} following {}.",
-                type, argv[i]));
-        }
-        else
-        {
-            ++i;
-            value = argv[i];
-        }
+        ++i;
+        value = argv[i];
     }
 }
 
-void regexp(int& i, const bool longp, const int argc, const char* const argv[],
+void regexp(int& i, const bool longp, const char* const argv[],
     const match_type type, std::string_view value, std::vector<config>& configs)
 {
-    validate_value(i, argc, argv, longp, value, "regex");
+    validate_value(i, argv, longp, value);
     configs.emplace_back(type, value, g_flags, std::move(g_options._conditions));
     g_flags = 0;
 }
@@ -85,11 +71,11 @@ const option g_option[]
         "extended-regexp",
         "PATTERN",
         "PATTERN is an extended regular expression (ERE)",
-        [](int& i, const bool longp, const int argc, const char* const argv[],
+        [](int& i, const bool longp, const char* const argv[],
             std::string_view value, std::vector<config>& configs)
         {
             g_flags |= config_flags::egrep;
-            regexp(i, longp, argc, argv, match_type::regex, value, configs);
+            regexp(i, longp, argv, match_type::regex, value, configs);
         }
     },
     {
@@ -98,10 +84,10 @@ const option g_option[]
         "fixed-strings",
         "PATTERN",
         "PATTERN is a set of newline-separated fixed strings",
-        [](int& i, const bool longp, const int argc, const char* const argv[],
+        [](int& i, const bool longp, const char* const argv[],
             std::string_view value, std::vector<config>& configs)
         {
-            regexp(i, longp, argc, argv, match_type::text, value, configs);
+            regexp(i, longp, argv, match_type::text, value, configs);
         }
     },
     {
@@ -110,11 +96,11 @@ const option g_option[]
         "basic-regexp",
         "PATTERN",
         "PATTERN is a basic regular expression (BRE)",
-        [](int& i, const bool longp, const int argc, const char* const argv[],
+        [](int& i, const bool longp, const char* const argv[],
             std::string_view value, std::vector<config>& configs)
         {
             g_flags |= config_flags::grep;
-            regexp(i, longp, argc, argv, match_type::regex, value, configs);
+            regexp(i, longp, argv, match_type::regex, value, configs);
         }
     },
     {
@@ -123,10 +109,10 @@ const option g_option[]
         "perl-regexp",
         "PATTERN",
         "PATTERN is a Perl regular expression",
-        [](int& i, const bool longp, const int argc, const char* const argv[],
+        [](int& i, const bool longp, const char* const argv[],
             std::string_view value, std::vector<config>& configs)
         {
-            regexp(i, longp, argc, argv, match_type::regex, value, configs);
+            regexp(i, longp, argv, match_type::regex, value, configs);
         }
     },
     {
@@ -135,10 +121,10 @@ const option g_option[]
         "flex-regexp",
         "PATTERN",
         "PATTERN is a flex style regexp",
-        [](int& i, const bool longp, const int argc, const char* const argv[],
+        [](int& i, const bool longp, const char* const argv[],
             std::string_view value, std::vector<config>& configs)
         {
-            regexp(i, longp, argc, argv, match_type::dfa_regex, value, configs);
+            regexp(i, longp, argv, match_type::dfa_regex, value, configs);
         }
     },
     {
@@ -147,7 +133,7 @@ const option g_option[]
         "ignore-case",
         nullptr,
         "ignore case distinctions",
-        [](int&, const bool, const int, const char* const [], std::string_view,
+        [](int&, const bool, const char* const [], std::string_view,
             std::vector<config>&)
         {
             g_flags |= config_flags::icase;
@@ -159,7 +145,7 @@ const option g_option[]
         "word-regexp",
         nullptr,
         "force PATTERN to match only whole words",
-        [](int&, const bool, const int, const char* const [], std::string_view,
+        [](int&, const bool, const char* const [], std::string_view,
             std::vector<config>&)
         {
             g_flags |= config_flags::whole_word;
@@ -171,7 +157,7 @@ const option g_option[]
         "line-regexp",
         nullptr,
         "force PATTERN to match only whole lines",
-        [](int&, const bool, const int, const char* const [], std::string_view,
+        [](int&, const bool, const char* const [], std::string_view,
             std::vector<config>&)
         {
             g_flags |= config_flags::bol_eol;
@@ -183,7 +169,7 @@ const option g_option[]
         "null-data",
         nullptr,
         "a data line ends in 0 byte, not newline",
-        [](int&, const bool, const int, const char* const [], std::string_view,
+        [](int&, const bool, const char* const [], std::string_view,
             std::vector<config>&)
         {
             g_options._null_data = true;
@@ -195,7 +181,7 @@ const option g_option[]
         "invert-match",
         nullptr,
         "select non-matching text",
-        [](int&, const bool, const int, const char* const [], std::string_view,
+        [](int&, const bool, const char* const [], std::string_view,
             std::vector<config>&)
         {
             g_flags |= config_flags::negate;
@@ -207,7 +193,7 @@ const option g_option[]
         "version",
         nullptr,
         "print version information and exit",
-        [](int&, const bool, const int, const char* const [], std::string_view,
+        [](int&, const bool, const char* const [], std::string_view,
             std::vector<config>&)
         {
             g_options._show_version = true;
@@ -219,7 +205,7 @@ const option g_option[]
         "help",
         nullptr,
         "display this help and exit",
-        [](int&, const bool, const int, const char* const [], std::string_view,
+        [](int&, const bool, const char* const [], std::string_view,
             std::vector<config>&)
         {
             show_help();
@@ -232,10 +218,10 @@ const option g_option[]
         "max-count",
         "NUM",
         "stop after NUM matches",
-        [](int& i, const bool longp, const int argc, const char* const argv[],
+        [](int& i, const bool longp, const char* const argv[],
             std::string_view value, std::vector<config>&)
         {
-            validate_value(i, argc, argv, longp, value, "NUM");
+            validate_value(i, argv, longp, value);
 
             std::stringstream ss;
 
@@ -249,7 +235,7 @@ const option g_option[]
         "byte-offset",
         nullptr,
         "print the byte offset with output lines",
-        [](int&, const bool, const int, const char* const [], std::string_view,
+        [](int&, const bool, const char* const [], std::string_view,
             std::vector<config>&)
         {
             g_options._byte_offset = true;
@@ -261,7 +247,7 @@ const option g_option[]
         "line-number",
         nullptr,
         "print line number with output lines",
-        [](int&, const bool, const int, const char* const [], std::string_view,
+        [](int&, const bool, const char* const [], std::string_view,
             std::vector<config>&)
         {
             g_options._line_numbers = true;
@@ -273,7 +259,7 @@ const option g_option[]
         "line-buffered",
         nullptr,
         "flush output on every line",
-        [](int&, const bool, const int, const char* const [], std::string_view,
+        [](int&, const bool, const char* const [], std::string_view,
             std::vector<config>&)
         {
             g_options._line_buffered = true;
@@ -285,7 +271,7 @@ const option g_option[]
         "with-filename",
         nullptr,
         "print the filename for each match",
-        [](int&, const bool, const int, const char* const [], std::string_view,
+        [](int&, const bool, const char* const [], std::string_view,
             std::vector<config>&)
         {
             g_options._show_filename = show_filename::yes;
@@ -297,7 +283,7 @@ const option g_option[]
         "no-filename",
         nullptr,
         "suppress the prefixing filename on output",
-        [](int&, const bool, const int, const char* const [], std::string_view,
+        [](int&, const bool, const char* const [], std::string_view,
             std::vector<config>&)
         {
             g_options._show_filename = show_filename::no;
@@ -309,10 +295,10 @@ const option g_option[]
         "label",
         "LABEL",
         "print LABEL as filename for standard input",
-        [](int& i, const bool longp, const int argc, const char* const argv[],
+        [](int& i, const bool longp, const char* const argv[],
             std::string_view value, std::vector<config>&)
         {
-            validate_value(i, argc, argv, longp, value, "LABEL");
+            validate_value(i, argv, longp, value);
             g_options._label = value;
         }
     },
@@ -322,7 +308,7 @@ const option g_option[]
         "only-matching",
         nullptr,
         "show only the part of a line matching PATTERN",
-        [](int&, const bool, const int, const char* const [], std::string_view,
+        [](int&, const bool, const char* const [], std::string_view,
             std::vector<config>&)
         {
             g_options._only_matching = true;
@@ -334,7 +320,7 @@ const option g_option[]
         "recursive",
         nullptr,
         "recurse subdirectories",
-        [](int&, const bool, const int, const char* const [], std::string_view,
+        [](int&, const bool, const char* const [], std::string_view,
             std::vector<config>&)
         {
             g_options._recursive = true;
@@ -346,10 +332,10 @@ const option g_option[]
         "exclude",
         "FILE_PATTERN",
         "skip files and directories matching FILE_PATTERN",
-        [](int& i, const bool longp, const int argc, const char* const argv[],
+        [](int& i, const bool longp, const char* const argv[],
             std::string_view value, std::vector<config>&)
         {
-            validate_value(i, argc, argv, longp, value, "FILE_PATTERN");
+            validate_value(i, argv, longp, value);
 
             const std::string str(value);
             auto pathnames = split(str.c_str(), ';');
@@ -373,10 +359,10 @@ const option g_option[]
         "exclude-dir",
         "PATTERN",
         "directories that match PATTERN will be skipped",
-        [](int& i, const bool longp, const int argc, const char* const argv[],
+        [](int& i, const bool longp, const char* const argv[],
             std::string_view value, std::vector<config>&)
         {
-            validate_value(i, argc, argv, longp, value, "PATTERN");
+            validate_value(i, argv, longp, value);
 
             const std::string str(value);
             auto pathnames = split(str.c_str(), ';');
@@ -403,7 +389,7 @@ const option g_option[]
         "files-without-match",
         nullptr,
         "print only names of FILEs containing no match",
-        [](int&, const bool, const int, const char* const [],
+        [](int&, const bool, const char* const [],
             std::string_view, std::vector<config>&)
         {
             g_options._pathname_only_negated = true;
@@ -415,7 +401,7 @@ const option g_option[]
         "files-with-matches",
         nullptr,
         "print only names of FILEs containing matches",
-        [](int&, const bool, const int, const char* const [],
+        [](int&, const bool, const char* const [],
             std::string_view, std::vector<config>&)
         {
             g_options._pathname_only = true;
@@ -427,7 +413,7 @@ const option g_option[]
         "count",
         nullptr,
         "print only a count of matches per FILE",
-        [](int&, const bool, const int, const char* const [],
+        [](int&, const bool, const char* const [],
             std::string_view, std::vector<config>&)
         {
             g_options._show_count = true;
@@ -439,7 +425,7 @@ const option g_option[]
         "initial-tab",
         nullptr,
         "make tabs line up (if needed)",
-        [](int&, const bool, const int, const char* const [],
+        [](int&, const bool, const char* const [],
             std::string_view, std::vector<config>&)
         {
             g_options._initial_tab = true;
@@ -451,7 +437,7 @@ const option g_option[]
         "null",
         nullptr,
         "print 0 byte after FILE name",
-        [](int&, const bool, const int, const char* const [],
+        [](int&, const bool, const char* const [],
             std::string_view, std::vector<config>&)
         {
             g_options._print_null = true;
@@ -479,10 +465,10 @@ const option g_option[]
         "checkout",
         "CMD",
         "checkout command (include $1 for pathname)",
-        [](int& i, const bool longp, const int argc, const char* const argv[],
+        [](int& i, const bool longp, const char* const argv[],
             std::string_view value, std::vector<config>&)
         {
-            validate_value(i, argc, argv, longp, value, "CMD");
+            validate_value(i, argv, longp, value);
             // "C:\Program Files (x86)\Microsoft Visual Studio 14.0\Common7\IDE\tf.exe"
             // checkout $1
             // *NOTE* $1 is replaced by the pathname
@@ -495,10 +481,10 @@ const option g_option[]
         "config",
         "CONFIG_FILE",
         "search using config file",
-        [](int& i, const bool longp, const int argc, const char* const argv[],
+        [](int& i, const bool longp, const char* const argv[],
             std::string_view value, std::vector<config>& configs)
         {
-            validate_value(i, argc, argv, longp, value, "CONFIG_FILE");
+            validate_value(i, argv, longp, value);
 
             const std::string str(value);
             auto pathnames = split(str.c_str(), ';');
@@ -522,7 +508,7 @@ const option g_option[]
         "display-whole-match",
         nullptr,
         "display a multiline match",
-        [](int&, const bool, const int, const char* const [],
+        [](int&, const bool, const char* const [],
             std::string_view, std::vector<config>&)
         {
             g_options._whole_match = true;
@@ -534,7 +520,7 @@ const option g_option[]
         "dump",
         nullptr,
         "dump DFA regexp",
-        [](int&, const bool, const int, const char* const [],
+        [](int&, const bool, const char* const [],
             std::string_view, std::vector<config>&)
         {
             g_options._dump = true;
@@ -546,7 +532,7 @@ const option g_option[]
         "dump-argv",
         nullptr,
         "dump command line arguments",
-        [](int&, const bool, const int, const char* const [],
+        [](int&, const bool, const char* const [],
             std::string_view, std::vector<config>&)
         {
             g_options._dump_argv = true;
@@ -558,7 +544,7 @@ const option g_option[]
         "dump-dot",
         nullptr,
         "dump DFA regexp in DOT format",
-        [](int&, const bool, const int, const char* const [],
+        [](int&, const bool, const char* const [],
             std::string_view, std::vector<config>&)
         {
             g_options._dump = true;
@@ -571,10 +557,10 @@ const option g_option[]
         "exec",
         "CMD",
         "Executes the supplied command",
-        [](int& i, const bool longp, const int argc, const char* const argv[],
+        [](int& i, const bool longp, const char* const argv[],
             std::string_view value, std::vector<config>&)
         {
-            validate_value(i, argc, argv, longp, value, "CMD");
+            validate_value(i, argv, longp, value);
             g_options._exec = value;
         }
     },
@@ -584,7 +570,7 @@ const option g_option[]
         "extend-search",
         nullptr,
         "extend the end of the next match to be the current match",
-        [](int&, const bool, const int, const char* const [], std::string_view,
+        [](int&, const bool, const char* const [], std::string_view,
             std::vector<config>&)
         {
             g_flags |= config_flags::extend_search;
@@ -596,7 +582,7 @@ const option g_option[]
         "force-write",
         nullptr,
         "if a file is read only, force it to be writable",
-        [](int&, const bool, const int, const char* const [], std::string_view,
+        [](int&, const bool, const char* const [], std::string_view,
             std::vector<config>&)
         {
             g_options._force_write = true;
@@ -608,10 +594,10 @@ const option g_option[]
         "if",
         "CONDITION",
         "make search conditional",
-        [](int& i, const bool longp, const int argc, const char* const argv[],
+        [](int& i, const bool longp, const char* const argv[],
             std::string_view value, std::vector<config>&)
         {
-            validate_value(i, argc, argv, longp, value, "CONDITION");
+            validate_value(i, argv, longp, value);
 
             const std::string str(value);
 
@@ -624,7 +610,7 @@ const option g_option[]
         "invert-match-all",
         nullptr,
         "only match if the search does not match at all",
-        [](int&, const bool, const int, const char* const [],
+        [](int&, const bool, const char* const [],
             std::string_view, std::vector<config>&)
         {
             g_flags |= config_flags::negate | config_flags::all;
@@ -636,7 +622,7 @@ const option g_option[]
         "line-number-parens",
         nullptr,
         "print line number in parenthesis with output lines",
-        [](int&, const bool, const int, const char* const [],
+        [](int&, const bool, const char* const [],
             std::string_view, std::vector<config>&)
         {
             g_options._line_numbers = true;
@@ -649,7 +635,7 @@ const option g_option[]
         "perform-output",
         nullptr,
         "output changes to matching file",
-        [](int&, const bool, const int, const char* const [],
+        [](int&, const bool, const char* const [],
             std::string_view, std::vector<config>&)
         {
             g_options._perform_output = true;
@@ -661,10 +647,10 @@ const option g_option[]
         "print",
         "TEXT",
         "print TEXT instead of line of match",
-        [](int& i, const bool longp, const int argc, const char* const argv[],
+        [](int& i, const bool longp, const char* const argv[],
             std::string_view value, std::vector<config>&)
         {
-            validate_value(i, argc, argv, longp, value, "TEXT");
+            validate_value(i, argv, longp, value);
             g_options._print = unescape(value);
         }
     },
@@ -674,10 +660,10 @@ const option g_option[]
         "replace",
         "TEXT",
         "replace match with TEXT",
-        [](int& i, const bool longp, const int argc, const char* const argv[],
+        [](int& i, const bool longp, const char* const argv[],
             std::string_view value, std::vector<config>&)
         {
-            validate_value(i, argc, argv, longp, value, "TEXT");
+            validate_value(i, argv, longp, value);
             g_options._replace = unescape(value);
         }
     },
@@ -687,7 +673,7 @@ const option g_option[]
         "return-previous-match",
         nullptr,
         "return the previous match instead of the current one",
-        [](int&, const bool, const int, const char* const [],
+        [](int&, const bool, const char* const [],
             std::string_view, std::vector<config>&)
         {
             g_flags |= config_flags::ret_prev_match;
@@ -699,10 +685,10 @@ const option g_option[]
         "shutdown",
         "CMD",
         "command to run when exiting",
-        [](int& i, const bool longp, const int argc, const char* const argv[],
+        [](int& i, const bool longp, const char* const argv[],
             std::string_view value, std::vector<config>&)
         {
-            validate_value(i, argc, argv, longp, value, "CMD");
+            validate_value(i, argv, longp, value);
             // "C:\Program Files (x86)\Microsoft Visual Studio 14.0\Common7\IDE\tf.exe"
             // /delete /collection:http://tfssrv01:8080/tfs/PartnerDev gram_grep /noprompt
             g_options._shutdown = value;
@@ -714,10 +700,10 @@ const option g_option[]
         "startup",
         "CMD",
         "command to run at startup",
-        [](int& i, const bool longp, const int argc, const char* const argv[],
+        [](int& i, const bool longp, const char* const argv[],
             std::string_view value, std::vector<config>&)
         {
-            validate_value(i, argc, argv, longp, value, "CMD");
+            validate_value(i, argv, longp, value);
             // "C:\Program Files (x86)\Microsoft Visual Studio 14.0\Common7\IDE\tf.exe"
             // workspace /new /collection:http://tfssrv01:8080/tfs/PartnerDev gram_grep
             // /noprompt
@@ -730,7 +716,7 @@ const option g_option[]
         "summary",
         nullptr,
         "show match count footer",
-        [](int&, const bool, const int, const char* const [], std::string_view,
+        [](int&, const bool, const char* const [], std::string_view,
             std::vector<config>&)
         {
             g_options._summary = true;
@@ -742,7 +728,7 @@ const option g_option[]
         "utf8",
         nullptr,
         "in the absence of a BOM assume UTF-8",
-        [](int&, const bool, const int, const char* const [], std::string_view,
+        [](int&, const bool, const char* const [], std::string_view,
             std::vector<config>&)
         {
             g_options._force_unicode = true;
@@ -754,10 +740,10 @@ const option g_option[]
         "word-list",
         "PATHNAME",
         "search for a word from the supplied word list",
-        [](int& i, const bool longp, const int argc, const char* const argv[],
+        [](int& i, const bool longp, const char* const argv[],
             std::string_view value, std::vector<config>& configs)
         {
-            validate_value(i, argc, argv, longp, value, "PATHNAME");
+            validate_value(i, argv, longp, value);
             g_options._word_list_files =
                 std::vector<lexertl::memory_file>
                 (g_options._word_list_files.size() + 1);
@@ -772,7 +758,7 @@ const option g_option[]
         "writable",
         nullptr,
         "only process files that are writable",
-        [](int&, const bool, const int, const char* const [], std::string_view,
+        [](int&, const bool, const char* const [], std::string_view,
             std::vector<config>&)
         {
             g_options._writable = true;

@@ -9,6 +9,7 @@
 extern void build_condition_parser();
 extern std::string unescape(const std::string_view& vw);
 extern std::string unescape_str(const char* first, const char* second);
+extern void show_usage();
 
 extern options g_options;
 extern condition_parser g_condition_parser;
@@ -76,7 +77,7 @@ void parse_condition(const char* str)
         throw gg_error(std::format("Failed to parse '{}'", str));
 }
 
-static void process_long(int& i, const int argc, const char* const argv[],
+static void process_long(int& i, const char* const argv[],
     std::vector<config>& configs)
 {
     // Skip over "--"
@@ -90,17 +91,25 @@ static void process_long(int& i, const int argc, const char* const argv[],
             return param == c._long;
         });
 
-    if (!value.empty() && !iter->_param)
-    {
-        throw gg_error(std::format("gram_grep: option `{}' "
-            "doesn't accept an argument\n"
-            "Try `gram_grep --help' for more information.",
-            param));
-    }
-
     if (iter != std::end(g_option))
     {
-        iter->_func(i, true, argc, argv, value, configs);
+        if (iter->_param && value.empty())
+        {
+            std::cerr << std::format("gram_grep: option `{}' "
+                "requires an argument\n", argv[i]);
+            show_usage();
+            exit(2);
+        }
+
+        if (!value.empty() && !iter->_param)
+        {
+            throw gg_error(std::format("gram_grep: option `{}' "
+                "doesn't accept an argument\n"
+                "Try `gram_grep --help' for more information.",
+                param));
+        }
+
+        iter->_func(i, true, argv, value, configs);
     }
     else
     {
@@ -124,7 +133,15 @@ static void process_short(int& i, const int argc, const char* const argv[],
 
         if (iter != std::end(g_option))
         {
-            iter->_func(i, false, argc, argv, std::string_view(), configs);
+            if (iter->_param && i + 1 == argc)
+            {
+                std::cerr << std::format("gram_grep: option requires an "
+                    "argument -- {}\n", argv[i][1]);
+                show_usage();
+                exit(2);
+            }
+
+            iter->_func(i, false, argv, std::string_view(), configs);
         }
         else
         {
@@ -144,7 +161,7 @@ void read_switches(const int argc, const char* const argv[],
 
         if (*param == '-')
             if (param[1] == '-')
-                process_long(i, argc, argv, configs);
+                process_long(i, argv, configs);
             else
                 process_short(i, argc, argv, configs);
         else
