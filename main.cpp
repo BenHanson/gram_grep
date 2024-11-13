@@ -256,10 +256,11 @@ static bool process_matches(const std::vector<match>& ranges,
             const char* curr = iter->_first;
             const char* eoi = data_second;
 
-            if (!g_options._pathname_only_negated && !g_options._show_count &&
-                g_options._print.empty() && !g_rule_print &&
+            if (g_options._pathname_only != pathname_only::negated &&
+                !g_options._show_count && g_options._print.empty() &&
+                !g_rule_print &&
                 !(g_options._show_filename == show_filename::no &&
-                    !g_options._pathname_only))
+                    g_options._pathname_only == pathname_only::no))
             {
                 if (g_options._colour)
                     std::cout << g_fn_text;
@@ -285,7 +286,7 @@ static bool process_matches(const std::vector<match>& ranges,
                 if (g_options._colour)
                     std::cout << g_se_text;
 
-                if (g_options._line_numbers_parens)
+                if (g_options._line_numbers == line_numbers::with_parens)
                     std::cout << '(';
                 else
                     std::cout << ':';
@@ -294,7 +295,7 @@ static bool process_matches(const std::vector<match>& ranges,
                     std::cout << szDefaultText;
             }
 
-            if (g_options._pathname_only)
+            if (g_options._pathname_only == pathname_only::yes)
             {
                 std::cout << output_nl;
                 finished = true;
@@ -311,7 +312,7 @@ static bool process_matches(const std::vector<match>& ranges,
                 std::cout << "Executing: " << cmd << '\n';
                 std::cout << exec_ret(cmd);
             }
-            else if (!g_options._pathname_only_negated &&
+            else if (g_options._pathname_only != pathname_only::negated &&
                 !g_options._show_count && !g_rule_print)
             {
                 const auto count = std::count(data_first, curr, '\n');
@@ -326,7 +327,7 @@ static bool process_matches(const std::vector<match>& ranges,
 
                 if (!pathname.empty())
                 {
-                    if (g_options._line_numbers)
+                    if (g_options._line_numbers != line_numbers::none)
                     {
                         if (g_options._colour)
                             std::cout << g_ln_text;
@@ -339,7 +340,7 @@ static bool process_matches(const std::vector<match>& ranges,
                             std::cout << g_se_text;
                         }
 
-                        if (g_options._line_numbers_parens)
+                        if (g_options._line_numbers == line_numbers::with_parens)
                             std::cout << ')';
 
                         std::cout << ':';
@@ -415,8 +416,9 @@ static bool process_matches(const std::vector<match>& ranges,
                 }
             }
 
-            if (!g_options._pathname_only_negated && !g_options._show_count &&
-                g_options._print.empty() && !g_rule_print)
+            if (g_options._pathname_only != pathname_only::negated &&
+                !g_options._show_count && g_options._print.empty() &&
+                !g_rule_print)
             {
                 std::cout << output_nl;
             }
@@ -696,7 +698,7 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
         std::cout << pathname << ':' << hits << output_nl;
     }
 
-    if (g_options._pathname_only_negated && !hits)
+    if (g_options._pathname_only == pathname_only::negated && !hits)
     {
         std::cout << pathname << output_nl;
     }
@@ -924,7 +926,7 @@ static void fill_pipeline(std::vector<config>&& configs)
 
                 rules.push(config._param, 1);
 
-                if (!g_options._dump)
+                if (g_options._dump == dump::no)
                     rules.push(".{+}[\r\n]", rules_type::skip());
 
                 generator::build(rules, lexer._sm);
@@ -944,7 +946,7 @@ static void fill_pipeline(std::vector<config>&& configs)
 
                 rules.push(config._param, 1);
 
-                if (!g_options._dump)
+                if (g_options._dump == dump::no)
                     rules.push(".{+}[\r\n]", lexertl::rules::skip());
 
                 lexertl::generator::build(rules, lexer._sm);
@@ -1260,7 +1262,7 @@ int main(int argc, char* argv[])
             return 0;
         }
 
-        if (g_options._dump)
+        if (g_options._dump != dump::no)
         {
             for (const auto& v : g_pipeline)
             {
@@ -1269,7 +1271,7 @@ int main(int argc, char* argv[])
                 {
                     const auto& l = std::get<lexer>(v);
 
-                    if (g_options._dot)
+                    if (g_options._dump == dump::dot)
                         lexertl::dot::dump(l._sm, lexertl::rules(), std::cout);
                     else
                         lexertl::debug::dump(l._sm, std::cout);
@@ -1289,8 +1291,11 @@ int main(int argc, char* argv[])
         if (g_pipeline.empty())
             throw gg_error("No actions have been specified.");
 
-        if (g_options._pathname_only && g_options._show_count)
+        if (g_options._pathname_only != pathname_only::no &&
+            g_options._show_count)
+        {
             throw gg_error("Cannot combine -l and --count.");
+        }
 
         if (g_options._perform_output && g_pathnames.empty())
             throw gg_error("Cannot combine stdin with -o.");

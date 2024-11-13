@@ -44,14 +44,28 @@ struct wildcards
     std::vector<wildcardtl::wildcard> _negative;
 };
 
+enum class dump
+{
+    no, text, dot
+};
+
+enum class line_numbers
+{
+    none, yes, with_parens
+};
+
+enum class pathname_only
+{
+    no, yes, negated
+};
+
 struct options
 {
     bool _byte_offset = false;
     std::string _checkout;
     bool _colour = false;
     condition_map _conditions;
-    bool _dot = false;
-    bool _dump = false;
+    dump _dump = dump::no;
     bool _dump_argv = false;
     wildcards _exclude;
     wildcards _exclude_dirs;
@@ -61,13 +75,11 @@ struct options
     bool _initial_tab = false;
     std::string _label;
     bool _line_buffered = false;
-    bool _line_numbers = false;
-    bool _line_numbers_parens = false;
+    line_numbers _line_numbers = line_numbers::none;
     std::size_t _max_count = 0;
     bool _null_data = false;
     bool _only_matching = false;
-    bool _pathname_only = false;
-    bool _pathname_only_negated = false;
+    pathname_only _pathname_only = pathname_only::no;
     bool _perform_output = false;
     std::string _print;
     bool _print_null = false;

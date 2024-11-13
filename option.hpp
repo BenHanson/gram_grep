@@ -250,7 +250,7 @@ const option g_option[]
         [](int&, const bool, const char* const [], std::string_view,
             std::vector<config>&)
         {
-            g_options._line_numbers = true;
+            g_options._line_numbers = line_numbers::yes;
         }
     },
     {
@@ -392,7 +392,7 @@ const option g_option[]
         [](int&, const bool, const char* const [],
             std::string_view, std::vector<config>&)
         {
-            g_options._pathname_only_negated = true;
+            g_options._pathname_only = pathname_only::negated;
         }
     },
     {
@@ -404,7 +404,7 @@ const option g_option[]
         [](int&, const bool, const char* const [],
             std::string_view, std::vector<config>&)
         {
-            g_options._pathname_only = true;
+            g_options._pathname_only = pathname_only::yes;
         }
     },
     {
@@ -523,7 +523,7 @@ const option g_option[]
         [](int&, const bool, const char* const [],
             std::string_view, std::vector<config>&)
         {
-            g_options._dump = true;
+            g_options._dump = dump::text;
         }
     },
     {
@@ -547,8 +547,7 @@ const option g_option[]
         [](int&, const bool, const char* const [],
             std::string_view, std::vector<config>&)
         {
-            g_options._dump = true;
-            g_options._dot = true;
+            g_options._dump = dump::dot;
         }
     },
     {
@@ -625,8 +624,7 @@ const option g_option[]
         [](int&, const bool, const char* const [],
             std::string_view, std::vector<config>&)
         {
-            g_options._line_numbers = true;
-            g_options._line_numbers_parens = true;
+            g_options._line_numbers = line_numbers::with_parens;
         }
     },
     {
