@@ -85,10 +85,12 @@ static void process_long(int& i, const char* const argv[],
     const char* equal = strchr(a, '=');
     const std::string_view param(a, equal ? equal : a + strlen(a));
     const std::string_view value(equal ? equal + 1 : "");
-    auto iter = std::find_if(std::begin(g_option), std::end(g_option),
+    auto iter = std::ranges::find_if(g_option,
         [param](const auto& c)
         {
-            return param == c._long;
+            const auto switches = split(c._long, ',');
+
+            return std::ranges::find(switches, param) != switches.end();
         });
 
     if (iter != std::end(g_option))
@@ -172,6 +174,7 @@ void read_switches(const int argc, const char* const argv[],
 void show_option(const option& opt)
 {
     constexpr std::size_t max_len = 31;
+    auto long_options = split(opt._long, ',');
     std::ostringstream ss;
 
     ss << "  ";
@@ -183,7 +186,13 @@ void show_option(const option& opt)
     else
         ss << "    ";
 
-    ss << "--" << opt._long;
+    for (std::size_t idx = 0, size = long_options.size(); idx < size; ++idx)
+    {
+        if (idx)
+            ss << ", ";
+
+        ss << "--" << long_options[idx];
+    }
 
     if (opt._param)
         ss << '=' << opt._param;

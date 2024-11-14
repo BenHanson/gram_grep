@@ -260,7 +260,8 @@ static bool process_matches(const std::vector<match>& ranges,
                 !g_options._show_count && g_options._print.empty() &&
                 !g_rule_print &&
                 !(g_options._show_filename == show_filename::no &&
-                    g_options._pathname_only == pathname_only::no))
+                    g_options._pathname_only == pathname_only::no &&
+                    g_options._quiet))
             {
                 if (g_options._colour)
                     std::cout << g_fn_text;
@@ -279,9 +280,6 @@ static bool process_matches(const std::vector<match>& ranges,
 
                 if (g_options._colour)
                     std::cout << szDefaultText;
-
-                if (g_options._print_null)
-                    std::cout << '\0';
 
                 if (g_options._colour)
                     std::cout << g_se_text;
@@ -313,7 +311,7 @@ static bool process_matches(const std::vector<match>& ranges,
                 std::cout << exec_ret(cmd);
             }
             else if (g_options._pathname_only != pathname_only::negated &&
-                !g_options._show_count && !g_rule_print)
+                !g_options._show_count && !g_rule_print && !g_options._quiet)
             {
                 const auto count = std::count(data_first, curr, '\n');
 
@@ -418,7 +416,7 @@ static bool process_matches(const std::vector<match>& ranges,
 
             if (g_options._pathname_only != pathname_only::negated &&
                 !g_options._show_count && g_options._print.empty() &&
-                !g_rule_print)
+                !g_rule_print && !g_options._quiet)
             {
                 std::cout << output_nl;
             }
@@ -850,6 +848,7 @@ void add_pathname(std::string pn,
     auto& wcs = map[path];
 
     if (g_options._show_filename == show_filename::undefined &&
+        !g_options._quiet &&
         (g_options._recursive || wc_idx != std::string::npos || negate))
     {
         g_options._show_filename = show_filename::yes;
@@ -1352,7 +1351,7 @@ int main(int argc, char* argv[])
                 output_nl;
         }
 
-        return 0;
+        return g_hits ? 0 : 1;
     }
     catch (const std::exception& e)
     {

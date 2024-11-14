@@ -164,18 +164,6 @@ const option g_option[]
         }
     },
     {
-        option::type::regexp,
-        'z',
-        "null-data",
-        nullptr,
-        "a data line ends in 0 byte, not newline",
-        [](int&, const bool, const char* const [], std::string_view,
-            std::vector<config>&)
-        {
-            g_options._null_data = true;
-        }
-    },
-    {
         option::type::misc,
         'v',
         "invert-match",
@@ -312,6 +300,18 @@ const option g_option[]
             std::vector<config>&)
         {
             g_options._only_matching = true;
+        }
+    },
+    {
+        option::type::output,
+        'q',
+        "quiet,silent",
+        nullptr,
+        "suppress all normal output",
+        [](int&, const bool, const char* const [], std::string_view,
+            std::vector<config>&)
+        {
+            g_options._quiet = true;
         }
     },
     {

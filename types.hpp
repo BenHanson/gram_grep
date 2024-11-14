@@ -77,8 +77,8 @@ struct options
     bool _line_buffered = false;
     line_numbers _line_numbers = line_numbers::none;
     std::size_t _max_count = 0;
-    bool _null_data = false;
     bool _only_matching = false;
+    bool _quiet = false;
     pathname_only _pathname_only = pathname_only::no;
     bool _perform_output = false;
     std::string _print;
