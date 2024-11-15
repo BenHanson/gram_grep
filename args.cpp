@@ -88,7 +88,10 @@ static void process_long(int& i, const char* const argv[],
     auto iter = std::ranges::find_if(g_option,
         [param](const auto& c)
         {
-            const auto switches = split(c._long, ',');
+            std::vector<std::string_view> switches;
+
+            if (c._long)
+                switches = split(c._long, ',');
 
             return std::ranges::find(switches, param) != switches.end();
         });
@@ -174,14 +177,20 @@ void read_switches(const int argc, const char* const argv[],
 void show_option(const option& opt)
 {
     constexpr std::size_t max_len = 31;
-    auto long_options = split(opt._long, ',');
+    std::vector<std::string_view> long_options;
     std::ostringstream ss;
+
+    if (opt._long)
+        long_options = split(opt._long, ',');
 
     ss << "  ";
 
     if (opt._short)
     {
-        ss << '-' << opt._short << ", ";
+        ss << '-' << opt._short;
+        
+        if (opt._long)
+            ss << ", ";
     }
     else
         ss << "    ";
@@ -208,7 +217,17 @@ void show_option(const option& opt)
     std::cout << ss.view();
     
     if (opt._help)
-        std::cout << opt._help;
+    {
+        const std::vector<std::string_view> help = split(opt._help, '\n');
+
+        for (std::size_t idx = 0, size = help.size(); idx < size; ++idx)
+        {
+            if (idx)
+                std::cout << '\n' << std::string(max_len, ' ');
+
+            std::cout << help[idx];
+        }
+    }
 
     std::cout << '\n';
 }

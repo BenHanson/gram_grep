@@ -59,6 +59,11 @@ enum class pathname_only
     no, yes, negated
 };
 
+enum class binary_files
+{
+    binary, text, without_match
+};
+
 struct options
 {
     bool _byte_offset = false;
@@ -79,6 +84,7 @@ struct options
     std::size_t _max_count = 0;
     bool _only_matching = false;
     bool _quiet = false;
+    binary_files _binary_files = binary_files::binary;
     pathname_only _pathname_only = pathname_only::no;
     bool _perform_output = false;
     std::string _print;

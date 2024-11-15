@@ -316,6 +316,50 @@ const option g_option[]
     },
     {
         option::type::output,
+        '\0',
+        "binary-files",
+        "TYPE",
+        "assume that binary files are TYPE;\n"
+        "TYPE is `binary', `text', or `without-match'",
+        [](int&, const bool, const char* const [], std::string_view value,
+            std::vector<config>&)
+        {
+            if (value == "binary")
+                g_options._binary_files = binary_files::binary;
+            else if (value == "text")
+                g_options._binary_files = binary_files::text;
+            else if (value == "without-match")
+                g_options._binary_files = binary_files::without_match;
+            else
+                throw gg_error("gram_grep: unknown binary-files type");
+        }
+    },
+    {
+        option::type::output,
+        'a',
+        "text",
+        nullptr,
+        "equivalent to --binary-files=text",
+        [](int&, const bool, const char* const [], std::string_view,
+            std::vector<config>&)
+        {
+            g_options._binary_files = binary_files::text;
+        }
+    },
+    {
+        option::type::output,
+        'I',
+        nullptr,
+        nullptr,
+        "equivalent to --binary-files=without-match",
+        [](int&, const bool, const char* const [], std::string_view,
+            std::vector<config>&)
+        {
+            g_options._binary_files = binary_files::without_match;
+        }
+    },
+    {
+        option::type::output,
         'r',
         "recursive",
         nullptr,
@@ -679,7 +723,7 @@ const option g_option[]
     },
     {
         option::type::gram_grep,
-        'S',
+        '\0',
         "shutdown",
         "CMD",
         "command to run when exiting",
@@ -694,7 +738,7 @@ const option g_option[]
     },
     {
         option::type::gram_grep,
-        's',
+        '\0',
         "startup",
         "CMD",
         "command to run at startup",

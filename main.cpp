@@ -27,7 +27,7 @@ extern std::string unescape(const std::string_view& vw);
 
 enum class file_type
 {
-    ansi, utf8, utf16, utf16_flip
+    ansi, binary, utf8, utf16, utf16_flip
 };
 
 namespace fs = std::filesystem;
@@ -76,6 +76,14 @@ file_type fetch_file_type(const char* data, std::size_t size)
             }
 
             break;
+        }
+
+        if (type == file_type::ansi)
+        {
+            const char* second = data + size;
+
+            if (std::find(data, second, '\0') != second)
+                type = file_type::binary;
         }
     }
 
@@ -646,6 +654,19 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
     if (type == file_type::utf16 || type == file_type::utf16_flip)
         // No need for original data
         mf.close();
+    else if (type == file_type::binary)
+    {
+        switch (g_options._binary_files)
+        {
+        case binary_files::text:
+            type = file_type::ansi;
+            break;
+        case binary_files::without_match:
+            return;
+        default:
+            break;
+        }
+    }
 
     do
     {
@@ -655,9 +676,19 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
             search(ranges, data_first, matches, temp_replacements, captures);
 
         if (success)
-            finished = process_matches(ranges, replacements, temp_replacements,
-                negate, captures, data_first, data_second, cap_sm, pathname,
-                hits);
+        {
+            if (type == file_type::binary && success ^ negate)
+            {
+                std::cout << "Binary file " << pathname << " matches\n";
+                return;
+            }
+            else
+            {
+                finished = process_matches(ranges, replacements, temp_replacements,
+                    negate, captures, data_first, data_second, cap_sm, pathname,
+                    hits);
+            }
+        }
 
         const auto& old = ranges.back();
 
