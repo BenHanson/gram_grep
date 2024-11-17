@@ -185,14 +185,17 @@ static bool process_matches(const std::vector<match>& ranges,
 
         if (first < tuple._first || first > tuple._second)
         {
-            if (g_options._colour)
-                std::cerr << szYellowText;
+            if (!g_options._no_messages)
+            {
+                if (g_options._colour)
+                    std::cerr << szYellowText;
 
-            std::cerr << "Cannot replace text when source "
-                "is not contained in original string.\n";
+                std::cerr << "gram_grep: Cannot replace text when source "
+                    "is not contained in original string.\n";
 
-            if (g_options._colour)
-                std::cerr << szDefaultText;
+                if (g_options._colour)
+                    std::cerr << szDefaultText;
+            }
 
             return true;
         }
@@ -232,14 +235,17 @@ static bool process_matches(const std::vector<match>& ranges,
                             replace += captures[idx].front();
                         else
                         {
-                            if (g_options._colour)
-                                std::cerr << szYellowText;
+                            if (!g_options._no_messages)
+                            {
+                                if (g_options._colour)
+                                    std::cerr << szYellowText;
 
-                            std::cerr << "Capture $" << idx <<
-                                " is out of range.\n";
+                                std::cerr << "gram_grep: Capture $" << idx <<
+                                    " is out of range.\n";
 
-                            if (g_options._colour)
-                                std::cerr << szDefaultText;
+                                if (g_options._colour)
+                                    std::cerr << szDefaultText;
+                            }
 
                             skip = true;
                         }
@@ -490,13 +496,16 @@ static void perform_output(const std::size_t hits, const std::string& pathname,
         if ((fs::status(pathname.c_str()).permissions() &
             fs::perms::owner_write) != fs::perms::owner_write)
         {
-            if (g_options._colour)
-                std::cerr << szYellowText;
+            if (!g_options._no_messages)
+            {
+                if (g_options._colour)
+                    std::cerr << szYellowText;
 
-            std::cerr << pathname << " is read only.\n";
+                std::cerr << "gram_grep: " << pathname << " is read only.\n";
 
-            if (g_options._colour)
-                std::cerr << szDefaultText;
+                if (g_options._colour)
+                    std::cerr << szDefaultText;
+            }
         }
         else
         {
@@ -623,13 +632,16 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
 
     if (!mf.data() && !cin)
     {
-        if (g_options._colour)
-            std::cerr << szYellowText;
+        if (!g_options._no_messages)
+        {
+            if (g_options._colour)
+                std::cerr << szYellowText;
 
-        std::cerr << "Error: failed to open " << pathname << ".\n";
+            std::cerr << "gram_grep: failed to open " << pathname << ".\n";
 
-        if (g_options._colour)
-            std::cerr << szDefaultText;
+            if (g_options._colour)
+                std::cerr << szDefaultText;
+        }
 
         return;
     }
@@ -795,13 +807,16 @@ static void process_file(const std::string& pathname, const wildcards &wcs)
     }
     catch (const std::exception& e)
     {
-        if (g_options._colour)
-            std::cerr << szYellowText;
+        if (!g_options._no_messages)
+        {
+            if (g_options._colour)
+                std::cerr << szYellowText;
 
-        std::cerr << e.what() << output_nl;
+            std::cerr << "gram_grep: " << e.what() << output_nl;
 
-        if (g_options._colour)
-            std::cerr << szDefaultText;
+            if (g_options._colour)
+                std::cerr << szDefaultText;
+        }
     }
 }
 
@@ -1234,6 +1249,8 @@ void show_usage()
 
 int main(int argc, char* argv[])
 {
+    bool running = false;
+
     try
     {
         if (argc == 1)
@@ -1341,17 +1358,20 @@ int main(int argc, char* argv[])
                 if (g_options._colour)
                     std::cerr << szYellowText;
 
-                std::cerr << "Failed to execute " <<
+                std::cerr << "gram_grep: Failed to execute " <<
                     g_options._startup << ".\n";
 
                 if (g_options._colour)
                     std::cerr << szDefaultText;
+
                 run = false;
             }
         }
 
         if (run)
         {
+            running = true;
+
             if (g_pathnames.empty())
             {
                 std::string cin;
@@ -1368,7 +1388,7 @@ int main(int argc, char* argv[])
                 if (g_options._colour)
                     std::cerr << (run ? g_ms_text : szYellowText);
 
-                std::cerr << "Failed to execute " <<
+                std::cerr << "gram_grep: Failed to execute " <<
                     g_options._shutdown << ".\n";
 
                 if (g_options._colour)
@@ -1386,13 +1406,8 @@ int main(int argc, char* argv[])
     }
     catch (const std::exception& e)
     {
-        if (g_options._colour)
-            std::cerr << szDarkRedText;
-
-        std::cerr << e.what() << output_nl;
-
-        if (g_options._colour)
-            std::cerr << szDefaultText;
+        if (!(running && g_options._no_messages))
+            std::cerr << "gram_grep: " << e.what() << output_nl;
 
         return 1;
     }

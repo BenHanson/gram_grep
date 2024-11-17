@@ -1099,13 +1099,16 @@ void build_config_parser()
 
     if (!warnings.empty())
     {
-        if (g_options._colour)
-            std::cerr << g_ms_text;
+        if (!g_options._no_messages)
+        {
+            if (g_options._colour)
+                std::cerr << g_ms_text;
 
-        std::cerr << "Config parser warnings: " << warnings;
+            std::cerr << "gram_grep: Config parser warnings: " << warnings;
 
-        if (g_options._colour)
-            std::cerr << szDefaultText;
+            if (g_options._colour)
+                std::cerr << szDefaultText;
+        }
     }
 
     lrules.push_state("OPTION");

@@ -165,6 +165,18 @@ const option g_option[]
     },
     {
         option::type::misc,
+        's',
+        "no-messages",
+        nullptr,
+        "suppress error messages",
+        [](int&, const bool, const char* const [], std::string_view,
+            std::vector<config>&)
+        {
+            g_options._no_messages = true;
+        }
+    },
+    {
+        option::type::misc,
         'v',
         "invert-match",
         nullptr,

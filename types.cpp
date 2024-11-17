@@ -292,14 +292,17 @@ void config_state::parse(const unsigned int flags,
 
         if (!warnings.empty())
         {
-            if (g_options._colour)
-                std::cerr << szYellowText;
+            if (!g_options._no_messages)
+            {
+                if (g_options._colour)
+                    std::cerr << szYellowText;
 
-            std::cerr << "Warnings from config " << config_pathname << " : " <<
-                warnings;
+                std::cerr << "gram_grep: Warnings from config " <<
+                    config_pathname << " : " << warnings;
 
-            if (g_options._colour)
-                std::cerr << szDefaultText;
+                if (g_options._colour)
+                    std::cerr << szDefaultText;
+            }
         }
 
         for (const auto& p : grammar)
@@ -338,27 +341,33 @@ void config_state::parse(const unsigned int flags,
 
             if (!found_id)
             {
-                if (g_options._colour)
-                    std::cerr << szYellowText;
+                if (!g_options._no_messages)
+                {
+                    if (g_options._colour)
+                        std::cerr << szYellowText;
 
-                std::cerr << "Warning: Token \"" << terminals[i] <<
-                    "\" does not have a lexer definiton.\n";
+                    std::cerr << "gram_grep: Token \"" << terminals[i] <<
+                        "\" does not have a lexer definiton.\n";
 
-                if (g_options._colour)
-                    std::cerr << szDefaultText;
+                    if (g_options._colour)
+                        std::cerr << szDefaultText;
+                }
             }
 
             if (!used_tokens.contains(i) && !used_prec.contains(i) &&
                 std::ranges::find(_consume, terminals[i]) == _consume.end())
             {
-                if (g_options._colour)
-                    std::cerr << szYellowText;
+                if (!g_options._no_messages)
+                {
+                    if (g_options._colour)
+                        std::cerr << szYellowText;
 
-                std::cerr << "Warning: Token \"" << terminals[i] <<
-                    "\" is not used in the grammar.\n";
+                    std::cerr << "gram_grep: Token \"" << terminals[i] <<
+                        "\" is not used in the grammar.\n";
 
-                if (g_options._colour)
-                    std::cerr << szDefaultText;
+                    if (g_options._colour)
+                        std::cerr << szDefaultText;
+                }
             }
         }
     }
