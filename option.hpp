@@ -27,6 +27,12 @@ struct option
         std::vector<config>& configs);
 };
 
+void check_pattern_set()
+{
+    if (g_options._pattern_type != pattern_type::none)
+        throw gg_error("gram_grep: conflicting matchers specified");
+}
+
 void colour(int&, const bool, const char* const [], std::string_view,
     std::vector<config>&)
 {
@@ -55,76 +61,71 @@ void validate_value(int& i, const char* const argv[],
     }
 }
 
-void regexp(int& i, const bool longp, const char* const argv[],
-    const match_type type, std::string_view value, std::vector<config>& configs)
-{
-    validate_value(i, argv, longp, value);
-    configs.emplace_back(type, value, g_flags, std::move(g_options._conditions));
-    g_flags = 0;
-}
-
 const option g_option[]
 {
     {
         option::type::regexp,
         'E',
         "extended-regexp",
-        "PATTERN",
+        nullptr,
         "PATTERN is an extended regular expression (ERE)",
-        [](int& i, const bool longp, const char* const argv[],
-            std::string_view value, std::vector<config>& configs)
+        [](int&, const bool, const char* const [],
+            std::string_view, std::vector<config>&)
         {
-            g_flags |= config_flags::egrep;
-            regexp(i, longp, argv, match_type::regex, value, configs);
+            check_pattern_set();
+            g_options._pattern_type = pattern_type::extended;
         }
     },
     {
         option::type::regexp,
         'F',
         "fixed-strings",
-        "PATTERN",
+        nullptr,
         "PATTERN is a set of newline-separated fixed strings",
-        [](int& i, const bool longp, const char* const argv[],
-            std::string_view value, std::vector<config>& configs)
+        [](int&, const bool, const char* const [],
+            std::string_view, std::vector<config>&)
         {
-            regexp(i, longp, argv, match_type::text, value, configs);
+            check_pattern_set();
+            g_options._pattern_type = pattern_type::fixed;
         }
     },
     {
         option::type::regexp,
         'G',
         "basic-regexp",
-        "PATTERN",
+        nullptr,
         "PATTERN is a basic regular expression (BRE)",
-        [](int& i, const bool longp, const char* const argv[],
-            std::string_view value, std::vector<config>& configs)
+        [](int&, const bool, const char* const [],
+            std::string_view, std::vector<config>&)
         {
-            g_flags |= config_flags::grep;
-            regexp(i, longp, argv, match_type::regex, value, configs);
+            check_pattern_set();
+            g_options._pattern_type = pattern_type::basic;
         }
     },
     {
         option::type::regexp,
         'P',
         "perl-regexp",
-        "PATTERN",
+        nullptr,
         "PATTERN is a Perl regular expression",
-        [](int& i, const bool longp, const char* const argv[],
-            std::string_view value, std::vector<config>& configs)
+        [](int&, const bool, const char* const [],
+            std::string_view, std::vector<config>&)
         {
-            regexp(i, longp, argv, match_type::regex, value, configs);
+            check_pattern_set();
+            g_options._pattern_type = pattern_type::perl;
         }
     },
     {
         option::type::regexp,
         '\0',
         "flex-regexp",
-        "PATTERN",
+        nullptr,
         "PATTERN is a flex style regexp",
-        [](int& i, const bool longp, const char* const argv[],
-            std::string_view value, std::vector<config>& configs)
+        [](int&, const bool, const char* const [],
+            std::string_view, std::vector<config>&)
         {
-            regexp(i, longp, argv, match_type::dfa_regex, value, configs);
+            check_pattern_set();
+            g_options._pattern_type = pattern_type::flex;
         }
     },
     {

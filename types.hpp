@@ -44,6 +44,11 @@ struct wildcards
     std::vector<wildcardtl::wildcard> _negative;
 };
 
+enum class binary_files
+{
+    binary, text, without_match
+};
+
 enum class dump
 {
     no, text, dot
@@ -59,13 +64,14 @@ enum class pathname_only
     no, yes, negated
 };
 
-enum class binary_files
+enum class pattern_type
 {
-    binary, text, without_match
+    none, extended, fixed, basic, perl, flex
 };
 
 struct options
 {
+    binary_files _binary_files = binary_files::binary;
     bool _byte_offset = false;
     std::string _checkout;
     bool _colour = false;
@@ -84,20 +90,20 @@ struct options
     std::size_t _max_count = 0;
     bool _no_messages = false;
     bool _only_matching = false;
-    bool _quiet = false;
-    binary_files _binary_files = binary_files::binary;
     pathname_only _pathname_only = pathname_only::no;
+    pattern_type _pattern_type = pattern_type::none;
     bool _perform_output = false;
     std::string _print;
     bool _print_null = false;
+    bool _quiet = false;
     bool _recursive = false;
     std::string _replace;
     bool _show_count = false;
     show_filename _show_filename = show_filename::undefined;
     bool _show_version = false;
     std::string _shutdown;
-    bool _summary = false;
     std::string _startup;
+    bool _summary = false;
     bool _whole_match = false;
     std::vector<lexertl::memory_file> _word_list_files;
     bool _writable = false;

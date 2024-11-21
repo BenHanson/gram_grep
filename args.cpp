@@ -170,13 +170,44 @@ void read_switches(const int argc, const char* const argv[],
             else
                 process_short(i, argc, argv, configs);
         else
-            files.emplace_back(argv[i]);
+        {
+            if (g_options._pattern_type == pattern_type::none && !configs.empty())
+                files.emplace_back(argv[i]);
+            else
+            {
+                const match_type type = []()
+                    {
+                        switch (g_options._pattern_type)
+                        {
+                        case pattern_type::fixed:
+                            return match_type::text;
+                        case pattern_type::flex:
+                            return match_type::dfa_regex;
+                        default:
+                            return match_type::regex;
+                        }
+                    } ();
+
+                if (g_options._pattern_type == pattern_type::extended)
+                    g_flags |= config_flags::egrep;
+                else if (g_options._pattern_type == pattern_type::basic ||
+                    g_options._pattern_type == pattern_type::none)
+                {
+                    g_flags |= config_flags::grep;
+                }
+
+                configs.emplace_back(type, param, g_flags,
+                    std::move(g_options._conditions));
+                g_options._pattern_type = pattern_type::none;
+                g_flags = 0;
+            }
+        }
     }
 }
 
 void show_option(const option& opt)
 {
-    constexpr std::size_t max_len = 31;
+    constexpr std::size_t max_len = 28;
     std::vector<std::string_view> long_options;
     std::ostringstream ss;
 
