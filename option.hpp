@@ -33,22 +33,31 @@ void check_pattern_set()
         throw gg_error("gram_grep: conflicting matchers specified");
 }
 
-void colour(int&, const bool, const char* const [], std::string_view,
+void colour(int&, const bool, const char* const [], std::string_view value,
     std::vector<config>&)
 {
-    g_options._colour = true;
+    if (!value.empty() && value != "always" && value != "auto" && value != "never")
+    {
+        show_help();
+        exit(2);
+    }
 
 #ifdef _WIN32
-    HANDLE hOutput = GetStdHandle(STD_OUTPUT_HANDLE);
-    DWORD dwMode = 0;
+    if (value != "never")
+    {
+        HANDLE hOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+        DWORD dwMode = 0;
 
-    GetConsoleMode(hOutput, &dwMode);
+        GetConsoleMode(hOutput, &dwMode);
 
-    if (!(dwMode & ENABLE_VIRTUAL_TERMINAL_PROCESSING))
-        SetConsoleMode(hOutput, dwMode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+        if (!(dwMode & ENABLE_VIRTUAL_TERMINAL_PROCESSING))
+            SetConsoleMode(hOutput, dwMode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+    }
 
     // No need to close hOutput
 #endif
+
+    g_options._colour = value != "never";
 }
 
 void validate_value(int& i, const char* const argv[],
@@ -504,7 +513,7 @@ const option g_option[]
         option::type::context,
         '\0',
         "color",
-        nullptr,
+        "[WHEN]",
         nullptr,
         colour
     },
@@ -512,8 +521,9 @@ const option g_option[]
         option::type::context,
         '\0',
         "colour",
-        nullptr,
-        "use markers to highlight the matching strings",
+        "[WHEN]",
+        "use markers to highlight the matching strings;\n"
+        "WHEN is 'always', 'never', or 'auto'",
         colour
     },
     {

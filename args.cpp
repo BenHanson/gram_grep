@@ -98,7 +98,7 @@ static void process_long(int& i, const char* const argv[],
 
     if (iter != std::end(g_option))
     {
-        if (iter->_param && value.empty())
+        if (iter->_param && value.empty() && *iter->_param != '[')
         {
             std::cerr << std::format("gram_grep: option `{}' "
                 "requires an argument\n", argv[i]);
