@@ -376,7 +376,7 @@ static bool process_matches(const std::vector<match>& ranges,
 
                     for (; curr != eoi && *curr != '\r' && *curr != '\n'; ++curr)
                     {
-                        if (g_options._colour)
+                        if (g_options._colour && !negate)
                         {
                             if (curr == iter->_first)
                             {
