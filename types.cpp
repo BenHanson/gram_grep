@@ -6,6 +6,7 @@
 #include <parsertl/generator.hpp>
 #include "gg_error.hpp"
 #include <parsertl/lookup.hpp>
+#include "output.hpp"
 #include "types.hpp"
 
 extern options g_options;
@@ -266,9 +267,9 @@ void config_state::parse(const unsigned int flags,
     if (_grules.grammar().empty())
     {
         if (g_options._force_unicode)
-            _lurules.push(".{+}[\r\n]", lurules::skip());
+            _lurules.push("(?s:.)", lurules::skip());
         else
-            _lrules.push(".{+}[\r\n]", lexertl::rules::skip());
+            _lrules.push("(?s:.)", lexertl::rules::skip());
     }
     else
     {
@@ -294,14 +295,11 @@ void config_state::parse(const unsigned int flags,
         {
             if (!g_options._no_messages)
             {
-                if (g_options._colour)
-                    std::cerr << szYellowText;
+                const std::string msg =
+                    std::format("gram_grep: Warnings from config {} : {}",
+                        config_pathname, warnings);
 
-                std::cerr << "gram_grep: Warnings from config " <<
-                    config_pathname << " : " << warnings;
-
-                if (g_options._colour)
-                    std::cerr << szDefaultText;
+                output_text(std::cerr, szYellowText, msg);
             }
         }
 
@@ -343,14 +341,11 @@ void config_state::parse(const unsigned int flags,
             {
                 if (!g_options._no_messages)
                 {
-                    if (g_options._colour)
-                        std::cerr << szYellowText;
+                    const std::string msg =
+                        std::format("gram_grep: Token \"{}\" does not have a "
+                            "lexer definiton.", terminals[i]);
 
-                    std::cerr << "gram_grep: Token \"" << terminals[i] <<
-                        "\" does not have a lexer definiton.\n";
-
-                    if (g_options._colour)
-                        std::cerr << szDefaultText;
+                    output_text_nl(std::cerr, szYellowText, msg);
                 }
             }
 
@@ -359,14 +354,11 @@ void config_state::parse(const unsigned int flags,
             {
                 if (!g_options._no_messages)
                 {
-                    if (g_options._colour)
-                        std::cerr << szYellowText;
+                    const std::string msg =
+                        std::format("gram_grep: Token \"{}\" is not used in "
+                            "the grammar.", terminals[i]);
 
-                    std::cerr << "gram_grep: Token \"" << terminals[i] <<
-                        "\" is not used in the grammar.\n";
-
-                    if (g_options._colour)
-                        std::cerr << szDefaultText;
+                    output_text_nl(std::cerr, szYellowText, msg);
                 }
             }
         }

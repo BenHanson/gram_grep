@@ -32,8 +32,6 @@ enum class file_type
 
 namespace fs = std::filesystem;
 
-options g_options;
-
 std::regex g_capture_rx(R"(\$\d+)");
 condition_map g_conditions;
 condition_parser g_condition_parser;
@@ -43,6 +41,8 @@ uparser* g_curr_uparser = nullptr;
 std::size_t g_files = 0;
 std::size_t g_hits = 0;
 bool g_modify = false; // Set when grammar has modifying operations
+bool g_ne = false;
+options g_options;
 // maps path to pair.
 // pair is wildcards and negated wildcards
 std::map<std::string, wildcards> g_pathnames;
@@ -187,14 +187,9 @@ static bool process_matches(const std::vector<match>& ranges,
         {
             if (!g_options._no_messages)
             {
-                if (g_options._colour)
-                    std::cerr << szYellowText;
-
-                std::cerr << "gram_grep: Cannot replace text when source "
-                    "is not contained in original string.\n";
-
-                if (g_options._colour)
-                    std::cerr << szDefaultText;
+                output_text_nl(std::cerr, szYellowText,
+                    "gram_grep: Cannot replace text when source is not "
+                    "contained in original string.");
             }
 
             return true;
@@ -237,14 +232,11 @@ static bool process_matches(const std::vector<match>& ranges,
                         {
                             if (!g_options._no_messages)
                             {
-                                if (g_options._colour)
-                                    std::cerr << szYellowText;
+                                const std::string msg =
+                                    std::format("gram_grep: Capture ${} is "
+                                        "out of range.", idx);
 
-                                std::cerr << "gram_grep: Capture $" << idx <<
-                                    " is out of range.\n";
-
-                                if (g_options._colour)
-                                    std::cerr << szDefaultText;
+                                output_text_nl(std::cerr, szYellowText, msg);
                             }
 
                             skip = true;
@@ -278,7 +270,12 @@ static bool process_matches(const std::vector<match>& ranges,
                     g_options._quiet))
             {
                 if (g_options._colour)
+                {
                     std::cout << g_fn_text;
+
+                    if (!g_ne)
+                        std::cout << szEraseEOL;
+                }
 
                 if (pathname.empty())
                     std::cout << g_options._label;
@@ -293,18 +290,16 @@ static bool process_matches(const std::vector<match>& ranges,
                 }
 
                 if (g_options._colour)
+                {
                     std::cout << szDefaultText;
 
-                if (g_options._colour)
-                    std::cout << g_se_text;
+                    if (!g_ne)
+                        std::cout << szEraseEOL;
+                }
 
-                if (g_options._line_numbers == line_numbers::with_parens)
-                    std::cout << '(';
-                else
-                    std::cout << ':';
-
-                if (g_options._colour)
-                    std::cout << szDefaultText;
+                output_text(std::cout, g_se_text.c_str(),
+                    g_options._line_numbers ==
+                    line_numbers::with_parens ? "(" : ":");
             }
 
             if (g_options._pathname_only == pathname_only::yes)
@@ -341,44 +336,20 @@ static bool process_matches(const std::vector<match>& ranges,
                 {
                     if (g_options._line_numbers != line_numbers::none)
                     {
-                        if (g_options._colour)
-                            std::cout << g_ln_text;
-
-                        std::cout << 1 + count;
-
-                        if (g_options._colour)
-                        {
-                            std::cout << szDefaultText;
-                            std::cout << g_se_text;
-                        }
-
-                        if (g_options._line_numbers == line_numbers::with_parens)
-                            std::cout << ')';
-
-                        std::cout << ':';
-
-                        if (g_options._colour)
-                            std::cout << szDefaultText;
+                        output_text(std::cout, g_ln_text.c_str(),
+                            std::to_string(1 + count));
+                        output_text(std::cout, g_se_text.c_str(),
+                            g_options._line_numbers == line_numbers::with_parens ?
+                            "):" :
+                            ":");
                     }
 
                     if (g_options._byte_offset)
                     {
-                        if (g_options._colour)
-                            std::cout << g_bn_text;
-
-                        std::cout << curr - data_first;
-
-                        if (g_options._colour)
-                            std::cout << g_se_text;
-
-                        std::cout << ':';
-
-                        if (g_options._colour)
-                            std::cout << szDefaultText;
+                        output_text(std::cout, g_bn_text.c_str(),
+                            std::to_string(curr - data_first));
+                        output_text(std::cout, g_se_text.c_str(), ":");
                     }
-
-                    if (g_options._colour)
-                        std::cout << szDefaultText;
                 }
 
                 if (g_options._initial_tab)
@@ -386,45 +357,57 @@ static bool process_matches(const std::vector<match>& ranges,
 
                 if (g_options._whole_match)
                 {
-                    if (g_options._colour)
-                        std::cout << g_ms_text;
-
-                    std::cout << iter->view() << output_nl;
-
-                    if (g_options._colour)
-                        std::cout << szDefaultText;
+                    output_text_nl(std::cout, g_ms_text.c_str(), iter->view());
                 }
                 else if (g_options._only_matching)
                 {
-                    if (g_options._colour)
-                        std::cout << g_ms_text;
+                    const char* start = curr;
 
                     for (; curr != iter->_eoi &&
-                        *curr != '\r' && *curr != '\n'; ++curr)
-                    {
-                        std::cout << *curr;
-                    }
+                        *curr != '\r' && *curr != '\n'; ++curr);
 
-                    if (g_options._colour)
-                        std::cout << szDefaultText;
+                    output_text(std::cout, g_ms_text.c_str(),
+                        std::string_view(start, curr));
                 }
                 else
                 {
+                    if (g_options._colour && !g_sl_text.empty())
+                        std::cout << g_sl_text;
+
                     for (; curr != eoi && *curr != '\r' && *curr != '\n'; ++curr)
                     {
                         if (g_options._colour)
                         {
                             if (curr == iter->_first)
+                            {
                                 std::cout << g_ms_text;
+
+                                if (!g_ne)
+                                    std::cout << szEraseEOL;
+                            }
                             else if (curr == iter->_eoi)
-                                std::cout << szDefaultText;
+                            {
+                                if (g_options._colour && !g_sl_text.empty())
+                                    std::cout << g_sl_text;
+                                else
+                                    std::cout << szDefaultText;
+
+                                if (!g_ne)
+                                    std::cout << szEraseEOL;
+                            }
                         }
 
                         std::cout << *curr;
                     }
 
-                    if (g_options._colour && (*curr == '\r' || *curr == '\n'))
+                    if (g_options._colour &&
+                        (!g_sl_text.empty() || *curr == '\r' || *curr == '\n'))
+                    {
                         std::cout << szDefaultText;
+
+                        if (!g_ne)
+                            std::cout << szEraseEOL;
+                    }
                 }
             }
 
@@ -498,13 +481,10 @@ static void perform_output(const std::size_t hits, const std::string& pathname,
         {
             if (!g_options._no_messages)
             {
-                if (g_options._colour)
-                    std::cerr << szYellowText;
+                const std::string msg =
+                    std::format("gram_grep: {} is read only.", pathname);
 
-                std::cerr << "gram_grep: " << pathname << " is read only.\n";
-
-                if (g_options._colour)
-                    std::cerr << szDefaultText;
+                output_text_nl(std::cerr, szYellowText, msg);
             }
         }
         else
@@ -634,13 +614,10 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
     {
         if (!g_options._no_messages)
         {
-            if (g_options._colour)
-                std::cerr << szYellowText;
-
-            std::cerr << "gram_grep: failed to open " << pathname << ".\n";
-
-            if (g_options._colour)
-                std::cerr << szDefaultText;
+            const std::string msg =
+                std::format("gram_grep: failed to open {}.", pathname);
+                
+            output_text_nl(std::cerr, szYellowText, msg);
         }
 
         return;
@@ -809,13 +786,10 @@ static void process_file(const std::string& pathname, const wildcards &wcs)
     {
         if (!g_options._no_messages)
         {
-            if (g_options._colour)
-                std::cerr << szYellowText;
+            const std::string msg =
+                std::format("gram_grep: {}", e.what());
 
-            std::cerr << "gram_grep: " << e.what() << output_nl;
-
-            if (g_options._colour)
-                std::cerr << szDefaultText;
+            output_text_nl(std::cerr, szYellowText, msg);
         }
     }
 }
@@ -972,7 +946,7 @@ static void fill_pipeline(std::vector<config>&& configs)
                 rules.push(config._param, 1);
 
                 if (g_options._dump == dump::no)
-                    rules.push(".{+}[\r\n]", rules_type::skip());
+                    rules.push("(?s:.)", rules_type::skip());
 
                 generator::build(rules, lexer._sm);
                 g_pipeline.emplace_back(std::move(lexer));
@@ -992,7 +966,7 @@ static void fill_pipeline(std::vector<config>&& configs)
                 rules.push(config._param, 1);
 
                 if (g_options._dump == dump::no)
-                    rules.push(".{+}[\r\n]", lexertl::rules::skip());
+                    rules.push("(?s:.)", lexertl::rules::skip());
 
                 lexertl::generator::build(rules, lexer._sm);
                 g_pipeline.emplace_back(std::move(lexer));
@@ -1132,7 +1106,8 @@ void parse_colours(const std::string& colours)
     grules.push("start", "list");
     grules.push("list", "item | list ':' item");
 
-    const uint16_t idx = grules.push("item", "name '=' value");
+    const uint16_t name_val_idx = grules.push("item", "name '=' value");
+    const uint16_t ne_idx = grules.push("item", "'ne'");
 
     grules.push("name",
         "'bn' | 'cx' | 'fn' | 'ln' | 'mc' | 'ms' | 'se' | 'sl'");
@@ -1147,6 +1122,7 @@ void parse_colours(const std::string& colours)
     lrules.push("ln", grules.token_id("'ln'"));
     lrules.push("mc", grules.token_id("'mc'"));
     lrules.push("ms", grules.token_id("'ms'"));
+    lrules.push("ne", grules.token_id("'ne'"));
     lrules.push("se", grules.token_id("'se'"));
     lrules.push("sl", grules.token_id("'sl'"));
     lrules.push(R"(\d{1,3}(;\d{1,3}){0,2})", grules.token_id("VALUE"));
@@ -1159,7 +1135,7 @@ void parse_colours(const std::string& colours)
     for (; giter->entry.action != parsertl::action::accept &&
         giter->entry.action != parsertl::action::error; ++giter)
     {
-        if (giter->entry.param == idx)
+        if (giter->entry.param == name_val_idx)
         {
             const auto value = giter.dollar(2).view();
 
@@ -1167,24 +1143,29 @@ void parse_colours(const std::string& colours)
                 // Ignore blank value
                 continue;
 
+            static std::pair<const char*, std::string&> lookup[] =
+            {
+                {"bn", g_bn_text},
+                //{"cx", g_cx_text},
+                {"fn", g_fn_text},
+                {"ln", g_ln_text},
+                //{"mc", g_mc_text},
+                {"ms", g_ms_text},
+                {"se", g_se_text},
+                {"sl", g_sl_text}
+            };
             const auto name = giter.dollar(0).view();
+            auto iter = std::ranges::find_if(lookup, [name](const auto& pair)
+                {
+                    return name == pair.first;
+                });
 
-            if (name == "bn")
-                g_bn_text = std::format("\x1b[{}m\x1b[K", value);
-            /*else if (name == "cx")
-                ;*/
-            else if (name == "fn")
-                g_fn_text = std::format("\x1b[{}m\x1b[K", value);
-            else if (name == "ln")
-                g_ln_text = std::format("\x1b[{}m\x1b[K", value);
-            /*else if (name == "mc")
-                ;*/
-            else if (name == "ms")
-                g_ms_text = std::format("\x1b[{}m\x1b[K", value);
-            else if (name == "se")
-                g_se_text = std::format("\x1b[{}m\x1b[K", value);
-            /*else if (name == "sl")
-                ;*/
+            if (iter != std::end(lookup))
+                iter->second = std::format("\x1b[{}m", value);
+        }
+        else if (giter->entry.param == ne_idx)
+        {
+            g_ne = true;
         }
     }
 }
@@ -1192,7 +1173,7 @@ void parse_colours(const std::string& colours)
 std::vector<const char*> to_vector(std::string& grep_options)
 {
     std::vector<const char*> ret;
-    char* prev = &grep_options.front();
+    char* prev = &grep_options[0];
     char* options = prev;
 
     // Append dummy entry
@@ -1355,15 +1336,11 @@ int main(int argc, char* argv[])
         {
             if (::system(g_options._startup.c_str()))
             {
-                if (g_options._colour)
-                    std::cerr << szYellowText;
+                const std::string msg =
+                    std::format("gram_grep: Failed to execute {}.",
+                        g_options._startup);
 
-                std::cerr << "gram_grep: Failed to execute " <<
-                    g_options._startup << ".\n";
-
-                if (g_options._colour)
-                    std::cerr << szDefaultText;
-
+                output_text_nl(std::cerr, szYellowText, msg);
                 run = false;
             }
         }
@@ -1385,14 +1362,13 @@ int main(int argc, char* argv[])
         if (!g_options._shutdown.empty())
             if (::system(g_options._shutdown.c_str()))
             {
-                if (g_options._colour)
-                    std::cerr << (run ? g_ms_text : szYellowText);
+                const std::string msg =
+                    std::format("gram_grep: Failed to execute {}.",
+                        g_options._shutdown);
 
-                std::cerr << "gram_grep: Failed to execute " <<
-                    g_options._shutdown << ".\n";
-
-                if (g_options._colour)
-                    std::cerr << szDefaultText;
+                output_text_nl(std::cerr,
+                    run ? g_ms_text.c_str() : szYellowText,
+                    msg);
             }
 
         if (g_options._summary)

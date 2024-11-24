@@ -5,6 +5,7 @@
 //#include <parsertl/debug.hpp>
 #include <parsertl/generator.hpp>
 #include "gg_error.hpp"
+#include "output.hpp"
 #include "types.hpp"
 
 extern options g_options;
@@ -1101,13 +1102,11 @@ void build_config_parser()
     {
         if (!g_options._no_messages)
         {
-            if (g_options._colour)
-                std::cerr << g_ms_text;
+            const std::string msg =
+                std::format("gram_grep: Config parser warnings: {}",
+                    warnings);
 
-            std::cerr << "gram_grep: Config parser warnings: " << warnings;
-
-            if (g_options._colour)
-                std::cerr << szDefaultText;
+            output_text_nl(std::cerr, g_ms_text.c_str(), msg);
         }
     }
 

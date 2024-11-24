@@ -42,22 +42,29 @@ void colour(int&, const bool, const char* const [], std::string_view value,
         exit(2);
     }
 
-#ifdef _WIN32
-    if (value != "never")
+    if (value == "never")
+        g_options._colour = false;
+    else
     {
+#ifdef _WIN32
         HANDLE hOutput = GetStdHandle(STD_OUTPUT_HANDLE);
         DWORD dwMode = 0;
 
         GetConsoleMode(hOutput, &dwMode);
 
-        if (!(dwMode & ENABLE_VIRTUAL_TERMINAL_PROCESSING))
+        if (value.empty() || value == "auto")
+            g_options._colour = (dwMode & ENABLE_VIRTUAL_TERMINAL_PROCESSING) != 0;
+        else
+        {
             SetConsoleMode(hOutput, dwMode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
-    }
+            g_options._colour = true;
+        }
 
-    // No need to close hOutput
+        // No need to close hOutput
+#else
+        g_options._colour = true;
 #endif
-
-    g_options._colour = value != "never";
+    }
 }
 
 void validate_value(int& i, const char* const argv[],
