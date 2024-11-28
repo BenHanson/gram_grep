@@ -298,7 +298,8 @@ static bool process_matches(const std::vector<match>& ranges,
                 }
 
                 if (!g_options._label.empty() ||
-                    g_options._show_filename != show_filename::no)
+                    (g_options._show_filename != show_filename::no &&
+                    g_options._line_numbers != line_numbers::with_parens))
                 {
                     output_text(std::cout, g_se_text.c_str(), ":");
                 }
