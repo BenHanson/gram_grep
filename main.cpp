@@ -267,9 +267,7 @@ static bool process_matches(const std::vector<match>& ranges,
             if (g_options._pathname_only != pathname_only::negated &&
                 !g_options._show_count && g_options._print.empty() &&
                 !g_rule_print &&
-                !(g_options._show_filename == show_filename::no &&
-                    g_options._pathname_only == pathname_only::no &&
-                    g_options._quiet))
+                !g_options._quiet)
             {
                 if (g_options._colour)
                 {
@@ -281,7 +279,7 @@ static bool process_matches(const std::vector<match>& ranges,
 
                 if (pathname.empty())
                     std::cout << g_options._label;
-                else
+                else if (g_options._show_filename != show_filename::no)
                 {
                     const std::string_view pn = (pathname[0] == '.' &&
                         pathname[1] == fs::path::preferred_separator) ?
@@ -299,9 +297,14 @@ static bool process_matches(const std::vector<match>& ranges,
                         std::cout << szEraseEOL;
                 }
 
-                output_text(std::cout, g_se_text.c_str(),
-                    g_options._line_numbers ==
-                    line_numbers::with_parens ? "(" : ":");
+                if (!g_options._label.empty() ||
+                    g_options._show_filename != show_filename::no)
+                {
+                    output_text(std::cout, g_se_text.c_str(), ":");
+                }
+
+                if (g_options._line_numbers == line_numbers::with_parens)
+                    output_text(std::cout, g_se_text.c_str(), "(");
             }
 
             if (g_options._pathname_only == pathname_only::yes)
