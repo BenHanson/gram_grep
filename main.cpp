@@ -23,7 +23,9 @@
 
 extern std::string build_text(const std::string& input,
     const capture_vector& captures);
+extern const char* try_help();
 extern std::string unescape(const std::string_view& vw);
+extern const char* usage();
 
 enum class file_type
 {
@@ -1224,8 +1226,7 @@ std::string env_var(const char* var)
 
 void show_usage()
 {
-    std::cerr << "Usage: gram_grep [OPTION]... [FILE]...\n"
-        "Try `gram_grep --help' for more information.\n";
+    std::cerr << usage() << try_help();
 }
 
 int main(int argc, char* argv[])

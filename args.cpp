@@ -263,10 +263,26 @@ void show_option(const option& opt)
     std::cout << '\n';
 }
 
+const char* usage()
+{
+    return "Usage: gram_grep ([OPTION]... PATTERN)+ [FILE]...\n";
+}
+
+const char* try_help()
+{
+    return "Try `gram_grep --help' for more information.\n";
+}
+
 void show_help()
 {
     auto iter = std::begin(g_option);
     auto end = std::end(g_option);
+
+    std::cout << usage();
+    std::cout << "Search for PATTERNs in each FILE or standard input.\n";
+    std::cout << "PATTERN is, by default, a basic regular expression (BRE).\n";
+    std::cout << "This is only try for the first PATTERN (for grep compatibility).\n";
+    std::cout << "Example: gram_grep -i \"hello world\" menu.h main.c\n\n";
 
     std::cout << "Regexp selection and interpretation:\n";
 

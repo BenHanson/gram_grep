@@ -133,19 +133,6 @@ const option g_option[]
     },
     {
         option::type::regexp,
-        '\0',
-        "flex-regexp",
-        nullptr,
-        "PATTERN is a flex style regexp",
-        [](int&, const bool, const char* const [],
-            std::string_view, std::vector<config>&)
-        {
-            check_pattern_set();
-            g_options._pattern_type = pattern_type::flex;
-        }
-    },
-    {
-        option::type::regexp,
         'i',
         "ignore-case",
         nullptr,
@@ -647,6 +634,19 @@ const option g_option[]
             std::vector<config>&)
         {
             g_flags |= config_flags::extend_search;
+        }
+    },
+    {
+        option::type::gram_grep,
+        '\0',
+        "flex-regexp",
+        nullptr,
+        "PATTERN is a flex style regexp",
+        [](int&, const bool, const char* const [],
+            std::string_view, std::vector<config>&)
+        {
+            check_pattern_set();
+            g_options._pattern_type = pattern_type::flex;
         }
     },
     {
