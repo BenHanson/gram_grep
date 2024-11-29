@@ -2,6 +2,7 @@
 // Note that we filter out class, struct and namespace
 // in order to match any embeded blocks inside those constructs.
 %token anything
+%consume anything
 %x BODY BRACES
 %%
 start: '{' '}';
@@ -12,7 +13,7 @@ name [A-Z_a-z][0-9A-Z_a-z]*
 string \"([^"\\]|\\.)*\"|R\"\((?s:.)*?\)\"
 ws [ \t\r\n]+|\/\/.*|"/*"(?s:.)*?"*/"
 %%
-(class|struct|namespace|union)\s+{name}?[^;{]*\{ skip()
+(class|struct|namespace|union)\s+{name}?[^;{,<]*\{ skip()
 extern\s*["]C["]\s*\{     skip()
 
 <INITIAL>\{<BODY>         '{'
