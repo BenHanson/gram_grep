@@ -189,7 +189,7 @@ static bool process_matches(const std::vector<match>& ranges,
         {
             if (!g_options._no_messages)
             {
-                output_text_nl(std::cerr, szYellowText,
+                output_text_nl(std::cerr, g_wa_text.c_str(),
                     "gram_grep: Cannot replace text when source is not "
                     "contained in original string.");
             }
@@ -238,7 +238,8 @@ static bool process_matches(const std::vector<match>& ranges,
                                     std::format("gram_grep: Capture ${} is "
                                         "out of range.", idx);
 
-                                output_text_nl(std::cerr, szYellowText, msg);
+                                output_text_nl(std::cerr,
+                                    g_wa_text.c_str(), msg);
                             }
 
                             skip = true;
@@ -490,7 +491,7 @@ static void perform_output(const std::size_t hits, const std::string& pathname,
                 const std::string msg =
                     std::format("gram_grep: {} is read only.", pathname);
 
-                output_text_nl(std::cerr, szYellowText, msg);
+                output_text_nl(std::cerr, g_wa_text.c_str(), msg);
             }
         }
         else
@@ -623,7 +624,7 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
             const std::string msg =
                 std::format("gram_grep: failed to open {}.", pathname);
                 
-            output_text_nl(std::cerr, szYellowText, msg);
+            output_text_nl(std::cerr, g_wa_text.c_str(), msg);
         }
 
         return;
@@ -795,7 +796,7 @@ static void process_file(const std::string& pathname, const wildcards &wcs)
             const std::string msg =
                 std::format("gram_grep: {}", e.what());
 
-            output_text_nl(std::cerr, szYellowText, msg);
+            output_text_nl(std::cerr, g_wa_text.c_str(), msg);
         }
     }
 }
@@ -1116,7 +1117,7 @@ void parse_colours(const std::string& colours)
     const uint16_t ne_idx = grules.push("item", "'ne'");
 
     grules.push("name",
-        "'bn' | 'cx' | 'fn' | 'ln' | 'mc' | 'ms' | 'se' | 'sl'");
+        "'bn' | 'cx' | 'fn' | 'ln' | 'mc' | 'ms' | 'se' | 'sl' | 'wa'");
     grules.push("value", "%empty | VALUE");
     parsertl::generator::build(grules, gsm);
 
@@ -1131,6 +1132,7 @@ void parse_colours(const std::string& colours)
     lrules.push("ne", grules.token_id("'ne'"));
     lrules.push("se", grules.token_id("'se'"));
     lrules.push("sl", grules.token_id("'sl'"));
+    lrules.push("wa", grules.token_id("'wa'"));
     lrules.push(R"(\d{1,3}(;\d{1,3}){0,2})", grules.token_id("VALUE"));
     lexertl::generator::build(lrules, lsm);
 
@@ -1158,7 +1160,8 @@ void parse_colours(const std::string& colours)
                 //{"mc", g_mc_text},
                 {"ms", g_ms_text},
                 {"se", g_se_text},
-                {"sl", g_sl_text}
+                {"sl", g_sl_text},
+                {"wa", g_wa_text}
             };
             const auto name = giter.dollar(0).view();
             auto iter = std::ranges::find_if(lookup, [name](const auto& pair)
@@ -1345,7 +1348,7 @@ int main(int argc, char* argv[])
                     std::format("gram_grep: Failed to execute {}.",
                         g_options._startup);
 
-                output_text_nl(std::cerr, szYellowText, msg);
+                output_text_nl(std::cerr, g_wa_text.c_str(), msg);
                 run = false;
             }
         }
@@ -1372,7 +1375,7 @@ int main(int argc, char* argv[])
                         g_options._shutdown);
 
                 output_text_nl(std::cerr,
-                    run ? g_ms_text.c_str() : szYellowText,
+                    run ? g_ms_text.c_str() : g_wa_text.c_str(),
                     msg);
             }
 
@@ -1388,7 +1391,12 @@ int main(int argc, char* argv[])
     catch (const std::exception& e)
     {
         if (!(running && g_options._no_messages))
-            std::cerr << "gram_grep: " << e.what() << output_nl;
+        {
+            const std::string msg = std::format("gram_grep: {}",
+                e.what());
+
+            output_text_nl(std::cerr, g_wa_text.c_str(), msg);
+        }
 
         return 1;
     }

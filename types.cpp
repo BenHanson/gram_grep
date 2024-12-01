@@ -299,7 +299,7 @@ void config_state::parse(const unsigned int flags,
                     std::format("gram_grep: Warnings from config {} : {}",
                         config_pathname, warnings);
 
-                output_text(std::cerr, szYellowText, msg);
+                output_text(std::cerr, g_wa_text.c_str(), msg);
             }
         }
 
@@ -345,7 +345,7 @@ void config_state::parse(const unsigned int flags,
                         std::format("gram_grep: Token \"{}\" does not have a "
                             "lexer definiton.", terminals[i]);
 
-                    output_text_nl(std::cerr, szYellowText, msg);
+                    output_text_nl(std::cerr, g_wa_text.c_str(), msg);
                 }
             }
 
@@ -358,7 +358,7 @@ void config_state::parse(const unsigned int flags,
                         std::format("gram_grep: Token \"{}\" is not used in "
                             "the grammar.", terminals[i]);
 
-                    output_text_nl(std::cerr, szYellowText, msg);
+                    output_text_nl(std::cerr, g_wa_text.c_str(), msg);
                 }
             }
         }
