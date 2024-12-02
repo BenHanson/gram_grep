@@ -405,11 +405,25 @@ const option g_option[]
                 auto pn = p.data();
 
                 if (*pn == '!')
-                    g_options._exclude._negative.emplace_back(pn, pn + p.size(),
-                        is_windows());
+                {
+                    const std::string pathname(pn, pn + p.size());
+
+                    g_options._exclude._negative.emplace_back(wildcardtl::wildcard
+                        { pathname, is_windows() },
+                        strpbrk(pn, "*?[") ?
+                        std::string() :
+                        pathname);
+                }
                 else
-                    g_options._exclude._positive.emplace_back(pn, pn + p.size(),
-                        is_windows());
+                {
+                    const std::string pathname(pn, pn + p.size());
+
+                    g_options._exclude._positive.emplace_back(wildcardtl::wildcard
+                        { pathname, is_windows() },
+                        strpbrk(pn, "*?[") ?
+                        std::string() :
+                        pathname);
+                }
             }
         }
     },
@@ -431,14 +445,23 @@ const option g_option[]
             {
                 if (p[0] == '!')
                 {
-                    g_options._exclude_dirs._negative.
-                        emplace_back(std::string(&p[1],
-                            std::to_address(p.end())), is_windows());
+                    const std::string pathname(&p[1], std::to_address(p.end()));
+
+                    g_options._exclude_dirs._negative.emplace_back(wildcardtl::wildcard
+                        { pathname, is_windows() },
+                        pathname.find_first_of("*?[") == std::string::npos ?
+                        pathname :
+                        std::string());
                 }
                 else
                 {
-                    g_options._exclude_dirs._positive.
-                        emplace_back(std::string(p), is_windows());
+                    const std::string pathname(p);
+
+                    g_options._exclude_dirs._positive.emplace_back(wildcardtl::wildcard
+                        { pathname, is_windows() },
+                        pathname.find_first_of("*?[") == std::string::npos ?
+                        pathname :
+                        std::string());
                 }
             }
         }

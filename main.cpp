@@ -623,7 +623,7 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
         {
             const std::string msg =
                 std::format("gram_grep: failed to open {}.", pathname);
-                
+
             output_text_nl(std::cerr, g_wa_text.c_str(), msg);
         }
 
@@ -731,17 +731,19 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
     ++g_searched;
 }
 
-static void process_file(const std::string& pathname, const wildcards &wcs)
+static bool process_file(const std::string& pathname, const wildcards &wcs)
 {
+    bool process = false;
+
     try
     {
         const char* filename = pathname.c_str() +
             pathname.rfind(fs::path::preferred_separator) + 1;
         bool skip = !g_options._exclude._negative.empty();
 
-        for (const auto& wc : g_options._exclude._negative)
+        for (const auto& pn : g_options._exclude._negative)
         {
-            if (!wc.match(filename))
+            if (!pn._wc.match(filename))
             {
                 skip = false;
                 break;
@@ -750,9 +752,9 @@ static void process_file(const std::string& pathname, const wildcards &wcs)
 
         if (!skip)
         {
-            for (const auto& wc : g_options._exclude._positive)
+            for (const auto& pn : g_options._exclude._positive)
             {
-                if (wc.match(filename))
+                if (pn._wc.match(filename))
                 {
                     skip = true;
                     break;
@@ -762,11 +764,11 @@ static void process_file(const std::string& pathname, const wildcards &wcs)
 
         if (!skip)
         {
-            bool process = !wcs._negative.empty();
+            process = !wcs._negative.empty();
 
-            for (const auto& wc : wcs._negative)
+            for (const auto& pn : wcs._negative)
             {
-                if (!wc.match(pathname))
+                if (!pn._wc.match(pathname))
                 {
                     process = false;
                     break;
@@ -775,9 +777,9 @@ static void process_file(const std::string& pathname, const wildcards &wcs)
 
             if (!process)
             {
-                for (const auto& wc : wcs._positive)
+                for (const auto& pn : wcs._positive)
                 {
-                    if (wc.match(pathname))
+                    if (pn._wc.match(pathname))
                     {
                         process = true;
                         break;
@@ -799,27 +801,29 @@ static void process_file(const std::string& pathname, const wildcards &wcs)
             output_text_nl(std::cerr, g_wa_text.c_str(), msg);
         }
     }
+
+    return process;
 }
 
 bool include_dir(const std::string& path)
 {
     return (g_options._exclude_dirs._negative.empty() ||
         std::ranges::any_of(g_options._exclude_dirs._negative,
-        [&path](const auto& wc)
+        [&path](const auto& pn)
         {
-            return wc.match(path);
+            return pn._wc.match(path);
         })) &&
     std::ranges::none_of(g_options._exclude_dirs._positive,
-        [&path](const auto& wc)
+        [&path](const auto& pn)
         {
-            return wc.match(path);
+            return pn._wc.match(path);
         });
 }
 
 static void process()
 {
     std::queue<std::pair<std::string, const wildcards*>> queue;
-    
+
     for (const auto& [path, wcs] : g_pathnames)
     {
         queue.emplace(path, &wcs);
@@ -828,9 +832,11 @@ static void process()
     for (; !queue.empty(); queue.pop())
     {
         const auto& [path, wcs] = queue.front();
+        std::error_code err;
+        bool processed = false;
 
         for (auto iter = fs::directory_iterator(path,
-            fs::directory_options::skip_permission_denied),
+            fs::directory_options::skip_permission_denied, err),
             end = fs::directory_iterator(); iter != end; ++iter)
         {
             const auto& p = iter->path();
@@ -847,7 +853,7 @@ static void process()
                     queue.emplace(pathname, wcs);
                 }
             }
-            else 
+            else
             {
                 if ((g_options._writable && (fs::status(p).permissions() &
                     fs::perms::owner_write) == fs::perms::none) ||
@@ -857,7 +863,26 @@ static void process()
                     continue;
                 }
 
-                process_file(pathname, *wcs);
+                processed |= process_file(pathname, *wcs);
+            }
+        }
+
+        if (!processed && !g_options._recursive)
+        {
+            for (const auto& wildcard : wcs->_positive)
+            {
+                if (!wildcard._pathname.empty())
+                {
+                    const std::string_view pn =
+                        (wildcard._pathname[0] == '.' &&
+                            wildcard._pathname[1] ==
+                            fs::path::preferred_separator) ?
+                        wildcard._pathname.c_str() + 2 :
+                        wildcard._pathname.c_str();
+
+                    output_text_nl(std::cerr, g_wa_text.c_str(),
+                        std::format("gram_grep: {}: No such file or directory", pn));
+                }
             }
         }
     }
@@ -903,9 +928,15 @@ void add_pathname(std::string pn,
     }
 
     if (negate)
-        wcs._negative.emplace_back(pn, is_windows());
+        wcs._negative.emplace_back(wildcardtl::wildcard{ pn, is_windows() },
+            wc_idx == std::string::npos ?
+            pn :
+            std::string());
     else
-        wcs._positive.emplace_back(pn, is_windows());
+        wcs._positive.emplace_back(wildcardtl::wildcard{ pn, is_windows() },
+            wc_idx == std::string::npos ?
+            pn :
+            std::string());
 }
 
 lexertl::state_machine word_lexer()

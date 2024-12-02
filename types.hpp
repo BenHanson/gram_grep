@@ -40,8 +40,14 @@ using condition_map = std::map<uint16_t, std::regex>;
 
 struct wildcards
 {
-    std::vector<wildcardtl::wildcard> _positive;
-    std::vector<wildcardtl::wildcard> _negative;
+    struct wildcard
+    {
+        wildcardtl::wildcard _wc;
+        std::string _pathname;
+    };
+
+    std::vector<wildcard> _positive;
+    std::vector<wildcard> _negative;
 };
 
 enum class binary_files

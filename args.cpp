@@ -219,7 +219,7 @@ void show_option(const option& opt)
     if (opt._short)
     {
         ss << '-' << opt._short;
-        
+
         if (opt._long)
             ss << ", ";
     }
@@ -246,7 +246,7 @@ void show_option(const option& opt)
         ss << "  ";
 
     std::cout << ss.view();
-    
+
     if (opt._help)
     {
         const std::vector<std::string_view> help = split(opt._help, '\n');
