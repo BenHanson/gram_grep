@@ -867,7 +867,7 @@ static void process()
             }
         }
 
-        if (!processed && !g_options._recursive)
+        if (!processed && !g_options._recursive && !g_options._no_messages)
         {
             for (const auto& wildcard : wcs->_positive)
             {
