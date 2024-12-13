@@ -9,6 +9,7 @@
 #include <parsertl/rules.hpp>
 #include <lexertl/state_machine.hpp>
 #include <parsertl/state_machine.hpp>
+#include <string_view>
 #include <parsertl/token.hpp>
 #include <lexertl/utf_iterators.hpp>
 #include <variant>

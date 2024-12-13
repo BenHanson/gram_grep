@@ -1,6 +1,5 @@
 #include "pch.h"
 
-#include "colours.hpp"
 #include <format>
 #include <lexertl/generator.hpp>
 #include <parsertl/generator.hpp>
@@ -299,7 +298,7 @@ void config_state::parse(const unsigned int flags,
                     std::format("gram_grep: Warnings from config {} : {}",
                         config_pathname, warnings);
 
-                output_text(std::cerr, g_wa_text.c_str(), msg);
+                output_text(std::cerr, is_a_tty(stderr), g_wa_text.c_str(), msg);
             }
         }
 
@@ -345,7 +344,8 @@ void config_state::parse(const unsigned int flags,
                         std::format("gram_grep: Token \"{}\" does not have a "
                             "lexer definiton.", terminals[i]);
 
-                    output_text_nl(std::cerr, g_wa_text.c_str(), msg);
+                    output_text_nl(std::cerr, is_a_tty(stderr),
+                        g_wa_text.c_str(), msg);
                 }
             }
 
@@ -358,7 +358,8 @@ void config_state::parse(const unsigned int flags,
                         std::format("gram_grep: Token \"{}\" is not used in "
                             "the grammar.", terminals[i]);
 
-                    output_text_nl(std::cerr, g_wa_text.c_str(), msg);
+                    output_text_nl(std::cerr, is_a_tty(stderr),
+                        g_wa_text.c_str(), msg);
                 }
             }
         }

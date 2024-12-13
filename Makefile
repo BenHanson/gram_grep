@@ -7,14 +7,17 @@ LIBS =
 
 all: gram_grep
 
-gram_grep: args.o main.o parser.o search.o types.o
-	$(CXX) $(LDFLAGS) -o gram_grep args.o main.o parser.o search.o types.o $(LIBS)
+gram_grep: args.o main.o output.o parser.o search.o types.o
+	$(CXX) $(LDFLAGS) -o gram_grep args.o main.o output.o parser.o search.o types.o $(LIBS)
 
 args.o: args.cpp
 	$(CXX) $(CXXFLAGS) -o args.o -c args.cpp
 
 main.o: main.cpp
 	$(CXX) $(CXXFLAGS) -o main.o -c main.cpp
+
+output.o: output.cpp
+	$(CXX) $(CXXFLAGS) -o output.o -c output.cpp
 
 parser.o: parser.cpp
 	$(CXX) $(CXXFLAGS) -o parser.o -c parser.cpp

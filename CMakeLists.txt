@@ -29,6 +29,7 @@ args.cpp
 $<$<BOOL:${WIN32}>:
 gram_grep.rc>
 main.cpp
+output.cpp
 parser.cpp
 search.cpp
 types.cpp
