@@ -269,7 +269,7 @@ static bool process_matches(const std::vector<match>& ranges,
                 !g_rule_print &&
                 !g_options._quiet)
             {
-                if (g_options._colour)
+                if (g_options._colour && is_a_tty(stdout))
                 {
                     std::cout << g_fn_text;
 
@@ -289,7 +289,7 @@ static bool process_matches(const std::vector<match>& ranges,
                     std::cout << pn;
                 }
 
-                if (g_options._colour)
+                if (g_options._colour && is_a_tty(stdout))
                 {
                     std::cout << szDefaultText;
 
@@ -381,12 +381,12 @@ static bool process_matches(const std::vector<match>& ranges,
                 }
                 else
                 {
-                    if (g_options._colour && !g_sl_text.empty())
+                    if (g_options._colour && is_a_tty(stdout) && !g_sl_text.empty())
                         std::cout << g_sl_text;
 
                     for (; curr != eoi && *curr != '\r' && *curr != '\n'; ++curr)
                     {
-                        if (g_options._colour && !negate)
+                        if (g_options._colour && is_a_tty(stdout) && !negate)
                         {
                             if (curr == iter->_first)
                             {
@@ -397,20 +397,23 @@ static bool process_matches(const std::vector<match>& ranges,
                             }
                             else if (curr == iter->_eoi)
                             {
-                                if (g_options._colour && !g_sl_text.empty())
-                                    std::cout << g_sl_text;
-                                else
-                                    std::cout << szDefaultText;
+                                if (g_options._colour && is_a_tty(stdout))
+                                {
+                                    if (!g_sl_text.empty())
+                                        std::cout << g_sl_text;
+                                    else
+                                        std::cout << szDefaultText;
 
-                                if (!g_ne)
-                                    std::cout << szEraseEOL;
+                                    if (!g_ne)
+                                        std::cout << szEraseEOL;
+                                }
                             }
                         }
 
                         std::cout << *curr;
                     }
 
-                    if (g_options._colour &&
+                    if (g_options._colour && is_a_tty(stdout) &&
                         (!g_sl_text.empty() || *curr == '\r' || *curr == '\n'))
                     {
                         std::cout << szDefaultText;
