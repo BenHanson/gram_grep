@@ -298,7 +298,8 @@ void config_state::parse(const unsigned int flags,
                     std::format("gram_grep: Warnings from config {} : {}",
                         config_pathname, warnings);
 
-                output_text(std::cerr, is_a_tty(stderr), g_wa_text.c_str(), msg);
+                output_text(std::cerr, is_a_tty(stderr),
+                    g_options._wa_text.c_str(), msg);
             }
         }
 
@@ -345,7 +346,7 @@ void config_state::parse(const unsigned int flags,
                             "lexer definiton.", terminals[i]);
 
                     output_text_nl(std::cerr, is_a_tty(stderr),
-                        g_wa_text.c_str(), msg);
+                        g_options._wa_text.c_str(), msg);
                 }
             }
 
@@ -359,7 +360,7 @@ void config_state::parse(const unsigned int flags,
                             "the grammar.", terminals[i]);
 
                     output_text_nl(std::cerr, is_a_tty(stderr),
-                        g_wa_text.c_str(), msg);
+                        g_options._wa_text.c_str(), msg);
                 }
             }
         }

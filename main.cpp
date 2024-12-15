@@ -42,7 +42,6 @@ uparser* g_curr_uparser = nullptr;
 std::size_t g_files = 0;
 std::size_t g_hits = 0;
 bool g_modify = false; // Set when grammar has modifying operations
-bool g_ne = false;
 options g_options;
 // maps path to pair.
 // pair is wildcards and negated wildcards
@@ -188,7 +187,8 @@ static bool process_matches(const std::vector<match>& ranges,
         {
             if (!g_options._no_messages)
             {
-                output_text_nl(std::cerr, is_a_tty(stderr), g_wa_text.c_str(),
+                output_text_nl(std::cerr, is_a_tty(stderr),
+                    g_options._wa_text.c_str(),
                     "gram_grep: Cannot replace text when source is not "
                     "contained in original string.");
             }
@@ -238,7 +238,7 @@ static bool process_matches(const std::vector<match>& ranges,
                                         "out of range.", idx);
 
                                 output_text_nl(std::cerr, is_a_tty(stderr),
-                                    g_wa_text.c_str(), msg);
+                                    g_options._wa_text.c_str(), msg);
                             }
 
                             skip = true;
@@ -271,9 +271,9 @@ static bool process_matches(const std::vector<match>& ranges,
             {
                 if (g_options._colour && is_a_tty(stdout))
                 {
-                    std::cout << g_fn_text;
+                    std::cout << g_options._fn_text;
 
-                    if (!g_ne)
+                    if (!g_options._ne)
                         std::cout << szEraseEOL;
                 }
 
@@ -293,7 +293,7 @@ static bool process_matches(const std::vector<match>& ranges,
                 {
                     std::cout << szDefaultText;
 
-                    if (!g_ne)
+                    if (!g_options._ne)
                         std::cout << szEraseEOL;
                 }
 
@@ -302,12 +302,12 @@ static bool process_matches(const std::vector<match>& ranges,
                     g_options._line_numbers != line_numbers::with_parens))
                 {
                     output_text(std::cout, is_a_tty(stdout),
-                        g_se_text.c_str(), ":");
+                        g_options._se_text.c_str(), ":");
                 }
 
                 if (g_options._line_numbers == line_numbers::with_parens)
                     output_text(std::cout, is_a_tty(stdout),
-                        g_se_text.c_str(), "(");
+                        g_options._se_text.c_str(), "(");
             }
 
             if (g_options._pathname_only == pathname_only::yes)
@@ -345,8 +345,10 @@ static bool process_matches(const std::vector<match>& ranges,
                     if (g_options._line_numbers != line_numbers::none)
                     {
                         output_text(std::cout, is_a_tty(stdout),
-                            g_ln_text.c_str(), std::to_string(1 + count));
-                        output_text(std::cout, is_a_tty(stdout), g_se_text.c_str(),
+                            g_options._ln_text.c_str(),
+                            std::to_string(1 + count));
+                        output_text(std::cout, is_a_tty(stdout),
+                            g_options._se_text.c_str(),
                             g_options._line_numbers == line_numbers::with_parens ?
                             "):" :
                             ":");
@@ -355,9 +357,10 @@ static bool process_matches(const std::vector<match>& ranges,
                     if (g_options._byte_offset)
                     {
                         output_text(std::cout, is_a_tty(stdout),
-                            g_bn_text.c_str(), std::to_string(curr - data_first));
+                            g_options._bn_text.c_str(),
+                            std::to_string(curr - data_first));
                         output_text(std::cout, is_a_tty(stdout),
-                            g_se_text.c_str(), ":");
+                            g_options._se_text.c_str(), ":");
                     }
                 }
 
@@ -367,7 +370,7 @@ static bool process_matches(const std::vector<match>& ranges,
                 if (g_options._whole_match)
                 {
                     output_text_nl(std::cout, is_a_tty(stdout),
-                        g_ms_text.c_str(), iter->view());
+                        g_options._ms_text.c_str(), iter->view());
                 }
                 else if (g_options._only_matching)
                 {
@@ -377,12 +380,16 @@ static bool process_matches(const std::vector<match>& ranges,
                         *curr != '\r' && *curr != '\n'; ++curr);
 
                     output_text(std::cout, is_a_tty(stdout),
-                        g_ms_text.c_str(), std::string_view(start, curr));
+                        g_options._ms_text.c_str(),
+                        std::string_view(start, curr));
                 }
                 else
                 {
-                    if (g_options._colour && is_a_tty(stdout) && !g_sl_text.empty())
-                        std::cout << g_sl_text;
+                    if (g_options._colour && is_a_tty(stdout) &&
+                        !g_options._sl_text.empty())
+                    {
+                        std::cout << g_options._sl_text;
+                    }
 
                     for (; curr != eoi && *curr != '\r' && *curr != '\n'; ++curr)
                     {
@@ -390,21 +397,21 @@ static bool process_matches(const std::vector<match>& ranges,
                         {
                             if (curr == iter->_first)
                             {
-                                std::cout << g_ms_text;
+                                std::cout << g_options._ms_text;
 
-                                if (!g_ne)
+                                if (!g_options._ne)
                                     std::cout << szEraseEOL;
                             }
                             else if (curr == iter->_eoi)
                             {
                                 if (g_options._colour && is_a_tty(stdout))
                                 {
-                                    if (!g_sl_text.empty())
-                                        std::cout << g_sl_text;
+                                    if (!g_options._sl_text.empty())
+                                        std::cout << g_options._sl_text;
                                     else
                                         std::cout << szDefaultText;
 
-                                    if (!g_ne)
+                                    if (!g_options._ne)
                                         std::cout << szEraseEOL;
                                 }
                             }
@@ -414,11 +421,12 @@ static bool process_matches(const std::vector<match>& ranges,
                     }
 
                     if (g_options._colour && is_a_tty(stdout) &&
-                        (!g_sl_text.empty() || *curr == '\r' || *curr == '\n'))
+                        (!g_options._sl_text.empty() ||
+                            *curr == '\r' || *curr == '\n'))
                     {
                         std::cout << szDefaultText;
 
-                        if (!g_ne)
+                        if (!g_options._ne)
                             std::cout << szEraseEOL;
                     }
                 }
@@ -497,7 +505,8 @@ static void perform_output(const std::size_t hits, const std::string& pathname,
                 const std::string msg =
                     std::format("gram_grep: {} is read only.", pathname);
 
-                output_text_nl(std::cerr, is_a_tty(stderr), g_wa_text.c_str(), msg);
+                output_text_nl(std::cerr, is_a_tty(stderr),
+                    g_options._wa_text.c_str(), msg);
             }
         }
         else
@@ -630,7 +639,8 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
             const std::string msg =
                 std::format("gram_grep: failed to open {}.", pathname);
 
-            output_text_nl(std::cerr, is_a_tty(stderr), g_wa_text.c_str(), msg);
+            output_text_nl(std::cerr, is_a_tty(stderr),
+                g_options._wa_text.c_str(), msg);
         }
 
         return;
@@ -679,9 +689,14 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
 
         if (success)
         {
-            if (type == file_type::binary && success ^ negate)
+            if (type == file_type::binary)
             {
-                std::cout << "Binary file " << pathname << " matches\n";
+                const std::string_view pn = (pathname[0] == '.' &&
+                    pathname[1] == fs::path::preferred_separator) ?
+                    pathname.c_str() + 2 :
+                    pathname.c_str();
+
+                std::cout << "gram_grep: Binary file " << pn << " matches\n";
                 return;
             }
             else
@@ -804,7 +819,8 @@ static bool process_file(const std::string& pathname, const wildcards &wcs)
             const std::string msg =
                 std::format("gram_grep: {}", e.what());
 
-            output_text_nl(std::cerr, is_a_tty(stderr), g_wa_text.c_str(), msg);
+            output_text_nl(std::cerr, is_a_tty(stderr),
+                g_options._wa_text.c_str(), msg);
         }
     }
 
@@ -886,8 +902,10 @@ static void process()
                         wildcard._pathname.c_str() + 2 :
                         wildcard._pathname.c_str();
 
-                    output_text_nl(std::cerr, is_a_tty(stderr), g_wa_text.c_str(),
-                        std::format("gram_grep: {}: No such file or directory", pn));
+                    output_text_nl(std::cerr, is_a_tty(stderr),
+                        g_options._wa_text.c_str(),
+                        std::format("gram_grep: {}: No such file or directory",
+                            pn));
                 }
             }
         }
@@ -1151,24 +1169,29 @@ void parse_colours(const std::string& colours)
     grules.push("list", "item | list ':' item");
 
     const uint16_t name_val_idx = grules.push("item", "name '=' value");
+    // rv flag
+    const uint16_t rv_idx = grules.push("item", "'rv'");
+    // ne flag
     const uint16_t ne_idx = grules.push("item", "'ne'");
 
     grules.push("name",
-        "'bn' | 'cx' | 'fn' | 'ln' | 'mc' | 'ms' | 'se' | 'sl' | 'wa'");
+        "'sl' | 'cx' | 'mt' | 'ms' | 'mc' | 'fn' | 'ln' | 'bn' | 'se' | 'wa'");
     grules.push("value", "%empty | VALUE");
     parsertl::generator::build(grules, gsm);
 
     lrules.push(":", grules.token_id("':'"));
     lrules.push("=", grules.token_id("'='"));
-    lrules.push("bn", grules.token_id("'bn'"));
+    lrules.push("sl", grules.token_id("'sl'"));
     lrules.push("cx", grules.token_id("'cx'"));
+    lrules.push("rv", grules.token_id("'rv'"));
+    lrules.push("mt", grules.token_id("'mt'"));
+    lrules.push("ms", grules.token_id("'ms'"));
+    lrules.push("mc", grules.token_id("'mc'"));
     lrules.push("fn", grules.token_id("'fn'"));
     lrules.push("ln", grules.token_id("'ln'"));
-    lrules.push("mc", grules.token_id("'mc'"));
-    lrules.push("ms", grules.token_id("'ms'"));
-    lrules.push("ne", grules.token_id("'ne'"));
+    lrules.push("bn", grules.token_id("'bn'"));
     lrules.push("se", grules.token_id("'se'"));
-    lrules.push("sl", grules.token_id("'sl'"));
+    lrules.push("ne", grules.token_id("'ne'"));
     lrules.push("wa", grules.token_id("'wa'"));
     lrules.push(R"(\d{1,3}(;\d{1,3}){0,2})", grules.token_id("VALUE"));
     lexertl::generator::build(lrules, lsm);
@@ -1190,15 +1213,16 @@ void parse_colours(const std::string& colours)
 
             static std::pair<const char*, std::string&> lookup[] =
             {
-                {"bn", g_bn_text},
-                //{"cx", g_cx_text},
-                {"fn", g_fn_text},
-                {"ln", g_ln_text},
-                //{"mc", g_mc_text},
-                {"ms", g_ms_text},
-                {"se", g_se_text},
-                {"sl", g_sl_text},
-                {"wa", g_wa_text}
+                {"sl", g_options._sl_text},
+                {"cx", g_options._cx_text},
+                {"mt", g_options._mt_text},
+                {"ms", g_options._ms_text},
+                {"mc", g_options._mc_text},
+                {"fn", g_options._fn_text},
+                {"ln", g_options._ln_text},
+                {"bn", g_options._bn_text},
+                {"se", g_options._se_text},
+                {"wa", g_options._wa_text}
             };
             const auto name = giter.dollar(0).view();
             auto iter = std::ranges::find_if(lookup, [name](const auto& pair)
@@ -1209,9 +1233,11 @@ void parse_colours(const std::string& colours)
             if (iter != std::end(lookup))
                 iter->second = std::format("\x1b[{}m", value);
         }
+        else if (giter->entry.param == rv_idx)
+            g_options._rv = true;
         else if (giter->entry.param == ne_idx)
         {
-            g_ne = true;
+            g_options._ne = true;
         }
     }
 }
@@ -1385,7 +1411,8 @@ int main(int argc, char* argv[])
                     std::format("gram_grep: Failed to execute {}.",
                         g_options._startup);
 
-                output_text_nl(std::cerr, is_a_tty(stderr), g_wa_text.c_str(), msg);
+                output_text_nl(std::cerr, is_a_tty(stderr),
+                    g_options._wa_text.c_str(), msg);
                 run = false;
             }
         }
@@ -1411,8 +1438,9 @@ int main(int argc, char* argv[])
                     std::format("gram_grep: Failed to execute {}.",
                         g_options._shutdown);
 
-                output_text_nl(std::cerr, is_a_tty(stderr),
-                    run ? g_ms_text.c_str() : g_wa_text.c_str(),
+                output_text_nl(std::cerr, is_a_tty(stderr), run ?
+                    g_options._ms_text.c_str() :
+                    g_options._wa_text.c_str(),
                     msg);
             }
 
@@ -1432,7 +1460,8 @@ int main(int argc, char* argv[])
             const std::string msg = std::format("gram_grep: {}",
                 e.what());
 
-            output_text_nl(std::cerr, is_a_tty(stderr), g_wa_text.c_str(), msg);
+            output_text_nl(std::cerr, is_a_tty(stderr),
+                g_options._wa_text.c_str(), msg);
         }
 
         return 1;

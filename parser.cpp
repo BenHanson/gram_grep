@@ -1105,7 +1105,8 @@ void build_config_parser()
                 std::format("gram_grep: Config parser warnings: {}",
                     warnings);
 
-            output_text_nl(std::cerr, is_a_tty(stderr), g_ms_text.c_str(), msg);
+            output_text_nl(std::cerr, is_a_tty(stderr),
+                g_options._ms_text.c_str(), msg);
         }
     }
 

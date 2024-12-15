@@ -4,7 +4,6 @@
 #include <iostream>
 #include "types.hpp"
 
-extern bool g_ne;
 extern options g_options;
 
 bool is_a_tty(FILE* fd);
@@ -31,7 +30,7 @@ void output_text(std::basic_ostream<CharT, Traits>& os, const bool tty,
 	{
 		os << szColour;
 
-		if (!g_ne)
+		if (!g_options._ne)
 			os << szEraseEOL;
 	}
 
@@ -41,7 +40,7 @@ void output_text(std::basic_ostream<CharT, Traits>& os, const bool tty,
 	{
 		std::cerr << szDefaultText;
 
-		if (!g_ne)
+		if (!g_options._ne)
 			std::cout << szEraseEOL;
 	}
 }

@@ -114,6 +114,20 @@ struct options
     bool _whole_match = false;
     std::vector<lexertl::memory_file> _word_list_files;
     bool _writable = false;
+
+    // Colours:
+    std::string _sl_text;
+    std::string _cx_text; // Not used yet
+    bool _rv = false; // Not used yet
+    std::string _mt_text = "\x1b[01;31m";
+    std::string _ms_text = "\x1b[01;31m";
+    std::string _mc_text = "\x1b[01;31m"; // Not used yet
+    std::string _fn_text = "\x1b[35m";
+    std::string _ln_text = "\x1b[32m";
+    std::string _bn_text = "\x1b[32m";
+    std::string _se_text = "\x1b[36m";
+    bool _ne = false;
+    std::string _wa_text = "\x1b[38;5;229m";
 };
 
 struct match_type_base
