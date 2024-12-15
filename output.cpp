@@ -8,6 +8,11 @@
 #endif
 #include "output.hpp"
 
+const char* gg_text()
+{
+	return "gram_grep: ";
+}
+
 bool is_a_tty(FILE* fd)
 {
 #ifdef _WIN32

@@ -5,6 +5,7 @@
 #include "gg_error.hpp"
 #include <parsertl/iterator.hpp>
 #include "option.hpp"
+#include "output.hpp"
 
 extern void build_condition_parser();
 extern std::string unescape(const std::string_view& vw);
@@ -100,17 +101,20 @@ static void process_long(int& i, const char* const argv[],
     {
         if (iter->_param && value.empty() && *iter->_param != '[')
         {
-            std::cerr << std::format("gram_grep: option `{}' "
-                "requires an argument\n", argv[i]);
+            std::cerr << std::format("{}option `{}' "
+                "requires an argument\n",
+                gg_text(),
+                argv[i]);
             show_usage();
             exit(2);
         }
 
         if (!value.empty() && !iter->_param)
         {
-            throw gg_error(std::format("gram_grep: option `{}' "
+            throw gg_error(std::format("{}option `{}' "
                 "doesn't accept an argument\n"
                 "Try `gram_grep --help' for more information.",
+                gg_text(),
                 param));
         }
 
@@ -140,8 +144,10 @@ static void process_short(int& i, const int argc, const char* const argv[],
         {
             if (iter->_param && i + 1 == argc)
             {
-                std::cerr << std::format("gram_grep: option requires an "
-                    "argument -- {}\n", argv[i][1]);
+                std::cerr << std::format("{}option requires an "
+                    "argument -- {}\n",
+                    gg_text(),
+                    argv[i][1]);
                 show_usage();
                 exit(2);
             }

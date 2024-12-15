@@ -189,8 +189,9 @@ static bool process_matches(const std::vector<match>& ranges,
             {
                 output_text_nl(std::cerr, is_a_tty(stderr),
                     g_options._wa_text.c_str(),
-                    "gram_grep: Cannot replace text when source is not "
-                    "contained in original string.");
+                    std::format("{}Cannot replace text when source is not "
+                        "contained in original string.",
+                        gg_text()));
             }
 
             return true;
@@ -234,8 +235,10 @@ static bool process_matches(const std::vector<match>& ranges,
                             if (!g_options._no_messages)
                             {
                                 const std::string msg =
-                                    std::format("gram_grep: Capture ${} is "
-                                        "out of range.", idx);
+                                    std::format("{}Capture ${} is "
+                                        "out of range.",
+                                        gg_text(),
+                                        idx);
 
                                 output_text_nl(std::cerr, is_a_tty(stderr),
                                     g_options._wa_text.c_str(), msg);
@@ -269,14 +272,6 @@ static bool process_matches(const std::vector<match>& ranges,
                 !g_rule_print &&
                 !g_options._quiet)
             {
-                if (g_options._colour && is_a_tty(stdout))
-                {
-                    std::cout << g_options._fn_text;
-
-                    if (!g_options._ne)
-                        std::cout << szEraseEOL;
-                }
-
                 if (pathname.empty())
                     std::cout << g_options._label;
                 else if (g_options._show_filename != show_filename::no)
@@ -286,15 +281,23 @@ static bool process_matches(const std::vector<match>& ranges,
                         pathname.c_str() + 2 :
                         pathname.c_str();
 
+                    if (g_options._colour && is_a_tty(stdout))
+                    {
+                        std::cout << g_options._fn_text;
+
+                        if (!g_options._ne)
+                            std::cout << szEraseEOL;
+                    }
+
                     std::cout << pn;
-                }
 
-                if (g_options._colour && is_a_tty(stdout))
-                {
-                    std::cout << szDefaultText;
+                    if (g_options._colour && is_a_tty(stdout))
+                    {
+                        std::cout << szDefaultText;
 
-                    if (!g_options._ne)
-                        std::cout << szEraseEOL;
+                        if (!g_options._ne)
+                            std::cout << szEraseEOL;
+                    }
                 }
 
                 if (!g_options._label.empty() ||
@@ -389,6 +392,9 @@ static bool process_matches(const std::vector<match>& ranges,
                         !g_options._sl_text.empty())
                     {
                         std::cout << g_options._sl_text;
+
+                        if (!g_options._ne)
+                            std::cout << szEraseEOL;
                     }
 
                     for (; curr != eoi && *curr != '\r' && *curr != '\n'; ++curr)
@@ -406,13 +412,18 @@ static bool process_matches(const std::vector<match>& ranges,
                             {
                                 if (g_options._colour && is_a_tty(stdout))
                                 {
-                                    if (!g_options._sl_text.empty())
-                                        std::cout << g_options._sl_text;
-                                    else
-                                        std::cout << szDefaultText;
+                                    std::cout << szDefaultText;
 
                                     if (!g_options._ne)
                                         std::cout << szEraseEOL;
+
+                                    if (!g_options._sl_text.empty())
+                                    {
+                                        std::cout << g_options._sl_text;
+
+                                        if (!g_options._ne)
+                                            std::cout << szEraseEOL;
+                                    }
                                 }
                             }
                         }
@@ -503,7 +514,9 @@ static void perform_output(const std::size_t hits, const std::string& pathname,
             if (!g_options._no_messages)
             {
                 const std::string msg =
-                    std::format("gram_grep: {} is read only.", pathname);
+                    std::format("{}{} is read only.",
+                        gg_text(),
+                        pathname);
 
                 output_text_nl(std::cerr, is_a_tty(stderr),
                     g_options._wa_text.c_str(), msg);
@@ -637,7 +650,9 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
         if (!g_options._no_messages)
         {
             const std::string msg =
-                std::format("gram_grep: failed to open {}.", pathname);
+                std::format("{}failed to open {}.",
+                    gg_text(),
+                    pathname);
 
             output_text_nl(std::cerr, is_a_tty(stderr),
                 g_options._wa_text.c_str(), msg);
@@ -696,7 +711,7 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
                     pathname.c_str() + 2 :
                     pathname.c_str();
 
-                std::cout << "gram_grep: Binary file " << pn << " matches\n";
+                std::cout << output_gg << "Binary file " << pn << " matches\n";
                 return;
             }
             else
@@ -817,7 +832,9 @@ static bool process_file(const std::string& pathname, const wildcards &wcs)
         if (!g_options._no_messages)
         {
             const std::string msg =
-                std::format("gram_grep: {}", e.what());
+                std::format("{}{}",
+                    gg_text(),
+                    e.what());
 
             output_text_nl(std::cerr, is_a_tty(stderr),
                 g_options._wa_text.c_str(), msg);
@@ -904,7 +921,8 @@ static void process()
 
                     output_text_nl(std::cerr, is_a_tty(stderr),
                         g_options._wa_text.c_str(),
-                        std::format("gram_grep: {}: No such file or directory",
+                        std::format("{}{}: No such file or directory",
+                            gg_text(),
                             pn));
                 }
             }
@@ -1408,7 +1426,8 @@ int main(int argc, char* argv[])
             if (::system(g_options._startup.c_str()))
             {
                 const std::string msg =
-                    std::format("gram_grep: Failed to execute {}.",
+                    std::format("{}Failed to execute {}.",
+                        gg_text(),
                         g_options._startup);
 
                 output_text_nl(std::cerr, is_a_tty(stderr),
@@ -1435,7 +1454,8 @@ int main(int argc, char* argv[])
             if (::system(g_options._shutdown.c_str()))
             {
                 const std::string msg =
-                    std::format("gram_grep: Failed to execute {}.",
+                    std::format("{}Failed to execute {}.",
+                        gg_text(),
                         g_options._shutdown);
 
                 output_text_nl(std::cerr, is_a_tty(stderr), run ?
@@ -1457,7 +1477,8 @@ int main(int argc, char* argv[])
     {
         if (!(running && g_options._no_messages))
         {
-            const std::string msg = std::format("gram_grep: {}",
+            const std::string msg = std::format("{}{}",
+                gg_text(),
                 e.what());
 
             output_text_nl(std::cerr, is_a_tty(stderr),

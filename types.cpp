@@ -295,8 +295,10 @@ void config_state::parse(const unsigned int flags,
             if (!g_options._no_messages)
             {
                 const std::string msg =
-                    std::format("gram_grep: Warnings from config {} : {}",
-                        config_pathname, warnings);
+                    std::format("{}Warnings from config {} : {}",
+                        gg_text(),
+                        config_pathname,
+                        warnings);
 
                 output_text(std::cerr, is_a_tty(stderr),
                     g_options._wa_text.c_str(), msg);
@@ -342,8 +344,10 @@ void config_state::parse(const unsigned int flags,
                 if (!g_options._no_messages)
                 {
                     const std::string msg =
-                        std::format("gram_grep: Token \"{}\" does not have a "
-                            "lexer definiton.", terminals[i]);
+                        std::format("{}Token \"{}\" does not have a "
+                            "lexer definiton.",
+                            gg_text(),
+                            terminals[i]);
 
                     output_text_nl(std::cerr, is_a_tty(stderr),
                         g_options._wa_text.c_str(), msg);
@@ -356,8 +360,10 @@ void config_state::parse(const unsigned int flags,
                 if (!g_options._no_messages)
                 {
                     const std::string msg =
-                        std::format("gram_grep: Token \"{}\" is not used in "
-                            "the grammar.", terminals[i]);
+                        std::format("{}Token \"{}\" is not used in "
+                            "the grammar.",
+                            gg_text(),
+                            terminals[i]);
 
                     output_text_nl(std::cerr, is_a_tty(stderr),
                         g_options._wa_text.c_str(), msg);

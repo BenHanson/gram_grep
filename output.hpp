@@ -8,6 +8,15 @@ extern options g_options;
 
 bool is_a_tty(FILE* fd);
 
+const char* gg_text();
+
+template<class CharT, class Traits>
+std::basic_ostream<CharT, Traits>& output_gg(std::basic_ostream<CharT, Traits>& os)
+{
+	os << gg_text;
+	return os;
+}
+
 template<class CharT, class Traits>
 std::basic_ostream<CharT, Traits>& output_nl(std::basic_ostream<CharT, Traits>& os)
 {

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "output.hpp"
+
 extern unsigned int g_flags;
 extern options g_options;
 
@@ -30,7 +32,8 @@ struct option
 void check_pattern_set()
 {
     if (g_options._pattern_type != pattern_type::none)
-        throw gg_error("gram_grep: conflicting matchers specified");
+        throw gg_error(std::format("{}conflicting matchers specified",
+            gg_text()));
 }
 
 void colour(int&, const bool, const char* const [], std::string_view value,
@@ -347,7 +350,8 @@ const option g_option[]
             else if (value == "without-match")
                 g_options._binary_files = binary_files::without_match;
             else
-                throw gg_error("gram_grep: unknown binary-files type");
+                throw gg_error(std::format("{}unknown binary-files type",
+                    gg_text()));
         }
     },
     {
