@@ -339,7 +339,8 @@ static bool process_matches(const std::vector<match>& ranges,
                 {
                     if (count == 0)
                         curr = data_first;
-                    else
+                    else if (!negate)
+                        // Find start of line
                         for (; *(curr - 1) != '\n'; --curr);
                 }
 
@@ -397,7 +398,8 @@ static bool process_matches(const std::vector<match>& ranges,
                             std::cout << szEraseEOL;
                     }
 
-                    for (; curr != eoi && *curr != '\r' && *curr != '\n'; ++curr)
+                    for (; curr != eoi && *curr != '\r' && *curr != '\n' &&
+                        (negate ? (curr != iter->_second) : true); ++curr)
                     {
                         if (g_options._colour && is_a_tty(stdout) && !negate)
                         {
