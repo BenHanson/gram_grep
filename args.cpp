@@ -8,8 +8,7 @@
 #include "output.hpp"
 
 extern void build_condition_parser();
-extern std::string unescape(const std::string_view& vw);
-extern std::string unescape_str(const char* first, const char* second);
+extern std::string dedup_apostrophes(std::string str);
 extern void show_usage();
 
 extern options g_options;
@@ -70,7 +69,7 @@ void parse_condition(const char* str)
             const auto rx = giter.dollar(4);
 
             g_options._conditions[atoi(index.first + 1) & 0xffff] =
-                std::regex(unescape_str(rx.first + 1, rx.second - 1));
+                std::regex(dedup_apostrophes(rx.substr(1, 1)));
         }
     }
 

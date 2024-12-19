@@ -43,18 +43,21 @@ std::string unescape(const std::string_view& vw)
     return ret;
 }
 
-std::string unescape_str(const char* first, const char* second)
+std::string dedup_apostrophes(std::string str)
 {
-    std::string ret = unescape(std::string_view(first, second));
-
-    for (std::size_t idx = ret.find('\''); idx != std::string::npos;
-        idx = ret.find('\'', idx + 1))
+    for (std::size_t idx = str.find('\''); idx != std::string::npos;
+        idx = str.find('\'', idx + 1))
     {
-        if (ret[idx + 1] == '\'')
-            ret.replace(idx, 2, 1, '\'');
+        if (str[idx + 1] == '\'')
+            str.replace(idx, 2, 1, '\'');
     }
 
-    return ret;
+    return str;
+}
+
+std::string unescape_str(const std::string& str)
+{
+    return dedup_apostrophes(unescape(str));
 }
 
 template<typename T>
@@ -826,7 +829,9 @@ void build_config_parser()
             }
 
             ptr->_storage.push_back(std::make_shared<string_cmd>
-                (unescape_str(text.first + 1, text.second - 1)));
+                (state._print ?
+                    unescape_str(text.substr(1, 1)) :
+                    dedup_apostrophes(text.substr(1, 1))));
             ptr->_cmd_stack.back()->push(ptr->_storage.back().get());
         };
     grules.push("ret_function", "perform_system "

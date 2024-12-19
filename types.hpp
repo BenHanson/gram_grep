@@ -119,7 +119,6 @@ struct options
     std::string _sl_text;
     std::string _cx_text; // Not used yet
     bool _rv = false; // Not used yet
-    std::string _mt_text = "\x1b[01;31m";
     std::string _ms_text = "\x1b[01;31m";
     std::string _mc_text = "\x1b[01;31m"; // Not used yet
     std::string _fn_text = "\x1b[35m";

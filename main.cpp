@@ -1235,7 +1235,6 @@ void parse_colours(const std::string& colours)
             {
                 {"sl", g_options._sl_text},
                 {"cx", g_options._cx_text},
-                {"mt", g_options._mt_text},
                 {"ms", g_options._ms_text},
                 {"mc", g_options._mc_text},
                 {"fn", g_options._fn_text},
@@ -1245,13 +1244,22 @@ void parse_colours(const std::string& colours)
                 {"wa", g_options._wa_text}
             };
             const auto name = giter.dollar(0).view();
-            auto iter = std::ranges::find_if(lookup, [name](const auto& pair)
-                {
-                    return name == pair.first;
-                });
 
-            if (iter != std::end(lookup))
-                iter->second = std::format("\x1b[{}m", value);
+            if (name == "mt")
+            {
+                g_options._ms_text = std::format("\x1b[{}m", value);
+                g_options._mc_text = std::format("\x1b[{}m", value);
+            }
+            else
+            {
+                auto iter = std::ranges::find_if(lookup, [name](const auto& pair)
+                    {
+                        return name == pair.first;
+                    });
+
+                if (iter != std::end(lookup))
+                    iter->second = std::format("\x1b[{}m", value);
+            }
         }
         else if (giter->entry.param == rv_idx)
             g_options._rv = true;
