@@ -1,5 +1,6 @@
 #pragma once
 
+#include <filesystem>
 #include "output.hpp"
 
 extern unsigned int g_flags;
@@ -402,29 +403,33 @@ const option g_option[]
             validate_value(i, argv, longp, value);
 
             const std::string str(value);
-            auto pathnames = split(str.c_str(), ';');
+            auto names = split(str.c_str(), ';');
 
-            for (const auto& p : pathnames)
+            for (const auto& name : names)
             {
-                auto pn = p.data();
+                auto nm = name.data();
 
-                if (*pn == '!')
+                if (*nm == '!')
                 {
-                    const std::string pathname(pn, pn + p.size());
+                    const std::string pathname(nm, nm + name.size());
 
                     g_options._exclude._negative.emplace_back(wildcardtl::wildcard
                         { pathname, is_windows() },
-                        strpbrk(pn, "*?[") ?
+                        // If pathname does not include a wildcard
+                        // store it as a plain string for error reporting.
+                        strpbrk(nm, "*?[") ?
                         std::string() :
                         pathname);
                 }
                 else
                 {
-                    const std::string pathname(pn, pn + p.size());
+                    const std::string pathname(nm, nm + name.size());
 
                     g_options._exclude._positive.emplace_back(wildcardtl::wildcard
                         { pathname, is_windows() },
-                        strpbrk(pn, "*?[") ?
+                        // If pathname does not include a wildcard
+                        // store it as a plain string for error reporting.
+                        strpbrk(nm, "*?[") ?
                         std::string() :
                         pathname);
                 }
@@ -445,14 +450,21 @@ const option g_option[]
             const std::string str(value);
             auto pathnames = split(str.c_str(), ';');
 
-            for (const auto& p : pathnames)
+            for (auto& p : pathnames)
             {
+                namespace fs = std::filesystem;
+
+                while (!p.empty() && p.ends_with(fs::path::preferred_separator))
+                    p.remove_suffix(1);
+
                 if (p[0] == '!')
                 {
                     const std::string pathname(&p[1], std::to_address(p.end()));
 
                     g_options._exclude_dirs._negative.emplace_back(wildcardtl::wildcard
                         { pathname, is_windows() },
+                        // If pathname does not include a wildcard
+                        // store it as a plain string for error reporting.
                         pathname.find_first_of("*?[") == std::string::npos ?
                         pathname :
                         std::string());
@@ -463,6 +475,8 @@ const option g_option[]
 
                     g_options._exclude_dirs._positive.emplace_back(wildcardtl::wildcard
                         { pathname, is_windows() },
+                        // If pathname does not include a wildcard
+                        // store it as a plain string for error reporting.
                         pathname.find_first_of("*?[") == std::string::npos ?
                         pathname :
                         std::string());
