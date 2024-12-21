@@ -100,7 +100,7 @@ static void process_long(int& i, const char* const argv[],
     {
         if (iter->_param && value.empty() && *iter->_param != '[')
         {
-            std::cerr << std::format("{}option `{}' "
+            std::cerr << std::format("{}option '{}' "
                 "requires an argument\n",
                 gg_text(),
                 argv[i]);
@@ -110,9 +110,9 @@ static void process_long(int& i, const char* const argv[],
 
         if (!value.empty() && !iter->_param)
         {
-            throw gg_error(std::format("{}option `{}' "
+            throw gg_error(std::format("{}option '{}' "
                 "doesn't accept an argument\n"
-                "Try `gram_grep --help' for more information.",
+                "Try 'gram_grep --help' for more information.",
                 gg_text(),
                 param));
         }
@@ -243,7 +243,7 @@ void show_option(const option& opt)
         ss << '=' << opt._param;
 
     if (const auto sz = ss.view().size();
-        sz < max_len)
+        sz < max_len - 1)
     {
         ss << std::string(max_len - sz, ' ');
     }
@@ -275,7 +275,7 @@ const char* usage()
 
 const char* try_help()
 {
-    return "Try `gram_grep --help' for more information.\n";
+    return "Try 'gram_grep --help' for more information.\n";
 }
 
 void show_help()
@@ -286,10 +286,10 @@ void show_help()
     std::cout << usage();
     std::cout << "Search for PATTERNs in each FILE or standard input.\n";
     std::cout << "PATTERN is, by default, a basic regular expression (BRE).\n";
-    std::cout << "This is only try for the first PATTERN (for grep compatibility).\n";
+    std::cout << "This is only true for the first PATTERN (for grep compatibility).\n";
     std::cout << "Example: gram_grep -i \"hello world\" menu.h main.c\n\n";
 
-    std::cout << "Regexp selection and interpretation:\n";
+    std::cout << "Pattern selection and interpretation:\n";
 
     for (; iter->_type == option::type::regexp; ++iter)
     {

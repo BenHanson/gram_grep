@@ -101,7 +101,7 @@ const option g_option[]
         'F',
         "fixed-strings",
         nullptr,
-        "PATTERN is a set of newline-separated fixed strings",
+        "PATTERN is a string",
         [](int&, const bool, const char* const [],
             std::string_view, std::vector<config>&)
         {
@@ -140,7 +140,7 @@ const option g_option[]
         'i',
         "ignore-case",
         nullptr,
-        "ignore case distinctions",
+        "ignore case distinctions in patterns and data",
         [](int&, const bool, const char* const [], std::string_view,
             std::vector<config>&)
         {
@@ -152,7 +152,7 @@ const option g_option[]
         'w',
         "word-regexp",
         nullptr,
-        "force PATTERN to match only whole words",
+        "match only whole words",
         [](int&, const bool, const char* const [], std::string_view,
             std::vector<config>&)
         {
@@ -164,7 +164,7 @@ const option g_option[]
         'x',
         "line-regexp",
         nullptr,
-        "force PATTERN to match only whole lines",
+        "match only whole lines",
         [](int&, const bool, const char* const [], std::string_view,
             std::vector<config>&)
         {
@@ -200,7 +200,7 @@ const option g_option[]
         'V',
         "version",
         nullptr,
-        "print version information and exit",
+        "display version information and exit",
         [](int&, const bool, const char* const [], std::string_view,
             std::vector<config>&)
         {
@@ -212,7 +212,7 @@ const option g_option[]
         '\0',
         "help",
         nullptr,
-        "display this help and exit",
+        "display this help text and exit",
         [](int&, const bool, const char* const [], std::string_view,
             std::vector<config>&)
         {
@@ -225,7 +225,7 @@ const option g_option[]
         'm',
         "max-count",
         "NUM",
-        "stop after NUM matches",
+        "stop after NUM selected lines",
         [](int& i, const bool longp, const char* const argv[],
             std::string_view value, std::vector<config>&)
         {
@@ -278,7 +278,7 @@ const option g_option[]
         'H',
         "with-filename",
         nullptr,
-        "print the filename for each match",
+        "print file name with output lines",
         [](int&, const bool, const char* const [], std::string_view,
             std::vector<config>&)
         {
@@ -290,7 +290,7 @@ const option g_option[]
         'h',
         "no-filename",
         nullptr,
-        "suppress the prefixing filename on output",
+        "suppress the file name prefix on output",
         [](int&, const bool, const char* const [], std::string_view,
             std::vector<config>&)
         {
@@ -302,7 +302,7 @@ const option g_option[]
         '\0',
         "label",
         "LABEL",
-        "print LABEL as filename for standard input",
+        "use LABEL as the standard input file name prefix",
         [](int& i, const bool longp, const char* const argv[],
             std::string_view value, std::vector<config>&)
         {
@@ -315,7 +315,7 @@ const option g_option[]
         'o',
         "only-matching",
         nullptr,
-        "show only the part of a line matching PATTERN",
+        "show only nonempty parts of lines that match",
         [](int&, const bool, const char* const [], std::string_view,
             std::vector<config>&)
         {
@@ -340,7 +340,7 @@ const option g_option[]
         "binary-files",
         "TYPE",
         "assume that binary files are TYPE;\n"
-        "TYPE is `binary', `text', or `without-match'",
+        "TYPE is 'binary', 'text', or 'without-match'",
         [](int&, const bool, const char* const [], std::string_view value,
             std::vector<config>&)
         {
@@ -395,8 +395,8 @@ const option g_option[]
         option::type::output,
         '\0',
         "exclude",
-        "FILE_PATTERN",
-        "skip files and directories matching FILE_PATTERN",
+        "GLOB",
+        "skip files that match GLOB",
         [](int& i, const bool longp, const char* const argv[],
             std::string_view value, std::vector<config>&)
         {
@@ -440,8 +440,8 @@ const option g_option[]
         option::type::output,
         '\0',
         "exclude-dir",
-        "PATTERN",
-        "directories that match PATTERN will be skipped",
+        "GLOB",
+        "skip directories that match GLOB",
         [](int& i, const bool longp, const char* const argv[],
             std::string_view value, std::vector<config>&)
         {
@@ -489,7 +489,7 @@ const option g_option[]
         'L',
         "files-without-match",
         nullptr,
-        "print only names of FILEs containing no match",
+        "print only names of FILEs with no selected lines",
         [](int&, const bool, const char* const [],
             std::string_view, std::vector<config>&)
         {
@@ -501,7 +501,7 @@ const option g_option[]
         'l',
         "files-with-matches",
         nullptr,
-        "print only names of FILEs containing matches",
+        "print only names of FILEs with selected lines",
         [](int&, const bool, const char* const [],
             std::string_view, std::vector<config>&)
         {
@@ -513,7 +513,7 @@ const option g_option[]
         'c',
         "count",
         nullptr,
-        "print only a count of matches per FILE",
+        "print only a count of selected lines per FILE",
         [](int&, const bool, const char* const [],
             std::string_view, std::vector<config>&)
         {
@@ -548,7 +548,7 @@ const option g_option[]
         option::type::context,
         '\0',
         "color",
-        "[WHEN]",
+        "[WHEN],",
         nullptr,
         colour
     },
