@@ -13,7 +13,7 @@ const char* gg_text();
 template<class CharT, class Traits>
 std::basic_ostream<CharT, Traits>& output_gg(std::basic_ostream<CharT, Traits>& os)
 {
-	os << gg_text;
+	os << gg_text();
 	return os;
 }
 
