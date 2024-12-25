@@ -738,7 +738,9 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
         for (; data._bol != data._eol; ++data._bol)
             std::cout << *data._bol;
 
-        std::cout << '\n';
+        if (data._bol)
+            // Only output newline if there has been at least one match
+            std::cout << '\n';
     }
 
     if (data._hits)
