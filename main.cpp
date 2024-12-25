@@ -429,7 +429,9 @@ static bool process_matches(match_data& data,
                     {
                         const char* eoi = data._eol > iter->_second ?
                             (iter->_first == iter->_second ?
-                                iter->_eoi :
+                                (iter->_eoi < data._eol ?
+                                    iter->_eoi :
+                                    data._eol) :
                                 iter->_second) :
                             data._eol;
 
