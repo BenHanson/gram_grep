@@ -533,6 +533,19 @@ struct match
 
 using capture_vector = std::vector<std::vector<std::string_view>>;
 
+struct match_data
+{
+    const char* _bol = nullptr;
+    const char* _eol = nullptr;
+    const char* _first = nullptr;
+    const char* _second = nullptr;
+    std::vector<match> _ranges;
+    std::stack<std::string> _matches;
+    capture_vector _captures;
+    std::size_t _hits = 0;
+    std::map<std::pair<std::size_t, std::size_t>, std::string> _replacements;
+};
+
 using utf8_iterator = lexertl::basic_utf8_in_iterator<const char*, char32_t>;
 using utf8results = lexertl::recursive_match_results<utf8_iterator>;
 using crutf8iterator =

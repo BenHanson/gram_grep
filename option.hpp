@@ -149,6 +149,18 @@ const option g_option[]
     },
     {
         option::type::regexp,
+        '\0',
+        "no-ignore-case",
+        nullptr,
+        "do not ignore case distinctions (default)",
+        [](int&, const bool, const char* const [], std::string_view,
+            std::vector<config>&)
+        {
+            g_flags &= config_flags::icase;
+        }
+    },
+    {
+        option::type::regexp,
         'w',
         "word-regexp",
         nullptr,

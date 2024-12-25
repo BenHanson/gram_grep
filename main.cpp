@@ -161,21 +161,17 @@ file_type load_file(std::vector<unsigned char>& utf8,
     return type;
 }
 
-static bool process_matches(const std::vector<match>& ranges,
-    std::map<std::pair<std::size_t, std::size_t>, std::string>& replacements,
+static bool process_matches(match_data& data,
     std::map<std::pair<std::size_t, std::size_t>,
-    std::string>& temp_replacements,
-    const bool negate, const capture_vector& captures,
-    const char* data_first, const char* data_second,
-    lexertl::state_machine& cap_sm, const std::string& pathname,
-    std::size_t& hits)
+    std::string>& temp_replacements, const bool negate,
+    const std::string& pathname)
 {
     bool finished = false;
-    const auto& tuple = ranges.front();
-    auto iter = ranges.rbegin();
-    auto end = ranges.rend();
+    const auto& tuple = data._ranges.front();
+    auto iter = data._ranges.rbegin();
+    auto end = data._ranges.rend();
 
-    replacements.insert(temp_replacements.begin(), temp_replacements.end());
+    data._replacements.insert(temp_replacements.begin(), temp_replacements.end());
     temp_replacements.clear();
 
     // Only allow g_replace if g_modify (grammar actions) not set
@@ -201,11 +197,12 @@ static bool process_matches(const std::vector<match>& ranges,
             // Replace with g_replace.
             const char* second = iter->_eoi;
 
-            if (captures.empty())
-                replacements[std::make_pair(first - data_first,
+            if (data._captures.empty())
+                data._replacements[std::make_pair(first - data._first,
                     second - first)] = g_options._replace;
             else
             {
+                static lexertl::state_machine cap_sm;
                 std::string replace;
                 bool skip = false;
 
@@ -228,8 +225,8 @@ static bool process_matches(const std::vector<match>& ranges,
                     {
                         const std::size_t idx = atoi(i->first + 1);
 
-                        if (idx < captures.size())
-                            replace += captures[idx].front();
+                        if (idx < data._captures.size())
+                            replace += data._captures[idx].front();
                         else
                         {
                             if (!g_options._no_messages)
@@ -252,7 +249,7 @@ static bool process_matches(const std::vector<match>& ranges,
                 }
 
                 if (!skip)
-                    replacements[std::make_pair(first - data_first,
+                    data._replacements[std::make_pair(first - data._first,
                         second - first)] = replace;
             }
         }
@@ -265,52 +262,65 @@ static bool process_matches(const std::vector<match>& ranges,
         if (first >= tuple._first && first <= tuple._eoi)
         {
             const char* curr = iter->_first;
-            const char* eoi = data_second;
 
             if (g_options._pathname_only != pathname_only::negated &&
                 !g_options._show_count && g_options._print.empty() &&
                 !g_rule_print &&
                 !g_options._quiet)
             {
+                if (curr > data._eol && data._eol)
+                {
+                    for (; data._bol != data._eol; ++data._bol)
+                        std::cout << *data._bol;
+
+                    std::cout << '\n';
+                }
+
                 if (pathname.empty())
                     std::cout << g_options._label;
                 else if (g_options._show_filename != show_filename::no)
                 {
-                    const std::string_view pn = (pathname[0] == '.' &&
-                        pathname[1] == fs::path::preferred_separator) ?
-                        pathname.c_str() + 2 :
-                        pathname.c_str();
-
-                    if (g_options._colour && is_a_tty(stdout))
+                    if (curr > data._eol)
                     {
-                        std::cout << g_options._fn_text;
+                        const std::string_view pn = (pathname[0] == '.' &&
+                            pathname[1] == fs::path::preferred_separator) ?
+                            pathname.c_str() + 2 :
+                            pathname.c_str();
 
-                        if (!g_options._ne)
-                            std::cout << szEraseEOL;
-                    }
+                        if (g_options._colour && is_a_tty(stdout))
+                        {
+                            std::cout << g_options._fn_text;
 
-                    std::cout << pn;
+                            if (!g_options._ne)
+                                std::cout << szEraseEOL;
+                        }
 
-                    if (g_options._colour && is_a_tty(stdout))
-                    {
-                        std::cout << szDefaultText;
+                        std::cout << pn;
 
-                        if (!g_options._ne)
-                            std::cout << szEraseEOL;
+                        if (g_options._colour && is_a_tty(stdout))
+                        {
+                            std::cout << szDefaultText;
+
+                            if (!g_options._ne)
+                                std::cout << szEraseEOL;
+                        }
                     }
                 }
 
-                if (!g_options._label.empty() ||
-                    (g_options._show_filename != show_filename::no &&
-                    g_options._line_numbers != line_numbers::with_parens))
+                if (curr > data._eol)
                 {
-                    output_text(std::cout, is_a_tty(stdout),
-                        g_options._se_text.c_str(), ":");
-                }
+                    if (!g_options._label.empty() ||
+                        (g_options._show_filename != show_filename::no &&
+                            g_options._line_numbers != line_numbers::with_parens))
+                    {
+                        output_text(std::cout, is_a_tty(stdout),
+                            g_options._se_text.c_str(), ":");
+                    }
 
-                if (g_options._line_numbers == line_numbers::with_parens)
-                    output_text(std::cout, is_a_tty(stdout),
-                        g_options._se_text.c_str(), "(");
+                    if (g_options._line_numbers == line_numbers::with_parens)
+                        output_text(std::cout, is_a_tty(stdout),
+                            g_options._se_text.c_str(), "(");
+                }
             }
 
             if (g_options._pathname_only == pathname_only::yes)
@@ -321,11 +331,12 @@ static bool process_matches(const std::vector<match>& ranges,
             }
             else if (!g_options._print.empty())
             {
-                std::cout << build_text(g_options._print, captures);
+                std::cout << build_text(g_options._print, data._captures);
             }
             else if (!g_options._exec.empty())
             {
-                const std::string cmd = build_text(g_options._exec, captures);
+                const std::string cmd = build_text(g_options._exec,
+                    data._captures);
 
                 std::cout << "Executing: " << cmd << '\n';
                 std::cout << exec_ret(cmd);
@@ -333,18 +344,9 @@ static bool process_matches(const std::vector<match>& ranges,
             else if (g_options._pathname_only != pathname_only::negated &&
                 !g_options._show_count && !g_rule_print && !g_options._quiet)
             {
-                const auto count = std::count(data_first, curr, '\n');
+                const auto count = std::count(data._first, curr, '\n');
 
-                if (!g_options._only_matching && !g_options._whole_match)
-                {
-                    if (count == 0)
-                        curr = data_first;
-                    else if (!negate)
-                        // Find start of line
-                        for (; *(curr - 1) != '\n'; --curr);
-                }
-
-                if (!pathname.empty())
+                if (curr > data._eol && !pathname.empty())
                 {
                     if (g_options._line_numbers != line_numbers::none)
                     {
@@ -362,7 +364,7 @@ static bool process_matches(const std::vector<match>& ranges,
                     {
                         output_text(std::cout, is_a_tty(stdout),
                             g_options._bn_text.c_str(),
-                            std::to_string(curr - data_first));
+                            std::to_string(curr - data._first));
                         output_text(std::cout, is_a_tty(stdout),
                             g_options._se_text.c_str(), ":");
                     }
@@ -370,6 +372,28 @@ static bool process_matches(const std::vector<match>& ranges,
 
                 if (g_options._initial_tab)
                     std::cout << '\t';
+
+                if (!g_options._only_matching && !g_options._whole_match &&
+                    !negate)
+                {
+                    if (curr > data._eol)
+                    {
+                        data._bol = std::to_address(std::
+                            find(std::reverse_iterator(curr),
+                                std::reverse_iterator(data._first), '\n'));
+
+                        if (data._bol != data._first)
+                            ++data._bol;
+
+                        data._eol = std::find(curr, data._second, '\n');
+
+                        if (data._eol != data._second)
+                        {
+                            if (*(data._eol - 1) == '\r')
+                                --data._eol;
+                        }
+                    }
+                }
 
                 if (g_options._whole_match)
                 {
@@ -398,80 +422,44 @@ static bool process_matches(const std::vector<match>& ranges,
                             std::cout << szEraseEOL;
                     }
 
-                    for (; curr != eoi && *curr != '\r' && *curr != '\n' &&
-                        (negate ? (curr != iter->_second) : true); ++curr)
+                    for (; data._bol < curr; ++data._bol)
+                        std::cout << *data._bol;
+
+                    if (!negate)
                     {
-                        if (g_options._colour && is_a_tty(stdout) && !negate)
-                        {
-                            if (curr == iter->_first)
-                            {
-                                std::cout << g_options._ms_text;
+                        const char* eoi = data._eol > iter->_second ?
+                            (iter->_first == iter->_second ?
+                                iter->_eoi :
+                                iter->_second) :
+                            data._eol;
 
-                                if (!g_options._ne)
-                                    std::cout << szEraseEOL;
-                            }
-                            else if (curr == iter->_eoi)
-                            {
-                                if (g_options._colour && is_a_tty(stdout))
-                                {
-                                    std::cout << szDefaultText;
-
-                                    if (!g_options._ne)
-                                        std::cout << szEraseEOL;
-
-                                    if (!g_options._sl_text.empty())
-                                    {
-                                        std::cout << g_options._sl_text;
-
-                                        if (!g_options._ne)
-                                            std::cout << szEraseEOL;
-                                    }
-                                }
-                            }
-                        }
-
-                        std::cout << *curr;
-                    }
-
-                    if (g_options._colour && is_a_tty(stdout) &&
-                        (!g_options._sl_text.empty() ||
-                            *curr == '\r' || *curr == '\n'))
-                    {
-                        std::cout << szDefaultText;
-
-                        if (!g_options._ne)
-                            std::cout << szEraseEOL;
+                        output_text(std::cout, is_a_tty(stdout),
+                            g_options._ms_text.c_str(),
+                            std::string_view(data._bol, eoi));
+                        data._bol = eoi;
                     }
                 }
             }
 
-            if (g_options._pathname_only != pathname_only::negated &&
-                !g_options._show_count && g_options._print.empty() &&
-                !g_rule_print && !g_options._quiet)
-            {
-                std::cout << output_nl;
-            }
-
-            ++hits;
+            ++data._hits;
             break;
         }
     }
 
-    if (hits == g_options._max_count)
+    if (data._hits == g_options._max_count)
         finished = true;
 
     return finished;
 }
 
-static void perform_output(const std::size_t hits, const std::string& pathname,
-    std::map<std::pair<std::size_t, std::size_t>, std::string>& replacements,
-    const char* data_first, const char* data_second, lexertl::memory_file& mf,
+static void perform_output(match_data& data, const std::string& pathname,
+    lexertl::memory_file& mf,
     const file_type type, const std::size_t size)
 {
     const auto perms = fs::status(pathname.c_str()).permissions();
 
     ++g_files;
-    g_hits += hits;
+    g_hits += data._hits;
 
     if ((perms & fs::perms::owner_write) != fs::perms::owner_write)
     {
@@ -495,18 +483,18 @@ static void perform_output(const std::size_t hits, const std::string& pathname,
             fs::permissions(pathname.c_str(), perms | fs::perms::owner_write);
     }
 
-    if (!replacements.empty())
+    if (!data._replacements.empty())
     {
-        std::string content(data_first, data_second);
+        std::string content(data._first, data._second);
 
-        for (auto iter = replacements.rbegin(), end = replacements.rend();
-            iter != end; ++iter)
+        for (auto iter = data._replacements.rbegin(),
+            end = data._replacements.rend(); iter != end; ++iter)
         {
             content.erase(iter->first.first, iter->first.second);
             content.insert(iter->first.first, iter->second);
         }
 
-        replacements.clear();
+        data._replacements.clear();
         // In case the memory_file is still open
         mf.close();
 
@@ -636,15 +624,8 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
 
     lexertl::memory_file mf(pathname.c_str());
     std::vector<unsigned char> utf8;
-    const char* data_first = nullptr;
-    const char* data_second = nullptr;
     file_type type = file_type::ansi;
-    std::size_t hits = 0;
-    std::vector<match> ranges;
-    static lexertl::state_machine cap_sm;
-    capture_vector captures;
-    std::stack<std::string> matches;
-    std::map<std::pair<std::size_t, std::size_t>, std::string> replacements;
+    match_data data;
     bool finished = false;
 
     if (!mf.data() && !cin)
@@ -669,16 +650,16 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
 
         ss << std::cin.rdbuf();
         *cin = ss.str();
-        data_first = cin->c_str();
-        data_second = data_first + cin->size();
+        data._first = cin->c_str();
+        data._second = data._first + cin->size();
     }
     else
     {
-        data_first = mf.data();
-        data_second = data_first + mf.size();
+        data._first = mf.data();
+        data._second = data._first + mf.size();
     }
 
-    type = load_file(utf8, data_first, data_second, ranges);
+    type = load_file(utf8, data._first, data._second, data._ranges);
 
     if (type == file_type::utf16 || type == file_type::utf16_flip)
         // No need for original data
@@ -702,7 +683,7 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
         std::map<std::pair<std::size_t, std::size_t>, std::string>
             temp_replacements;
         auto [success, negate] =
-            search(ranges, data_first, matches, temp_replacements, captures);
+            search(data, temp_replacements);
 
         if (success)
         {
@@ -718,50 +699,59 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
             }
             else
             {
-                finished = process_matches(ranges, replacements, temp_replacements,
-                    negate, captures, data_first, data_second, cap_sm, pathname,
-                    hits);
+                finished = process_matches(data, temp_replacements,
+                    negate, pathname);
             }
         }
 
-        const auto& old = ranges.back();
+        const match old = data._ranges.back();
 
-        ranges.pop_back();
+        data._ranges.pop_back();
 
-        if (!ranges.empty())
+        if (!data._ranges.empty())
         {
             // Cleardown any stale strings in matches.
             // First makes sure current range is not from the same
             // string (in matches) as the last.
-            if (const auto& curr = ranges.back();
-                !matches.empty() &&
+            if (const auto& curr = data._ranges.back();
+                !data._matches.empty() &&
                 (old._first < curr._first || old._first > curr._eoi))
             {
-                while (!matches.empty() &&
-                    old._first >= matches.top().c_str() &&
-                    old._eoi <= matches.top().c_str() + matches.top().size())
+                while (!data._matches.empty() &&
+                    old._first >= data._matches.top().c_str() &&
+                    old._eoi <= data._matches.top().c_str() +
+                    data._matches.top().size())
                 {
-                    matches.pop();
+                    data._matches.pop();
                 }
             }
 
             // Start searching from end of last match
-            ranges.back()._first = ranges.back()._second;
+            data._ranges.back()._first = data._ranges.back()._second;
         }
-    } while (!finished && !ranges.empty());
+    } while (!finished && !data._ranges.empty());
 
-    if (hits)
+    if (g_options._pathname_only != pathname_only::negated &&
+        !g_options._show_count && g_options._print.empty() &&
+        !g_rule_print && !g_options._quiet)
     {
-        perform_output(hits, pathname, replacements, data_first, data_second,
-            mf, type, utf8.size());
+        for (; data._bol != data._eol; ++data._bol)
+            std::cout << *data._bol;
+
+        std::cout << '\n';
+    }
+
+    if (data._hits)
+    {
+        perform_output(data, pathname, mf, type, utf8.size());
     }
 
     if (g_options._show_count)
     {
-        std::cout << pathname << ':' << hits << output_nl;
+        std::cout << pathname << ':' << data._hits << output_nl;
     }
 
-    if (g_options._pathname_only == pathname_only::negated && !hits)
+    if (g_options._pathname_only == pathname_only::negated && !data._hits)
     {
         std::cout << pathname << output_nl;
     }

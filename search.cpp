@@ -1047,15 +1047,13 @@ static bool process_word_list(const word_list& w, const char* data_first,
     return success;
 }
 
-std::pair<bool, bool> search(std::vector<match>& ranges, const char* data_first,
-    std::stack<std::string>& matches,
-    std::map<std::pair<std::size_t, std::size_t>, std::string>& replacements,
-    capture_vector& captures)
+std::pair<bool, bool> search(match_data& data,
+    std::map<std::pair<std::size_t, std::size_t>, std::string>& replacements)
 {
     bool success = false;
     bool negate = false;
 
-    for (std::size_t index = ranges.size() - 1, size = g_pipeline.size();
+    for (std::size_t index = data._ranges.size() - 1, size = g_pipeline.size();
         index < size; ++index)
     {
         switch (auto& v = g_pipeline[index]; static_cast<match_type>(v.index()))
@@ -1064,7 +1062,7 @@ std::pair<bool, bool> search(std::vector<match>& ranges, const char* data_first,
         {
             const auto& t = std::get<text>(v);
 
-            success = process_text(t, data_first, ranges, captures);
+            success = process_text(t, data._first, data._ranges, data._captures);
             negate = (t._flags & config_flags::negate) != 0;
             break;
         }
@@ -1072,7 +1070,7 @@ std::pair<bool, bool> search(std::vector<match>& ranges, const char* data_first,
         {
             const auto& r = std::get<regex>(v);
 
-            success = process_regex(r, data_first, ranges, captures);
+            success = process_regex(r, data._first, data._ranges, data._captures);
             negate = (r._flags & config_flags::negate) != 0;
             break;
         }
@@ -1080,7 +1078,7 @@ std::pair<bool, bool> search(std::vector<match>& ranges, const char* data_first,
         {
             const auto& l = std::get<lexer>(v);
 
-            success = process_lexer(l, data_first, ranges, captures);
+            success = process_lexer(l, data._first, data._ranges, data._captures);
             negate = (l._flags & config_flags::negate) != 0;
             break;
         }
@@ -1088,7 +1086,7 @@ std::pair<bool, bool> search(std::vector<match>& ranges, const char* data_first,
         {
             const auto& l = std::get<ulexer>(v);
 
-            success = process_lexer(l, data_first, ranges, captures);
+            success = process_lexer(l, data._first, data._ranges, data._captures);
             negate = (l._flags & config_flags::negate) != 0;
             break;
         }
@@ -1098,8 +1096,8 @@ std::pair<bool, bool> search(std::vector<match>& ranges, const char* data_first,
             // that needs to be mutable (unlike other types)
             auto& p = std::get<parser>(v);
 
-            success = process_parser(p, data_first, ranges, matches,
-                replacements, captures);
+            success = process_parser(p, data._first, data._ranges, data._matches,
+                replacements, data._captures);
             negate = (p._flags & config_flags::negate) != 0;
             break;
         }
@@ -1109,8 +1107,8 @@ std::pair<bool, bool> search(std::vector<match>& ranges, const char* data_first,
             // that needs to be mutable (unlike other types)
             auto& p = std::get<uparser>(v);
 
-            success = process_parser(p, data_first, ranges, matches,
-                replacements, captures);
+            success = process_parser(p, data._first, data._ranges, data._matches,
+                replacements, data._captures);
             negate = (p._flags & config_flags::negate) != 0;
             break;
         }
@@ -1118,7 +1116,8 @@ std::pair<bool, bool> search(std::vector<match>& ranges, const char* data_first,
         {
             const auto& words = std::get<word_list>(v);
 
-            success = process_word_list(words, data_first, ranges, captures);
+            success = process_word_list(words, data._first, data._ranges,
+                data._captures);
             negate = (words._flags & config_flags::negate) != 0;
             break;
         }
