@@ -621,6 +621,31 @@ const option g_option[]
     {
         option::type::context,
         '\0',
+        "group-separator",
+        "SEP",
+        "print SEP on line between matches with context",
+        [](int& i, const bool longp, const char* const argv[],
+            std::string_view value, std::vector<config>&)
+        {
+            validate_value(i, argv, longp, value);
+            g_options._separator = value;
+        }
+    },
+    {
+        option::type::context,
+        '\0',
+        "no-group-separator",
+        nullptr,
+        "do not print separator for matches with context",
+        [](int&, const bool, const char* const [],
+            std::string_view, std::vector<config>&)
+        {
+            g_options._separator.clear();
+        }
+    },
+    {
+        option::type::context,
+        '\0',
         "color",
         "[WHEN],",
         nullptr,

@@ -433,11 +433,12 @@ static void print_separators(const std::string& pathname, match_data& data)
             if (ptr != data._second)
                 ++ptr;
 
-            if (data._curr_line - 1 - data._prev_line >
+            if (!g_options._separator.empty() &&
+                data._curr_line - 1 - data._prev_line >=
                 g_options._before_context)
             {
                 output_text_nl(std::cout, is_a_tty(stdout),
-                    g_options._se_text.c_str(), "--");
+                    g_options._se_text.c_str(), g_options._separator.c_str());
             }
 
             for (; before < curr_line; ++before)

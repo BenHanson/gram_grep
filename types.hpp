@@ -92,6 +92,7 @@ struct options
     std::string _exec;
     bool _force_unicode = false;
     bool _force_write = false;
+    bool _hit_separator = false;
     bool _initial_tab = false;
     std::string _label;
     bool _line_buffered = false;
@@ -107,7 +108,7 @@ struct options
     bool _quiet = false;
     bool _recursive = false;
     std::string _replace;
-    bool _hit_separator = false;
+    std::string _separator = "--";
     bool _show_count = false;
     show_filename _show_filename = show_filename::undefined;
     bool _show_version = false;
