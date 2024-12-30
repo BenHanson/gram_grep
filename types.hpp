@@ -16,7 +16,7 @@
 #include <vector>
 #include <wildcardtl/wildcard.hpp>
 
-enum config_flags
+enum class config_flags
 {
     none = 0,
     icase = 1,
@@ -78,6 +78,8 @@ enum class pattern_type
 
 struct options
 {
+    std::size_t _after_context = 0;
+    std::size_t _before_context = 0;
     binary_files _binary_files = binary_files::binary;
     bool _byte_offset = false;
     std::string _checkout;
@@ -105,6 +107,7 @@ struct options
     bool _quiet = false;
     bool _recursive = false;
     std::string _replace;
+    bool _hit_separator = false;
     bool _show_count = false;
     show_filename _show_filename = show_filename::undefined;
     bool _show_version = false;
@@ -131,7 +134,7 @@ struct options
 
 struct match_type_base
 {
-    unsigned int _flags = config_flags::none;
+    unsigned int _flags = static_cast<unsigned int>(config_flags::none);
     condition_map _conditions;
 
     virtual ~match_type_base() = default;
@@ -461,7 +464,7 @@ struct config
 {
     match_type _type;
     std::string _param;
-    unsigned int _flags = config_flags::none;
+    unsigned int _flags = static_cast<unsigned int>(config_flags::none);
     condition_map _conditions;
 
     config(const match_type type, const std::string_view& param,
@@ -535,15 +538,19 @@ using capture_vector = std::vector<std::vector<std::string_view>>;
 
 struct match_data
 {
+    bool _negate = false;
     const char* _bol = nullptr;
     const char* _eol = nullptr;
     const char* _first = nullptr;
     const char* _second = nullptr;
+    const char* _curr = nullptr;
     std::vector<match> _ranges;
     std::stack<std::string> _matches;
     capture_vector _captures;
     std::size_t _hits = 0;
     std::map<std::pair<std::size_t, std::size_t>, std::string> _replacements;
+    std::size_t _prev_line = 0;
+    std::size_t _curr_line = 0;
 };
 
 using utf8_iterator = lexertl::basic_utf8_in_iterator<const char*, char32_t>;

@@ -31,6 +31,7 @@ enum class file_type
     ansi, binary, utf8, utf16, utf16_flip
 };
 
+using match_rev_iter = std::reverse_iterator<std::vector<match>::iterator>;
 namespace fs = std::filesystem;
 
 std::regex g_capture_rx(R"(\$\d+)");
@@ -161,23 +162,13 @@ file_type load_file(std::vector<unsigned char>& utf8,
     return type;
 }
 
-static bool process_matches(match_data& data,
-    std::map<std::pair<std::size_t, std::size_t>,
-    std::string>& temp_replacements, const bool negate,
-    const std::string& pathname)
+[[nodiscard]] static bool perform_replacements(const match_rev_iter& iter,
+    const match& tuple, match_data& data)
 {
-    bool finished = false;
-    const auto& tuple = data._ranges.front();
-    auto iter = data._ranges.rbegin();
-    auto end = data._ranges.rend();
-
-    data._replacements.insert(temp_replacements.begin(), temp_replacements.end());
-    temp_replacements.clear();
-
-    // Only allow g_replace if g_modify (grammar actions) not set
+    // Only allow _replace if g_modify (grammar actions) not set
     if (g_options._perform_output && !g_modify)
     {
-        const char* first = negate ? iter->_first : iter->_second;
+        const char* first = data._negate ? iter->_first : iter->_second;
 
         if (first < tuple._first || first > tuple._second)
         {
@@ -194,7 +185,7 @@ static bool process_matches(match_data& data,
         }
         else
         {
-            // Replace with g_replace.
+            // Replace with _replace.
             const char* second = iter->_eoi;
 
             if (data._captures.empty())
@@ -255,79 +246,330 @@ static bool process_matches(match_data& data,
         }
     }
 
+    return false;
+}
+
+static void print_pathname(const std::string& pathname)
+{
+    const std::string_view pn = (pathname[0] == '.' &&
+        pathname[1] == fs::path::preferred_separator) ?
+        pathname.c_str() + 2 :
+        pathname.c_str();
+
+    if (g_options._colour && is_a_tty(stdout))
+    {
+        std::cout << g_options._fn_text;
+
+        if (!g_options._ne)
+            std::cout << szEraseEOL;
+    }
+
+    std::cout << pn;
+
+    if (g_options._colour && is_a_tty(stdout))
+    {
+        std::cout << szDefaultText;
+
+        if (!g_options._ne)
+            std::cout << szEraseEOL;
+    }
+}
+
+static void print_prefix(const std::string& pathname,
+    match_data& data, const std::string& separator)
+{
+    if (pathname.empty())
+        std::cout << g_options._label;
+    else if (g_options._show_filename != show_filename::no)
+    {
+        print_pathname(pathname);
+    }
+
+    if (!g_options._label.empty() ||
+        (g_options._show_filename != show_filename::no &&
+            g_options._line_numbers != line_numbers::with_parens))
+    {
+        output_text(std::cout, is_a_tty(stdout),
+            g_options._se_text.c_str(), separator.c_str());
+    }
+
+    if (g_options._line_numbers == line_numbers::with_parens)
+        output_text(std::cout, is_a_tty(stdout),
+            g_options._se_text.c_str(), "(");
+
+    if (g_options._line_numbers != line_numbers::none)
+    {
+        output_text(std::cout, is_a_tty(stdout),
+            g_options._ln_text.c_str(),
+            std::to_string(1 + data._curr_line));
+        output_text(std::cout, is_a_tty(stdout),
+            g_options._se_text.c_str(),
+            g_options._line_numbers == line_numbers::with_parens ?
+            (')' + separator).c_str() :
+            separator.c_str());
+    }
+
+    if (g_options._byte_offset)
+    {
+        output_text(std::cout, is_a_tty(stdout),
+            g_options._bn_text.c_str(),
+            std::to_string(data._curr - data._first));
+        output_text(std::cout, is_a_tty(stdout),
+            g_options._se_text.c_str(), separator.c_str());
+    }
+
+    if (g_options._initial_tab)
+        std::cout << '\t';
+}
+
+static void find_bol(match_data& data)
+{
+    if (data._curr > data._eol)
+    {
+        data._bol = std::to_address(std::
+            find(std::reverse_iterator(data._curr),
+                std::reverse_iterator(data._first), '\n'));
+
+        if (data._bol != data._first)
+            ++data._bol;
+
+        data._eol = std::find(data._curr, data._second, '\n');
+
+        if (data._eol != data._second)
+        {
+            if (*(data._eol - 1) == '\r')
+                --data._eol;
+        }
+    }
+}
+
+template<class InputIterator, class NthOccurence, class UnaryPredicate>
+InputIterator find_nth_if(InputIterator first, InputIterator last,
+    NthOccurence Nth, UnaryPredicate pred)
+{
+    if (Nth > 0)
+    {
+        for (; Nth && ++first != last; --Nth)
+            first = std::find_if(first, last, pred);
+
+        return first;
+    }
+    else
+        return last;
+}
+
+static void print_separators(const std::string& pathname, match_data& data)
+{
+    if (g_options._hit_separator)
+    {
+        // Number of lines since last hit
+        std::size_t before = 0;
+
+        if (data._curr_line)
+        {
+            std::size_t diff = data._curr_line - data._prev_line;
+            std::size_t until = 0;
+
+            if (diff > g_options._after_context)
+            {
+                before = data._prev_line + 1;
+                until = before + g_options._after_context;
+            }
+            else
+            {
+                before = data._curr_line - (diff - 1);
+                until = data._curr_line;
+            }
+
+            if (before < until)
+            {
+                const char* ptr = find_nth_if(data._first, data._second, before,
+                    [](const char c)
+                    {
+                        return c == '\n';
+                    });
+                const char* curr = data._curr;
+                std::size_t curr_line = data._curr_line;
+
+                // Skip over \n
+                if (ptr != data._second)
+                    ++ptr;
+
+                for (; before < until; ++before)
+                {
+                    const char* end = std::find(ptr, data._second, '\n');
+
+                    if (end != data._second)
+                        ++end;
+
+                    data._curr_line = before;
+                    print_prefix(pathname, data, "-");
+                    std::cout << std::string_view(ptr, end);
+                    ptr = end;
+                }
+
+                data._curr = curr;
+                data._curr_line = curr_line;
+                data._prev_line = before;
+            }
+
+            if (diff > g_options._before_context)
+                before = data._curr_line - g_options._before_context;
+            else
+                before = data._curr_line - (diff - 1);
+        }
+
+        if (data._curr_line - data._prev_line > 1)
+        {
+            const char* ptr = find_nth_if(data._first, data._second, before,
+                [](const char c)
+                {
+                    return c == '\n';
+                });
+            const char* curr = data._curr;
+            std::size_t curr_line = data._curr_line;
+
+            // Skip over \n
+            if (ptr != data._second)
+                ++ptr;
+
+            if (data._curr_line - 1 - data._prev_line >
+                g_options._before_context)
+            {
+                output_text_nl(std::cout, is_a_tty(stdout),
+                    g_options._se_text.c_str(), "--");
+            }
+
+            for (; before < curr_line; ++before)
+            {
+                data._curr_line = before;
+                print_prefix(pathname, data, "-");
+
+                for (; ptr != data._second &&
+                    *ptr != '\r' && *ptr != '\n'; ++ptr)
+                {
+                    std::cout << *ptr;
+                }
+
+                std::cout << '\n';
+
+                if (ptr != data._second && *ptr == '\r')
+                    ++ptr;
+
+                if (ptr != data._second && *ptr == '\n')
+                    ++ptr;
+
+                ++data._curr_line;
+            }
+
+            data._curr = curr;
+            data._curr_line = curr_line;
+        }
+    }
+}
+
+static void display_match(const std::string& pathname,
+    match_data& data, const match_rev_iter& iter)
+{
+    if (data._curr > data._eol)
+    {
+        if (data._eol)
+        {
+            // Print remaining text until the end of line
+            for (; data._bol != data._eol; ++data._bol)
+                std::cout << *data._bol;
+
+            std::cout << '\n';
+        }
+
+        data._prev_line = data._curr_line;
+        data._curr_line = std::count(data._first, data._curr, '\n');
+        print_separators(pathname, data);
+        print_prefix(pathname, data, ":");
+    }
+
+    if (!g_options._only_matching && !g_options._whole_match &&
+        !data._negate)
+    {
+        find_bol(data);
+    }
+
+    if (g_options._whole_match)
+    {
+        output_text_nl(std::cout, is_a_tty(stdout),
+            g_options._ms_text.c_str(), iter->view());
+    }
+    else if (g_options._only_matching)
+    {
+        const char* start = data._curr;
+
+        for (; data._curr != iter->_eoi &&
+            *data._curr != '\r' && *data._curr != '\n'; ++data._curr);
+
+        output_text(std::cout, is_a_tty(stdout),
+            g_options._ms_text.c_str(),
+            std::string_view(start, data._curr));
+    }
+    else
+    {
+        if (g_options._colour && is_a_tty(stdout) &&
+            !g_options._sl_text.empty())
+        {
+            std::cout << g_options._sl_text;
+
+            if (!g_options._ne)
+                std::cout << szEraseEOL;
+        }
+
+        for (; data._bol < data._curr; ++data._bol)
+            std::cout << *data._bol;
+
+        if (!data._negate)
+        {
+            const char* eoi = data._eol > iter->_second ?
+                (iter->_first == iter->_second ?
+                    (iter->_eoi < data._eol ?
+                        iter->_eoi :
+                        data._eol) :
+                    iter->_second) :
+                data._eol;
+
+            output_text(std::cout, is_a_tty(stdout),
+                g_options._ms_text.c_str(),
+                std::string_view(data._bol, eoi));
+            data._bol = eoi;
+        }
+    }
+}
+
+static bool process_matches(match_data& data,
+    std::map<std::pair<std::size_t, std::size_t>,
+    std::string>& temp_replacements, const std::string& pathname)
+{
+    bool finished = false;
+    const auto& tuple = data._ranges.front();
+    auto iter = data._ranges.rbegin();
+    auto end = data._ranges.rend();
+
+    data._replacements.insert(temp_replacements.begin(), temp_replacements.end());
+    temp_replacements.clear();
+
+    if (perform_replacements(iter, tuple, data))
+        return true;
+
     for (; iter != end; ++iter)
     {
         const char* first = iter->_second;
 
         if (first >= tuple._first && first <= tuple._eoi)
         {
-            const char* curr = iter->_first;
-
-            if (g_options._pathname_only != pathname_only::negated &&
-                !g_options._show_count && g_options._print.empty() &&
-                !g_rule_print &&
-                !g_options._quiet)
-            {
-                if (curr > data._eol && data._eol)
-                {
-                    for (; data._bol != data._eol; ++data._bol)
-                        std::cout << *data._bol;
-
-                    std::cout << '\n';
-                }
-
-                if (pathname.empty())
-                    std::cout << g_options._label;
-                else if (g_options._show_filename != show_filename::no)
-                {
-                    if (curr > data._eol)
-                    {
-                        const std::string_view pn = (pathname[0] == '.' &&
-                            pathname[1] == fs::path::preferred_separator) ?
-                            pathname.c_str() + 2 :
-                            pathname.c_str();
-
-                        if (g_options._colour && is_a_tty(stdout))
-                        {
-                            std::cout << g_options._fn_text;
-
-                            if (!g_options._ne)
-                                std::cout << szEraseEOL;
-                        }
-
-                        std::cout << pn;
-
-                        if (g_options._colour && is_a_tty(stdout))
-                        {
-                            std::cout << szDefaultText;
-
-                            if (!g_options._ne)
-                                std::cout << szEraseEOL;
-                        }
-                    }
-                }
-
-                if (curr > data._eol)
-                {
-                    if (!g_options._label.empty() ||
-                        (g_options._show_filename != show_filename::no &&
-                            g_options._line_numbers != line_numbers::with_parens))
-                    {
-                        output_text(std::cout, is_a_tty(stdout),
-                            g_options._se_text.c_str(), ":");
-                    }
-
-                    if (g_options._line_numbers == line_numbers::with_parens)
-                        output_text(std::cout, is_a_tty(stdout),
-                            g_options._se_text.c_str(), "(");
-                }
-            }
+            data._curr = iter->_first;
 
             if (g_options._pathname_only == pathname_only::yes)
             {
+                print_pathname(pathname);
                 std::cout << output_nl;
                 finished = true;
-                break;
             }
             else if (!g_options._print.empty())
             {
@@ -344,103 +586,7 @@ static bool process_matches(match_data& data,
             else if (g_options._pathname_only != pathname_only::negated &&
                 !g_options._show_count && !g_rule_print && !g_options._quiet)
             {
-                const auto count = std::count(data._first, curr, '\n');
-
-                if (curr > data._eol && !pathname.empty())
-                {
-                    if (g_options._line_numbers != line_numbers::none)
-                    {
-                        output_text(std::cout, is_a_tty(stdout),
-                            g_options._ln_text.c_str(),
-                            std::to_string(1 + count));
-                        output_text(std::cout, is_a_tty(stdout),
-                            g_options._se_text.c_str(),
-                            g_options._line_numbers == line_numbers::with_parens ?
-                            "):" :
-                            ":");
-                    }
-
-                    if (g_options._byte_offset)
-                    {
-                        output_text(std::cout, is_a_tty(stdout),
-                            g_options._bn_text.c_str(),
-                            std::to_string(curr - data._first));
-                        output_text(std::cout, is_a_tty(stdout),
-                            g_options._se_text.c_str(), ":");
-                    }
-                }
-
-                if (g_options._initial_tab)
-                    std::cout << '\t';
-
-                if (!g_options._only_matching && !g_options._whole_match &&
-                    !negate)
-                {
-                    if (curr > data._eol)
-                    {
-                        data._bol = std::to_address(std::
-                            find(std::reverse_iterator(curr),
-                                std::reverse_iterator(data._first), '\n'));
-
-                        if (data._bol != data._first)
-                            ++data._bol;
-
-                        data._eol = std::find(curr, data._second, '\n');
-
-                        if (data._eol != data._second)
-                        {
-                            if (*(data._eol - 1) == '\r')
-                                --data._eol;
-                        }
-                    }
-                }
-
-                if (g_options._whole_match)
-                {
-                    output_text_nl(std::cout, is_a_tty(stdout),
-                        g_options._ms_text.c_str(), iter->view());
-                }
-                else if (g_options._only_matching)
-                {
-                    const char* start = curr;
-
-                    for (; curr != iter->_eoi &&
-                        *curr != '\r' && *curr != '\n'; ++curr);
-
-                    output_text(std::cout, is_a_tty(stdout),
-                        g_options._ms_text.c_str(),
-                        std::string_view(start, curr));
-                }
-                else
-                {
-                    if (g_options._colour && is_a_tty(stdout) &&
-                        !g_options._sl_text.empty())
-                    {
-                        std::cout << g_options._sl_text;
-
-                        if (!g_options._ne)
-                            std::cout << szEraseEOL;
-                    }
-
-                    for (; data._bol < curr; ++data._bol)
-                        std::cout << *data._bol;
-
-                    if (!negate)
-                    {
-                        const char* eoi = data._eol > iter->_second ?
-                            (iter->_first == iter->_second ?
-                                (iter->_eoi < data._eol ?
-                                    iter->_eoi :
-                                    data._eol) :
-                                iter->_second) :
-                            data._eol;
-
-                        output_text(std::cout, is_a_tty(stdout),
-                            g_options._ms_text.c_str(),
-                            std::string_view(data._bol, eoi));
-                        data._bol = eoi;
-                    }
-                }
+                display_match(pathname, data, iter);
             }
 
             ++data._hits;
@@ -684,8 +830,7 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
     {
         std::map<std::pair<std::size_t, std::size_t>, std::string>
             temp_replacements;
-        auto [success, negate] =
-            search(data, temp_replacements);
+        bool success = search(data, temp_replacements);
 
         if (success)
         {
@@ -701,8 +846,7 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
             }
             else
             {
-                finished = process_matches(data, temp_replacements,
-                    negate, pathname);
+                finished = process_matches(data, temp_replacements, pathname);
             }
         }
 
@@ -752,12 +896,19 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
 
     if (g_options._show_count)
     {
-        std::cout << pathname << ':' << data._hits << output_nl;
+        if (g_options._show_filename != show_filename::no)
+        {
+            print_pathname(pathname);
+            std::cout << ':';
+        }
+
+        std::cout << data._hits << output_nl;
     }
 
     if (g_options._pathname_only == pathname_only::negated && !data._hits)
     {
-        std::cout << pathname << output_nl;
+        print_pathname(pathname);
+        std::cout << output_nl;
     }
 
     ++g_searched;
@@ -1006,45 +1157,49 @@ static void fill_pipeline(std::vector<config>&& configs)
         {
             if (g_options._force_unicode)
             {
-                using rules_type = lexertl::basic_rules<char, char32_t>;
-                using generator = lexertl::basic_generator<rules_type,
-                    lexertl::u32state_machine>;
+                // Use the lexertl enum operator
+                using namespace lexertl;
+                using rules_type = basic_rules<char, char32_t>;
+                using ugenerator = basic_generator<rules_type,
+                    u32state_machine>;
                 rules_type rules;
                 ulexer lexer;
 
                 lexer._flags = config._flags;
                 lexer._conditions = std::move(config._conditions);
 
-                if (lexer._flags & config_flags::icase)
-                    rules.flags(*lexertl::regex_flags::icase |
-                        *lexertl::regex_flags::dot_not_cr_lf);
+                if (lexer._flags & *config_flags::icase)
+                    rules.flags(*regex_flags::icase |
+                        *regex_flags::dot_not_cr_lf);
 
                 rules.push(config._param, 1);
 
                 if (g_options._dump == dump::no)
                     rules.push("(?s:.)", rules_type::skip());
 
-                generator::build(rules, lexer._sm);
+                ugenerator::build(rules, lexer._sm);
                 g_pipeline.emplace_back(std::move(lexer));
             }
             else
             {
-                lexertl::rules rules;
+                // Use the lexertl enum operator
+                using namespace lexertl;
+                rules rules;
                 lexer lexer;
 
                 lexer._flags = config._flags;
                 lexer._conditions = std::move(config._conditions);
 
-                if (lexer._flags & config_flags::icase)
-                    rules.flags(*lexertl::regex_flags::icase |
-                        *lexertl::regex_flags::dot_not_cr_lf);
+                if (lexer._flags & *config_flags::icase)
+                    rules.flags(*regex_flags::icase |
+                        *regex_flags::dot_not_cr_lf);
 
                 rules.push(config._param, 1);
 
                 if (g_options._dump == dump::no)
-                    rules.push("(?s:.)", lexertl::rules::skip());
+                    rules.push("(?s:.)", rules::skip());
 
-                lexertl::generator::build(rules, lexer._sm);
+                generator::build(rules, lexer._sm);
                 g_pipeline.emplace_back(std::move(lexer));
             }
 
@@ -1072,6 +1227,7 @@ static void fill_pipeline(std::vector<config>&& configs)
                     ulexer lexer;
 
                     lexer._flags = parser._flags;
+                    lexer._conditions = std::move(parser._conditions);
                     lexer._sm.swap(parser._lsm);
                     g_pipeline.emplace_back(std::move(lexer));
                 }
@@ -1098,6 +1254,7 @@ static void fill_pipeline(std::vector<config>&& configs)
                     lexer lexer;
 
                     lexer._flags = parser._flags;
+                    lexer._conditions = std::move(parser._conditions);
                     lexer._sm.swap(parser._lsm);
                     g_pipeline.emplace_back(std::move(lexer));
                 }
@@ -1109,18 +1266,20 @@ static void fill_pipeline(std::vector<config>&& configs)
         }
         case match_type::regex:
         {
+            // Use the lexertl enum operator
+            using namespace lexertl;
             regex regex;
             std::regex::flag_type rx_flags{};
 
             regex._flags = config._flags;
             regex._conditions = std::move(config._conditions);
 
-            if (regex._flags & config_flags::icase)
+            if (regex._flags & *config_flags::icase)
                 rx_flags |= std::regex_constants::icase;
 
-            if (regex._flags & config_flags::grep)
+            if (regex._flags & *config_flags::grep)
                 rx_flags |= std::regex_constants::grep;
-            else if (regex._flags & config_flags::egrep)
+            else if (regex._flags & *config_flags::egrep)
                 rx_flags |= std::regex_constants::egrep;
             else
                 rx_flags |= std::regex_constants::ECMAScript;

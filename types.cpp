@@ -188,7 +188,7 @@ void config_state::parse(const unsigned int flags,
     lexertl::citerator iter;
     lexertl::citerator end;
 
-    if (flags & config_flags::icase)
+    if (flags & static_cast<decltype(flags)>(config_flags::icase))
     {
         using enum lexertl::regex_flags;
 

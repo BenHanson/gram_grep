@@ -180,6 +180,9 @@ void read_switches(const int argc, const char* const argv[],
                 files.emplace_back(argv[i]);
             else
             {
+                // Use the lexertl enum operator
+                using namespace lexertl;
+
                 const match_type type = []()
                     {
                         switch (g_options._pattern_type)
@@ -194,11 +197,11 @@ void read_switches(const int argc, const char* const argv[],
                     } ();
 
                 if (g_options._pattern_type == pattern_type::extended)
-                    g_flags |= config_flags::egrep;
+                    g_flags |= *config_flags::egrep;
                 else if (g_options._pattern_type == pattern_type::basic ||
                     g_options._pattern_type == pattern_type::none)
                 {
-                    g_flags |= config_flags::grep;
+                    g_flags |= *config_flags::grep;
                 }
 
                 configs.emplace_back(type, param, g_flags,

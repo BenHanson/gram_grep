@@ -355,10 +355,12 @@ static bool is_word_char(const char c)
 static bool is_whole_word(const char* data_first, const char* first,
     const char* second, const char* eoi, const unsigned int flags)
 {
+    // Use the lexertl enum operator
+    using namespace lexertl;
     const char* prev_first = first == data_first ? nullptr : first - 1;
     const char* prev_second = second - 1;
 
-    return !(flags & config_flags::whole_word) ||
+    return !(flags & *config_flags::whole_word) ||
         ((first == data_first ||
             (is_word_char(*prev_first) && !is_word_char(*first)) ||
             (!is_word_char(*prev_first) && is_word_char(*first))) &&
@@ -370,9 +372,11 @@ static bool is_whole_word(const char* data_first, const char* first,
 static bool is_bol_eol(const char* data_first, const char* first,
     const char* second, const char* eoi, const unsigned int flags)
 {
+    // Use the lexertl enum operator
+    using namespace lexertl;
     const char* prev_first = first == data_first ? nullptr : first - 1;
 
-    return !(flags & config_flags::bol_eol) ||
+    return !(flags & *config_flags::bol_eol) ||
         ((first == data_first || *prev_first == '\n') &&
             (second == eoi || *second == '\r' || *second == '\n'));
 
@@ -381,6 +385,8 @@ static bool is_bol_eol(const char* data_first, const char* first,
 static bool process_text(const text& t, const char* data_first,
     std::vector<match>& ranges, capture_vector& captures)
 {
+    // Use the lexertl enum operator
+    using namespace lexertl;
     const std::string text = build_text(t._text, captures);
     const char* first = ranges.back()._first;
     const char* second = ranges.back()._eoi;
@@ -393,7 +399,7 @@ static bool process_text(const text& t, const char* data_first,
     do
     {
         first = text.empty() ? ranges.back()._eoi :
-            (t._flags & config_flags::icase) ?
+            (t._flags & *config_flags::icase) ?
             std::search(first, second, &text.front(),
                 &text.front() + text.size(),
                 [](const char lhs, const char rhs)
@@ -425,50 +431,50 @@ static bool process_text(const text& t, const char* data_first,
 
     if (success)
     {
-        if (t._flags & config_flags::negate)
+        if (t._flags & *config_flags::negate)
         {
-            if (t._flags & config_flags::all)
+            if (t._flags & *config_flags::all)
                 success = false;
             else
             {
                 const char* last_start = ranges.back()._first;
 
-                if (!(t._flags & config_flags::ret_prev_match))
+                if (!(t._flags & *config_flags::ret_prev_match))
                     ranges.back()._second = first + text.size();
 
                 if (last_start == first)
                 {
-                    if (!(t._flags & config_flags::ret_prev_match))
+                    if (!(t._flags & *config_flags::ret_prev_match))
                         // The match is right at the beginning, so skip.
                         ranges.emplace_back(second, second, second);
 
                     success = false;
                 }
-                else if (!(t._flags & config_flags::ret_prev_match))
+                else if (!(t._flags & *config_flags::ret_prev_match))
                     ranges.emplace_back(ranges.back()._first, first, first);
             }
         }
-        else if (!(t._flags & config_flags::ret_prev_match))
+        else if (!(t._flags & *config_flags::ret_prev_match))
         {
             // Store start of match
             ranges.back()._first = first;
             // Store end of match
             ranges.back()._second = second;
-            ranges.emplace_back((t._flags & config_flags::extend_search) ?
+            ranges.emplace_back((t._flags & *config_flags::extend_search) ?
                 second :
                 first,
-                (t._flags & config_flags::extend_search) ?
+                (t._flags & *config_flags::extend_search) ?
                 second :
                 first,
-                (t._flags & config_flags::extend_search) ?
+                (t._flags & *config_flags::extend_search) ?
                 ranges.back()._eoi :
                 second);
         }
     }
-    else if (t._flags & config_flags::negate &&
+    else if (t._flags & *config_flags::negate &&
         ranges.back()._first != ranges.back()._eoi)
     {
-        if (!(t._flags & config_flags::ret_prev_match))
+        if (!(t._flags & *config_flags::ret_prev_match))
         {
             ranges.back()._second = first;
             ranges.emplace_back(ranges.back()._first, first, first);
@@ -477,7 +483,7 @@ static bool process_text(const text& t, const char* data_first,
         success = true;
     }
 
-    if (success && !(t._flags & config_flags::ret_prev_match))
+    if (success && !(t._flags & *config_flags::ret_prev_match))
     {
         captures.clear();
         captures.emplace_back();
@@ -490,6 +496,8 @@ static bool process_text(const text& t, const char* data_first,
 static bool process_regex(const regex& r, const char* data_first,
     std::vector<match>& ranges, capture_vector& captures)
 {
+    // Use the lexertl enum operator
+    using namespace lexertl;
     std::cregex_iterator iter(ranges.back()._first,
         ranges.back()._eoi, r._rx);
     std::cregex_iterator end;
@@ -514,52 +522,52 @@ static bool process_regex(const regex& r, const char* data_first,
 
     if (success)
     {
-        if (r._flags & config_flags::negate)
+        if (r._flags & *config_flags::negate)
         {
-            if (r._flags & config_flags::all)
+            if (r._flags & *config_flags::all)
                 success = false;
             else
             {
                 const char* last_start = ranges.back()._first;
 
-                if (!(r._flags & config_flags::ret_prev_match))
+                if (!(r._flags & *config_flags::ret_prev_match))
                     ranges.back()._second = (*iter)[0].second;
 
                 if (last_start == (*iter)[0].first)
                 {
-                    if (!(r._flags & config_flags::ret_prev_match))
+                    if (!(r._flags & *config_flags::ret_prev_match))
                         // The match is right at the beginning, so skip.
                         ranges.emplace_back((*iter)[0].second, (*iter)[0].second,
                             (*iter)[0].second);
 
                     success = false;
                 }
-                else if(!(r._flags & config_flags::ret_prev_match))
+                else if(!(r._flags & *config_flags::ret_prev_match))
                     ranges.emplace_back(ranges.back()._first, (*iter)[0].first,
                         (*iter)[0].first);
             }
         }
-        else if(!(r._flags & config_flags::ret_prev_match))
+        else if(!(r._flags & *config_flags::ret_prev_match))
         {
             // Store start of match
             ranges.back()._first = (*iter)[0].first;
             // Store end of match
             ranges.back()._second = (*iter)[0].second;
-            ranges.emplace_back((r._flags & config_flags::extend_search) ?
+            ranges.emplace_back((r._flags & *config_flags::extend_search) ?
                 (*iter)[0].second :
                 (*iter)[0].first,
-                (r._flags & config_flags::extend_search) ?
+                (r._flags & *config_flags::extend_search) ?
                 (*iter)[0].second :
                 (*iter)[0].first,
-                (r._flags & config_flags::extend_search) ?
+                (r._flags & *config_flags::extend_search) ?
                 ranges.back()._eoi :
                 (*iter)[0].second);
         }
     }
-    else if (r._flags & config_flags::negate &&
+    else if (r._flags & *config_flags::negate &&
         ranges.back()._first != ranges.back()._eoi)
     {
-        if (!(r._flags & config_flags::ret_prev_match))
+        if (!(r._flags & *config_flags::ret_prev_match))
         {
             ranges.back()._second = ranges.back()._eoi;
             ranges.emplace_back(ranges.back()._first, ranges.back()._eoi,
@@ -569,11 +577,11 @@ static bool process_regex(const regex& r, const char* data_first,
         success = true;
     }
 
-    if (success && !(r._flags & config_flags::ret_prev_match))
+    if (success && !(r._flags & *config_flags::ret_prev_match))
     {
         captures.clear();
 
-        if (r._flags & config_flags::negate)
+        if (r._flags & *config_flags::negate)
         {
             captures.emplace_back();
             captures.back().emplace_back(ranges.back()._first,
@@ -651,57 +659,59 @@ template<typename lexer_t>
 bool process_lexer(const lexer_t& l, const char* data_first,
     std::vector<match>& ranges, capture_vector& captures)
 {
+    // Use the lexertl enum operator
+    using namespace lexertl;
     auto [success, iter] = lexer_search(l, data_first, ranges);
 
     if (success)
     {
-        if (l._flags & config_flags::negate)
+        if (l._flags & *config_flags::negate)
         {
-            if (l._flags & config_flags::all)
+            if (l._flags & *config_flags::all)
                 success = false;
             else
             {
                 const char* last_start = ranges.back()._first;
 
-                if (!(l._flags & config_flags::ret_prev_match))
+                if (!(l._flags & *config_flags::ret_prev_match))
                     ranges.back()._second = get_second(iter);
 
                 if (last_start == get_first(iter))
                 {
-                    if (!(l._flags & config_flags::ret_prev_match))
+                    if (!(l._flags & *config_flags::ret_prev_match))
                         // The match is right at the beginning, so skip.
                         ranges.emplace_back(get_second(iter),
                             get_second(iter), get_second(iter));
 
                     success = false;
                 }
-                else if (!(l._flags & config_flags::ret_prev_match))
+                else if (!(l._flags & *config_flags::ret_prev_match))
                     ranges.emplace_back(ranges.back()._first,
                         get_first(iter), get_first(iter));
             }
         }
-        else if (!(l._flags & config_flags::ret_prev_match))
+        else if (!(l._flags & *config_flags::ret_prev_match))
         {
             // Store start of match
             ranges.back()._first = get_first(iter);
             // Store end of match
             ranges.back()._second = get_second(iter);
             ranges.emplace_back((l._flags &
-                config_flags::extend_search) ?
+                *config_flags::extend_search) ?
                 get_second(iter) :
                 get_first(iter),
-                (l._flags & config_flags::extend_search) ?
+                (l._flags & *config_flags::extend_search) ?
                 get_second(iter) :
                 get_first(iter),
-                (l._flags & config_flags::extend_search) ?
+                (l._flags & *config_flags::extend_search) ?
                 ranges.back()._eoi :
                 get_second(iter));
         }
     }
-    else if (l._flags & config_flags::negate &&
+    else if (l._flags & *config_flags::negate &&
         ranges.back()._first != ranges.back()._eoi)
     {
-        if (!(l._flags & config_flags::ret_prev_match))
+        if (!(l._flags & *config_flags::ret_prev_match))
         {
             ranges.back()._second = get_first(iter);
             ranges.emplace_back(ranges.back()._first,
@@ -711,7 +721,7 @@ bool process_lexer(const lexer_t& l, const char* data_first,
         success = true;
     }
 
-    if (success && !(l._flags & config_flags::ret_prev_match))
+    if (success && !(l._flags & *config_flags::ret_prev_match))
     {
         captures.clear();
         captures.emplace_back();
@@ -747,6 +757,8 @@ bool process_parser(parser_t& p, const char* data_first,
     std::map<std::pair<std::size_t, std::size_t>, std::string>& replacements,
     capture_vector& captures)
 {
+    // Use the lexertl enum operator
+    using namespace lexertl;
     auto [iter, end, prod_map, cap_vec] = get_iterators(p, ranges);
     const bool has_captures = !p._gsm._captures.empty();
     bool success = false;
@@ -773,27 +785,27 @@ bool process_parser(parser_t& p, const char* data_first,
 
     if (success)
     {
-        if (p._flags & config_flags::negate)
+        if (p._flags & *config_flags::negate)
         {
-            if (p._flags & config_flags::all)
+            if (p._flags & *config_flags::all)
                 success = false;
             else
             {
                 const char* last_start = ranges.back()._first;
 
-                if (!(p._flags & config_flags::ret_prev_match))
+                if (!(p._flags & *config_flags::ret_prev_match))
                     ranges.back()._second = get_first(end);
 
                 if (last_start == get_first(iter))
                 {
-                    if (!(p._flags & config_flags::ret_prev_match))
+                    if (!(p._flags & *config_flags::ret_prev_match))
                         // The match is right at the beginning, so skip.
                         ranges.emplace_back(get_second(iter),
                             get_second(iter), get_second(iter));
 
                     success = false;
                 }
-                else if (!(p._flags & config_flags::ret_prev_match))
+                else if (!(p._flags & *config_flags::ret_prev_match))
                     ranges.emplace_back(ranges.back()._first,
                         get_first(iter), get_first(iter));
             }
@@ -803,20 +815,20 @@ bool process_parser(parser_t& p, const char* data_first,
             if (!p._actions.empty())
                 matches.emplace();
 
-            if (!(p._flags & config_flags::ret_prev_match))
+            if (!(p._flags & *config_flags::ret_prev_match))
             {
                 // Store start of match
                 ranges.back()._first = get_first(iter);
                 // Store end of match
                 ranges.back()._second = get_first(end);
                 ranges.emplace_back((p._flags &
-                    config_flags::extend_search) ?
+                    *config_flags::extend_search) ?
                     get_first(end) :
                     get_first(iter),
-                    (p._flags & config_flags::extend_search) ?
+                    (p._flags & *config_flags::extend_search) ?
                     get_first(end) :
                     get_first(iter),
-                    (p._flags & config_flags::extend_search) ?
+                    (p._flags & *config_flags::extend_search) ?
                     ranges.back()._eoi :
                     get_first(end));
             }
@@ -836,7 +848,7 @@ bool process_parser(parser_t& p, const char* data_first,
                     process_action(p, data_first, action_iter, item, matches,
                         replacements);
 
-                    if (!(p._flags & config_flags::ret_prev_match))
+                    if (!(p._flags & *config_flags::ret_prev_match))
                     {
                         ranges.back()._first = ranges.back()._second =
                             matches.top().c_str();
@@ -853,7 +865,7 @@ bool process_parser(parser_t& p, const char* data_first,
 
                         if (!matches.empty())
                         {
-                            if (!(p._flags & config_flags::ret_prev_match))
+                            if (!(p._flags & *config_flags::ret_prev_match))
                             {
                                 ranges.back()._first = ranges.back()._second =
                                     matches.top().c_str();
@@ -866,10 +878,10 @@ bool process_parser(parser_t& p, const char* data_first,
             }
         }
     }
-    else if ((p._flags & config_flags::negate) &&
+    else if ((p._flags & *config_flags::negate) &&
         ranges.back()._first != ranges.back()._eoi)
     {
-        if (!(p._flags & config_flags::ret_prev_match))
+        if (!(p._flags & *config_flags::ret_prev_match))
         {
             ranges.back()._second = get_first(iter);
             ranges.emplace_back(ranges.back()._first,
@@ -879,11 +891,11 @@ bool process_parser(parser_t& p, const char* data_first,
         success = true;
     }
 
-    if (success && !(p._flags & config_flags::ret_prev_match))
+    if (success && !(p._flags & *config_flags::ret_prev_match))
     {
         captures.clear();
 
-        if (p._flags & config_flags::negate)
+        if (p._flags & *config_flags::negate)
         {
             captures.emplace_back();
             captures.back().emplace_back(ranges.back()._first,
@@ -917,6 +929,8 @@ bool process_parser(parser_t& p, const char* data_first,
 static bool process_word_list(const word_list& w, const char* data_first,
     std::vector<match>& ranges, capture_vector& captures)
 {
+    // Use the lexertl enum operator
+    using namespace lexertl;
     std::string_view text;
     const lexertl::state_machine sm = word_lexer();
     lexertl::citerator iter(ranges.back()._first, ranges.back()._eoi, sm);
@@ -932,7 +946,7 @@ static bool process_word_list(const word_list& w, const char* data_first,
     {
         text = iter->view();
 
-        if (w._flags & config_flags::icase)
+        if (w._flags & *config_flags::icase)
         {
             auto list_iter = std::find_if(w._list.begin(), w._list.end(),
                 [&text](const std::string_view& rhs)
@@ -985,50 +999,50 @@ static bool process_word_list(const word_list& w, const char* data_first,
 
     if (success)
     {
-        if (w._flags & config_flags::negate)
+        if (w._flags & *config_flags::negate)
         {
-            if (w._flags & config_flags::all)
+            if (w._flags & *config_flags::all)
                 success = false;
             else
             {
                 const char* last_start = ranges.back()._first;
 
-                if (!(w._flags & config_flags::ret_prev_match))
+                if (!(w._flags & *config_flags::ret_prev_match))
                     ranges.back()._second = first + text.size();
 
                 if (last_start == first)
                 {
-                    if (!(w._flags & config_flags::ret_prev_match))
+                    if (!(w._flags & *config_flags::ret_prev_match))
                         // The match is right at the beginning, so skip.
                         ranges.emplace_back(second, second, second);
 
                     success = false;
                 }
-                else if (!(w._flags & config_flags::ret_prev_match))
+                else if (!(w._flags & *config_flags::ret_prev_match))
                     ranges.emplace_back(ranges.back()._first, first, first);
             }
         }
-        else if (!(w._flags & config_flags::ret_prev_match))
+        else if (!(w._flags & *config_flags::ret_prev_match))
         {
             // Store start of match
             ranges.back()._first = first;
             // Store end of match
             ranges.back()._second = second;
-            ranges.emplace_back((w._flags & config_flags::extend_search) ?
+            ranges.emplace_back((w._flags & *config_flags::extend_search) ?
                 second :
                 first,
-                (w._flags & config_flags::extend_search) ?
+                (w._flags & *config_flags::extend_search) ?
                 second :
                 first,
-                (w._flags & config_flags::extend_search) ?
+                (w._flags & *config_flags::extend_search) ?
                 ranges.back()._eoi :
                 second);
         }
     }
-    else if (w._flags & config_flags::negate &&
+    else if (w._flags & *config_flags::negate &&
         ranges.back()._first != ranges.back()._eoi)
     {
-        if (!(w._flags & config_flags::ret_prev_match))
+        if (!(w._flags & *config_flags::ret_prev_match))
         {
             ranges.back()._second = first;
             ranges.emplace_back(ranges.back()._first, first, first);
@@ -1037,7 +1051,7 @@ static bool process_word_list(const word_list& w, const char* data_first,
         success = true;
     }
 
-    if (success && !(w._flags & config_flags::ret_prev_match))
+    if (success && !(w._flags & *config_flags::ret_prev_match))
     {
         captures.clear();
         captures.emplace_back();
@@ -1047,15 +1061,19 @@ static bool process_word_list(const word_list& w, const char* data_first,
     return success;
 }
 
-std::pair<bool, bool> search(match_data& data,
+bool search(match_data& data,
     std::map<std::pair<std::size_t, std::size_t>, std::string>& replacements)
 {
     bool success = false;
-    bool negate = false;
+
+    data._negate = false;
 
     for (std::size_t index = data._ranges.size() - 1, size = g_pipeline.size();
         index < size; ++index)
     {
+        // Use the lexertl enum operator
+        using namespace lexertl;
+
         switch (auto& v = g_pipeline[index]; static_cast<match_type>(v.index()))
         {
         case match_type::text:
@@ -1063,7 +1081,7 @@ std::pair<bool, bool> search(match_data& data,
             const auto& t = std::get<text>(v);
 
             success = process_text(t, data._first, data._ranges, data._captures);
-            negate = (t._flags & config_flags::negate) != 0;
+            data._negate = (t._flags & *config_flags::negate) != 0;
             break;
         }
         case match_type::regex:
@@ -1071,7 +1089,7 @@ std::pair<bool, bool> search(match_data& data,
             const auto& r = std::get<regex>(v);
 
             success = process_regex(r, data._first, data._ranges, data._captures);
-            negate = (r._flags & config_flags::negate) != 0;
+            data._negate = (r._flags & *config_flags::negate) != 0;
             break;
         }
         case match_type::lexer:
@@ -1079,7 +1097,7 @@ std::pair<bool, bool> search(match_data& data,
             const auto& l = std::get<lexer>(v);
 
             success = process_lexer(l, data._first, data._ranges, data._captures);
-            negate = (l._flags & config_flags::negate) != 0;
+            data._negate = (l._flags & *config_flags::negate) != 0;
             break;
         }
         case match_type::ulexer:
@@ -1087,7 +1105,7 @@ std::pair<bool, bool> search(match_data& data,
             const auto& l = std::get<ulexer>(v);
 
             success = process_lexer(l, data._first, data._ranges, data._captures);
-            negate = (l._flags & config_flags::negate) != 0;
+            data._negate = (l._flags & *config_flags::negate) != 0;
             break;
         }
         case match_type::parser:
@@ -1098,7 +1116,7 @@ std::pair<bool, bool> search(match_data& data,
 
             success = process_parser(p, data._first, data._ranges, data._matches,
                 replacements, data._captures);
-            negate = (p._flags & config_flags::negate) != 0;
+            data._negate = (p._flags & *config_flags::negate) != 0;
             break;
         }
         case match_type::uparser:
@@ -1109,7 +1127,7 @@ std::pair<bool, bool> search(match_data& data,
 
             success = process_parser(p, data._first, data._ranges, data._matches,
                 replacements, data._captures);
-            negate = (p._flags & config_flags::negate) != 0;
+            data._negate = (p._flags & *config_flags::negate) != 0;
             break;
         }
         case match_type::word_list:
@@ -1118,7 +1136,7 @@ std::pair<bool, bool> search(match_data& data,
 
             success = process_word_list(words, data._first, data._ranges,
                 data._captures);
-            negate = (words._flags & config_flags::negate) != 0;
+            data._negate = (words._flags & *config_flags::negate) != 0;
             break;
         }
         default:
@@ -1128,5 +1146,5 @@ std::pair<bool, bool> search(match_data& data,
         if (!success) break;
     }
 
-    return std::make_pair(success, negate);
+    return success;
 }

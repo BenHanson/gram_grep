@@ -1,5 +1,6 @@
 #pragma once
 
+#include <charconv>
 #include <filesystem>
 #include "output.hpp"
 
@@ -144,7 +145,10 @@ const option g_option[]
         [](int&, const bool, const char* const [], std::string_view,
             std::vector<config>&)
         {
-            g_flags |= config_flags::icase;
+            // Use the lexertl enum operator
+            using namespace lexertl;
+
+            g_flags |= *config_flags::icase;
         }
     },
     {
@@ -156,7 +160,10 @@ const option g_option[]
         [](int&, const bool, const char* const [], std::string_view,
             std::vector<config>&)
         {
-            g_flags &= config_flags::icase;
+            // Use the lexertl enum operator
+            using namespace lexertl;
+
+            g_flags &= *config_flags::icase;
         }
     },
     {
@@ -168,7 +175,10 @@ const option g_option[]
         [](int&, const bool, const char* const [], std::string_view,
             std::vector<config>&)
         {
-            g_flags |= config_flags::whole_word;
+            // Use the lexertl enum operator
+            using namespace lexertl;
+
+            g_flags |= *config_flags::whole_word;
         }
     },
     {
@@ -180,7 +190,10 @@ const option g_option[]
         [](int&, const bool, const char* const [], std::string_view,
             std::vector<config>&)
         {
-            g_flags |= config_flags::bol_eol;
+            // Use the lexertl enum operator
+            using namespace lexertl;
+
+            g_flags |= *config_flags::bol_eol;
         }
     },
     {
@@ -204,7 +217,10 @@ const option g_option[]
         [](int&, const bool, const char* const [], std::string_view,
             std::vector<config>&)
         {
-            g_flags |= config_flags::negate;
+            // Use the lexertl enum operator
+            using namespace lexertl;
+
+            g_flags |= *config_flags::negate;
         }
     },
     {
@@ -558,6 +574,52 @@ const option g_option[]
     },
     {
         option::type::context,
+        'B',
+        "before-context",
+        "NUM",
+        "print NUM lines of leading context",
+        [](int& i, const bool longp, const char* const argv[],
+            std::string_view value, std::vector<config>&)
+        {
+            validate_value(i, argv, longp, value);
+            g_options._hit_separator = true;
+            std::from_chars(value.data(), value.data() + value.size(),
+                g_options._before_context);
+        }
+    },
+    {
+        option::type::context,
+        'A',
+        "after-context",
+        "NUM",
+        "print NUM lines of trailing context",
+        [](int& i, const bool longp, const char* const argv[],
+            std::string_view value, std::vector<config>&)
+        {
+            validate_value(i, argv, longp, value);
+            g_options._hit_separator = true;
+            std::from_chars(value.data(), value.data() + value.size(),
+                g_options._after_context);
+        }
+    },
+    {
+        option::type::context,
+        'C',
+        "context",
+        "NUM",
+        "print NUM lines of output context",
+        [](int& i, const bool longp, const char* const argv[],
+            std::string_view value, std::vector<config>&)
+        {
+            validate_value(i, argv, longp, value);
+            g_options._hit_separator = true;
+            std::from_chars(value.data(), value.data() + value.size(),
+                g_options._before_context);
+            g_options._after_context = g_options._before_context;
+        }
+    },
+    {
+        option::type::context,
         '\0',
         "color",
         "[WHEN],",
@@ -686,7 +748,10 @@ const option g_option[]
         [](int&, const bool, const char* const [], std::string_view,
             std::vector<config>&)
         {
-            g_flags |= config_flags::extend_search;
+            // Use the lexertl enum operator
+            using namespace lexertl;
+
+            g_flags |= *config_flags::extend_search;
         }
     },
     {
@@ -739,7 +804,10 @@ const option g_option[]
         [](int&, const bool, const char* const [],
             std::string_view, std::vector<config>&)
         {
-            g_flags |= config_flags::negate | config_flags::all;
+            // Use the lexertl enum operator
+            using namespace lexertl;
+
+            g_flags |= *config_flags::negate | *config_flags::all;
         }
     },
     {
@@ -801,7 +869,10 @@ const option g_option[]
         [](int&, const bool, const char* const [],
             std::string_view, std::vector<config>&)
         {
-            g_flags |= config_flags::ret_prev_match;
+            // Use the lexertl enum operator
+            using namespace lexertl;
+
+            g_flags |= *config_flags::ret_prev_match;
         }
     },
     {
