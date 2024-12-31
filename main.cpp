@@ -358,74 +358,81 @@ InputIterator find_nth_if(InputIterator first, InputIterator last,
         return last;
 }
 
+static std::size_t print_after(const std::string& pathname, match_data& data)
+{
+    std::size_t before = 0;
+
+    if (data._curr_line)
+    {
+        std::size_t diff = data._curr_line -
+            (data._prev_line == std::string::npos ?
+                data._curr_line :
+                data._prev_line);
+        std::size_t until = 0;
+
+        if (diff > g_options._after_context)
+        {
+            before = data._prev_line + 1;
+            until = before + g_options._after_context;
+        }
+        else
+        {
+            before = data._curr_line - (diff - 1);
+            until = data._curr_line;
+        }
+
+        if (before < until)
+        {
+            const char* ptr = find_nth_if(data._first, data._second, before,
+                [](const char c)
+                {
+                    return c == '\n';
+                });
+            const char* curr = data._curr;
+            std::size_t curr_line = data._curr_line;
+
+            // Skip over \n
+            if (ptr != data._second)
+                ++ptr;
+
+            for (; before < until; ++before)
+            {
+                const char* end = std::find(ptr, data._second, '\n');
+
+                if (end != data._second)
+                    ++end;
+
+                data._curr_line = before;
+                print_prefix(pathname, data, "-");
+                std::cout << std::string_view(ptr, end);
+                ptr = end;
+            }
+
+            data._curr = curr;
+            data._curr_line = curr_line;
+            data._prev_line = before;
+        }
+
+        if (data._prev_line == std::string::npos)
+            diff = data._curr_line;
+        else
+            diff = data._curr_line - data._prev_line;
+
+        if (diff > g_options._before_context)
+            before = data._curr_line - g_options._before_context;
+        else
+            before = data._curr_line - (diff - 1);
+    }
+
+    return before;
+}
+
 static void print_separators(const std::string& pathname, match_data& data)
 {
     if (g_options._hit_separator)
     {
         // Number of lines since last hit
-        std::size_t before = 0;
-
-        if (data._curr_line)
-        {
-            std::size_t diff = data._curr_line -
-                (data._prev_line == std::string::npos ?
-                    data._curr_line :
-                    data._prev_line);
-            std::size_t until = 0;
-
-            if (diff > g_options._after_context)
-            {
-                before = data._prev_line + 1;
-                until = before + g_options._after_context;
-            }
-            else
-            {
-                before = data._curr_line - (diff - 1);
-                until = data._curr_line;
-            }
-
-            if (before < until)
-            {
-                const char* ptr = find_nth_if(data._first, data._second, before,
-                    [](const char c)
-                    {
-                        return c == '\n';
-                    });
-                const char* curr = data._curr;
-                std::size_t curr_line = data._curr_line;
-
-                // Skip over \n
-                if (ptr != data._second)
-                    ++ptr;
-
-                for (; before < until; ++before)
-                {
-                    const char* end = std::find(ptr, data._second, '\n');
-
-                    if (end != data._second)
-                        ++end;
-
-                    data._curr_line = before;
-                    print_prefix(pathname, data, "-");
-                    std::cout << std::string_view(ptr, end);
-                    ptr = end;
-                }
-
-                data._curr = curr;
-                data._curr_line = curr_line;
-                data._prev_line = before;
-            }
-
-            if (data._prev_line == std::string::npos)
-                diff = data._curr_line;
-            else
-                diff = data._curr_line - data._prev_line;
-
-            if (diff > g_options._before_context)
-                before = data._curr_line - g_options._before_context;
-            else
-                before = data._curr_line - (diff - 1);
-        }
+        std::size_t before = print_after(pathname, data);
 
         if (data._curr_line - data._prev_line > 1)
         {
@@ -897,6 +904,11 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
         if (data._bol)
             // Only output newline if there has been at least one match
             std::cout << '\n';
+
+        data._prev_line = data._curr_line;
+        data._curr_line = std::count(data._first, data._second, '\n');
+        data._curr = data._second;
+        print_after(pathname, data);
     }
 
     if (data._hits)
