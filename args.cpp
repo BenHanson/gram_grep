@@ -125,35 +125,27 @@ static void process_long(int& i, const char* const argv[],
     }
 }
 
-static bool isnumber(const char* str)
-{
-    bool ret = false;
-
-    for (; isdigit(*str); ++str)
-    {
-        ret = true;
-    }
-
-    return ret && !*str;
-}
-
 static void process_short(int& i, const int argc, const char* const argv[],
     std::vector<config>& configs)
 {
     // Skip over '-'
     const char* param = argv[i] + 1;
 
-    if (isnumber(param))
-    {
-        g_options._hit_separator = true;
-        std::from_chars(param, param + strlen(param),
-            g_options._before_context);
-        g_options._after_context = g_options._before_context;
-        return;
-    }
-
     while (*param)
     {
+        if (isdigit(*param))
+        {
+            const char* first = param;
+
+            while (isdigit(*param))
+                ++param;
+
+            g_options._hit_separator = true;
+            std::from_chars(first, param, g_options._before_context);
+            g_options._after_context = g_options._before_context;
+            continue;
+        }
+
         auto iter = std::find_if(std::begin(g_option), std::end(g_option),
             [param](const auto& c)
             {

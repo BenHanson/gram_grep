@@ -551,7 +551,7 @@ struct match_data
     std::size_t _hits = 0;
     std::map<std::pair<std::size_t, std::size_t>, std::string> _replacements;
     std::size_t _prev_line = 0;
-    std::size_t _curr_line = 0;
+    std::size_t _curr_line = std::string::npos;
 };
 
 using utf8_iterator = lexertl::basic_utf8_in_iterator<const char*, char32_t>;

@@ -367,7 +367,10 @@ static void print_separators(const std::string& pathname, match_data& data)
 
         if (data._curr_line)
         {
-            std::size_t diff = data._curr_line - data._prev_line;
+            std::size_t diff = data._curr_line -
+                (data._prev_line == std::string::npos ?
+                    data._curr_line :
+                    data._prev_line);
             std::size_t until = 0;
 
             if (diff > g_options._after_context)
@@ -413,6 +416,11 @@ static void print_separators(const std::string& pathname, match_data& data)
                 data._prev_line = before;
             }
 
+            if (data._prev_line == std::string::npos)
+                diff = data._curr_line;
+            else
+                diff = data._curr_line - data._prev_line;
+
             if (diff > g_options._before_context)
                 before = data._curr_line - g_options._before_context;
             else
@@ -434,6 +442,7 @@ static void print_separators(const std::string& pathname, match_data& data)
                 ++ptr;
 
             if (!g_options._separator.empty() &&
+                data._prev_line != std::string::npos &&
                 data._curr_line - 1 - data._prev_line >=
                 g_options._before_context)
             {

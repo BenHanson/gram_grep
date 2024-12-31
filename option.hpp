@@ -138,6 +138,19 @@ const option g_option[]
     },
     {
         option::type::regexp,
+        'e',
+        "regexp",
+        "PATTERN",
+        "use PATTERN for matching",
+        [](int&, const bool, const char* const [],
+            std::string_view, std::vector<config>&)
+        {
+            check_pattern_set();
+            g_options._pattern_type = pattern_type::basic;
+        }
+    },
+    {
+        option::type::regexp,
         'i',
         "ignore-case",
         nullptr,
