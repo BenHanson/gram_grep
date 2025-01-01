@@ -791,6 +791,7 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
     std::vector<unsigned char> utf8;
     file_type type = file_type::ansi;
     match_data data;
+    bool first_hit = true;
     bool finished = false;
 
     if (!mf.data() && !cin)
@@ -847,10 +848,21 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
     {
         std::map<std::pair<std::size_t, std::size_t>, std::string>
             temp_replacements;
-        bool success = search(data, temp_replacements);
 
-        if (success)
+        if (bool success = search(data, temp_replacements);
+            success)
         {
+            if (g_options._hit_separator && g_hits && first_hit &&
+                g_options._pathname_only != pathname_only::negated &&
+                !g_options._show_count && g_options._print.empty() &&
+                !g_rule_print && !g_options._quiet)
+            {
+                output_text_nl(std::cout, is_a_tty(stdout),
+                    g_options._se_text.c_str(), g_options._separator.c_str());
+            }
+
+            first_hit = false;
+
             if (type == file_type::binary)
             {
                 const std::string_view pn = (pathname[0] == '.' &&
