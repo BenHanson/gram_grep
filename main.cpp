@@ -1006,9 +1006,6 @@ static bool process_file(const std::string& pathname, const wildcards &wcs)
                     }
                 }
             }
-
-            if (process)
-                process_file(pathname);
         }
     }
     catch (const std::exception& e)
@@ -1068,6 +1065,9 @@ static void process()
             const std::string pathname = reinterpret_cast<const char*>
                 (p.u8string().c_str());
 
+            if (!process_file(pathname, *wcs))
+                continue;
+
             if (fs::is_directory(p))
             {
                 switch (g_options._directories)
@@ -1103,7 +1103,8 @@ static void process()
                     continue;
                 }
 
-                processed |= process_file(pathname, *wcs);
+                process_file(pathname);
+                processed = true;
             }
         }
 
