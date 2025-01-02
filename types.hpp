@@ -76,6 +76,11 @@ enum class pattern_type
     none, extended, fixed, basic, perl, flex
 };
 
+enum class directories
+{
+    read, recurse, skip
+};
+
 struct options
 {
     std::size_t _after_context = 0;
@@ -85,11 +90,13 @@ struct options
     std::string _checkout;
     bool _colour = false;
     condition_map _conditions;
+    directories _directories = directories::read;
     dump _dump = dump::no;
     bool _dump_argv = false;
     wildcards _exclude;
     wildcards _exclude_dirs;
     std::string _exec;
+    bool _follow_symlinks = false;
     bool _force_unicode = false;
     bool _force_write = false;
     bool _hit_separator = false;
@@ -106,7 +113,6 @@ struct options
     std::string _print;
     bool _print_null = false;
     bool _quiet = false;
-    bool _recursive = false;
     std::string _replace;
     std::string _separator = "--";
     bool _show_count = false;

@@ -7,7 +7,9 @@
 extern unsigned int g_flags;
 extern options g_options;
 
+extern void add_pattern(const char* param, std::vector<config>& configs);
 extern void parse_condition(const char* str);
+extern void show_usage(); 
 extern std::string unescape(const std::string_view& vw);
 
 struct option
@@ -82,6 +84,32 @@ void validate_value(int& i, const char* const argv[],
     }
 }
 
+void exclude_pathname(const char* first, const char* second)
+{
+    const std::string pathname(first, second);
+
+    if (*first == '!')
+    {
+        g_options._exclude._negative.emplace_back(wildcardtl::wildcard
+            { pathname, is_windows() },
+            // If pathname does not include a wildcard
+            // store it as a plain string for error reporting.
+            pathname.find_first_of("*?[") == std::string::npos ?
+            pathname :
+            std::string());
+    }
+    else
+    {
+        g_options._exclude._positive.emplace_back(wildcardtl::wildcard
+            { pathname, is_windows() },
+            // If pathname does not include a wildcard
+            // store it as a plain string for error reporting.
+            pathname.find_first_of("*?[") == std::string::npos ?
+            pathname :
+            std::string());
+    }
+}
+
 const option g_option[]
 {
     {
@@ -147,6 +175,51 @@ const option g_option[]
         {
             check_pattern_set();
             g_options._pattern_type = pattern_type::basic;
+        }
+    },
+    {
+        option::type::regexp,
+        'f',
+        "file",
+        "FILE",
+        "take PATTERNS from FILE",
+        [](int& i, const bool longp, const char* const argv[],
+            std::string_view value, std::vector<config>& configs)
+        {
+            check_pattern_set();
+            validate_value(i, argv, longp, value);
+
+            // We know that the string is zero terminated
+            lexertl::memory_file mf(value.data());
+
+            if (!mf.data())
+                throw gg_error(std::format("Unable to open {}", value));
+
+            const char* first = mf.data();
+            const char* second = first + mf.size();
+            std::string regex;
+
+            do
+            {
+                auto end = std::find_if(first, second,
+                    [](const char c)
+                    {
+                        return c == '\r' || c == '\n';
+                    });
+
+                if (!regex.empty())
+                    regex += '\n';
+
+                regex.append(first, end);
+
+                while (end != second && (*end == '\r' || *end == '\n'))
+                    ++end;
+
+                first = end;
+            } while (first != second);
+
+            g_options._pattern_type = pattern_type::basic;
+            add_pattern(regex.c_str(), configs);
         }
     },
     {
@@ -422,14 +495,61 @@ const option g_option[]
     },
     {
         option::type::output,
+        'd',
+        "directories",
+        "ACTION",
+        "how to handle directories;\n"
+        "ACTION is 'read', 'recurse', or 'skip'",
+        [](int& i, const bool longp, const char* const argv[],
+            std::string_view value, std::vector<config>&)
+        {
+            validate_value(i, argv, longp, value);
+
+            if (value == "read")
+                g_options._directories = directories::read;
+            else if (value == "recurse")
+                g_options._directories = directories::recurse;
+            else if (value == "skip")
+                g_options._directories = directories::skip;
+            else
+            {
+                output_text_nl(std::cerr, is_a_tty(stderr),
+                    g_options._wa_text.c_str(),
+                    std::format("{}invalid argument '{}' for '--directories'\n"
+                        "Valid arguments are:\n"
+                        "  - 'read'\n"
+                        "  - 'recurse'\n"
+                        "  - 'skip'",
+                        gg_text(),
+                        value));
+                show_usage();
+                exit(2);
+            }
+        }
+    },
+    {
+        option::type::output,
         'r',
         "recursive",
         nullptr,
-        "recurse subdirectories",
+        "like --directories=recurse",
         [](int&, const bool, const char* const [], std::string_view,
             std::vector<config>&)
         {
-            g_options._recursive = true;
+            g_options._directories = directories::recurse;
+        }
+    },
+    {
+        option::type::output,
+        'R',
+        "dereference-recursive",
+        nullptr,
+        "likewise, but follow all symlinks",
+        [](int&, const bool, const char* const [], std::string_view,
+            std::vector<config>&)
+        {
+            g_options._directories = directories::recurse;
+            g_options._follow_symlinks = true;
         }
     },
     {
@@ -443,38 +563,59 @@ const option g_option[]
         {
             validate_value(i, argv, longp, value);
 
-            const std::string str(value);
-            auto names = split(str.c_str(), ';');
+            const char* first = value.data();
+            const char* end = nullptr;
+            const char* second = first + value.size();
 
-            for (const auto& name : names)
+            do
             {
-                auto nm = name.data();
+                const auto idx = value.find_first_of(';', value.data() - first);
 
-                if (*nm == '!')
-                {
-                    const std::string pathname(nm, nm + name.size());
+                end = idx == std::string_view::npos ?
+                    second :
+                    first + idx;
+                exclude_pathname(first, end);
 
-                    g_options._exclude._negative.emplace_back(wildcardtl::wildcard
-                        { pathname, is_windows() },
-                        // If pathname does not include a wildcard
-                        // store it as a plain string for error reporting.
-                        strpbrk(nm, "*?[") ?
-                        std::string() :
-                        pathname);
-                }
-                else
-                {
-                    const std::string pathname(nm, nm + name.size());
+                if (end != second)
+                    ++end;
 
-                    g_options._exclude._positive.emplace_back(wildcardtl::wildcard
-                        { pathname, is_windows() },
-                        // If pathname does not include a wildcard
-                        // store it as a plain string for error reporting.
-                        strpbrk(nm, "*?[") ?
-                        std::string() :
-                        pathname);
-                }
-            }
+                first = end;
+            } while (end != second);
+        }
+    },
+    {
+        option::type::output,
+        '\0',
+        "exclude-from",
+        "FILE",
+        "skip files that match any file pattern from FILE",
+        [](int& i, const bool longp, const char* const argv[],
+            std::string_view value, std::vector<config>&)
+        {
+            validate_value(i, argv, longp, value);
+
+            // We know that the string is zero terminated
+            lexertl::memory_file mf(value.data());
+            const char* first = mf.data();
+
+            if (!first)
+                throw gg_error(std::format("Unable to open {}", value));
+
+            const char* second = first + mf.size();
+            const char* end = first;
+
+            do
+            {
+                while (end != second && *end != '\r' && *end != '\n')
+                    ++end;
+
+                exclude_pathname(first, end);
+
+                while (end != second && (*end == '\r' || *end == '\n'))
+                    ++end;
+
+                first = end;
+            } while (end != second);
         }
     },
     {
@@ -629,6 +770,18 @@ const option g_option[]
             std::from_chars(value.data(), value.data() + value.size(),
                 g_options._before_context);
             g_options._after_context = g_options._before_context;
+        }
+    },
+    {
+        option::type::context,
+        '0',
+        nullptr,
+        nullptr,
+        "same as --context=NUM",
+        [](int&, const bool, const char* const [],
+            std::string_view, std::vector<config>&)
+        {
+            // Handled in process_short() in args.cpp
         }
     },
     {

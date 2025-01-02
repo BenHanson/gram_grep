@@ -249,12 +249,19 @@ file_type load_file(std::vector<unsigned char>& utf8,
     return false;
 }
 
-static void print_pathname(const std::string& pathname)
+static std::string_view normalise_pathname(const std::string& pathname)
 {
-    const std::string_view pn = (pathname[0] == '.' &&
+    std::string_view pn = (pathname[0] == '.' &&
         pathname[1] == fs::path::preferred_separator) ?
         pathname.c_str() + 2 :
         pathname.c_str();
+
+    return pn;
+}
+
+static void print_pathname(const std::string& pathname)
+{
+    const std::string_view pn = normalise_pathname(pathname);
 
     if (g_options._colour && is_a_tty(stdout))
     {
@@ -865,12 +872,8 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
 
             if (type == file_type::binary)
             {
-                const std::string_view pn = (pathname[0] == '.' &&
-                    pathname[1] == fs::path::preferred_separator) ?
-                    pathname.c_str() + 2 :
-                    pathname.c_str();
-
-                std::cout << output_gg << "Binary file " << pn << " matches\n";
+                std::cout << output_gg << "Binary file " <<
+                    normalise_pathname(pathname) << " matches\n";
                 return;
             }
             else
@@ -1067,10 +1070,27 @@ static void process()
 
             if (fs::is_directory(p))
             {
-                if (g_options._recursive && include_dir(pathname.
-                    substr(pathname.rfind(fs::path::preferred_separator) + 1)))
+                switch (g_options._directories)
                 {
-                    queue.emplace(pathname, wcs);
+                case directories::read:
+                    output_text_nl(std::cerr, is_a_tty(stderr),
+                        g_options._wa_text.c_str(),
+                        std::format("{}{}: Is a directory",
+                            gg_text(),
+                            normalise_pathname(p.string())));
+                    break;
+                case directories::recurse:
+                    if (!(fs::is_symlink(p) && !g_options._follow_symlinks) &&
+                        include_dir(pathname.substr(pathname.
+                        rfind(fs::path::preferred_separator) + 1)))
+                    {
+                        queue.emplace(pathname, wcs);
+                    }
+
+                    break;
+                case directories::skip:
+                    // Do nothing
+                    break;
                 }
             }
             else
@@ -1087,24 +1107,18 @@ static void process()
             }
         }
 
-        if (!processed && !g_options._recursive && !g_options._no_messages)
+        if (!processed && g_options._directories != directories::recurse &&
+            !g_options._no_messages)
         {
             for (const auto& wildcard : wcs->_positive)
             {
                 if (!wildcard._pathname.empty())
                 {
-                    const std::string_view pn =
-                        (wildcard._pathname[0] == '.' &&
-                            wildcard._pathname[1] ==
-                            fs::path::preferred_separator) ?
-                        wildcard._pathname.c_str() + 2 :
-                        wildcard._pathname.c_str();
-
                     output_text_nl(std::cerr, is_a_tty(stderr),
                         g_options._wa_text.c_str(),
                         std::format("{}{}: No such file or directory",
                             gg_text(),
-                            pn));
+                            normalise_pathname(wildcard._pathname)));
                 }
             }
         }
@@ -1124,7 +1138,8 @@ void add_pathname(std::string pn,
 
     if (g_options._show_filename == show_filename::undefined &&
         !g_options._quiet &&
-        (g_options._recursive || wc_idx != std::string::npos || negate))
+        (g_options._directories == directories::recurse ||
+            wc_idx != std::string::npos || negate))
     {
         g_options._show_filename = show_filename::yes;
     }
@@ -1133,7 +1148,7 @@ void add_pathname(std::string pn,
     {
         if (!((!negate && wc_idx == 0) || (negate && wc_idx == 1)))
         {
-            if (g_options._recursive)
+            if (g_options._directories == directories::recurse)
                 pn.insert(negate ? 1 : 0, std::string(1, '*') +
                     static_cast<char>(fs::path::preferred_separator));
             else
@@ -1141,7 +1156,7 @@ void add_pathname(std::string pn,
                     static_cast<char>(fs::path::preferred_separator));
         }
     }
-    else if (g_options._recursive &&
+    else if (g_options._directories == directories::recurse &&
         !((!negate && wc_idx == 0) || (negate && wc_idx == 1)))
     {
         pn = std::string(1, '*') + pn.substr(sep_idx);

@@ -175,6 +175,38 @@ static void process_short(int& i, const int argc, const char* const argv[],
     }
 }
 
+void add_pattern(const char* param, std::vector<config>& configs)
+{
+    // Use the lexertl enum operator
+    using namespace lexertl;
+
+    const match_type type = []()
+        {
+            switch (g_options._pattern_type)
+            {
+            case pattern_type::fixed:
+                return match_type::text;
+            case pattern_type::flex:
+                return match_type::dfa_regex;
+            default:
+                return match_type::regex;
+            }
+        } ();
+
+    if (g_options._pattern_type == pattern_type::extended)
+        g_flags |= *config_flags::egrep;
+    else if (g_options._pattern_type == pattern_type::basic ||
+        g_options._pattern_type == pattern_type::none)
+    {
+        g_flags |= *config_flags::grep;
+    }
+
+    configs.emplace_back(type, param, g_flags,
+        std::move(g_options._conditions));
+    g_options._pattern_type = pattern_type::none;
+    g_flags = 0;
+}
+
 void read_switches(const int argc, const char* const argv[],
     std::vector<config>& configs, std::vector<std::string>& files)
 {
@@ -193,34 +225,7 @@ void read_switches(const int argc, const char* const argv[],
                 files.emplace_back(argv[i]);
             else
             {
-                // Use the lexertl enum operator
-                using namespace lexertl;
-
-                const match_type type = []()
-                    {
-                        switch (g_options._pattern_type)
-                        {
-                        case pattern_type::fixed:
-                            return match_type::text;
-                        case pattern_type::flex:
-                            return match_type::dfa_regex;
-                        default:
-                            return match_type::regex;
-                        }
-                    } ();
-
-                if (g_options._pattern_type == pattern_type::extended)
-                    g_flags |= *config_flags::egrep;
-                else if (g_options._pattern_type == pattern_type::basic ||
-                    g_options._pattern_type == pattern_type::none)
-                {
-                    g_flags |= *config_flags::grep;
-                }
-
-                configs.emplace_back(type, param, g_flags,
-                    std::move(g_options._conditions));
-                g_options._pattern_type = pattern_type::none;
-                g_flags = 0;
+                add_pattern(param, configs);
             }
         }
     }
@@ -239,7 +244,12 @@ void show_option(const option& opt)
 
     if (opt._short)
     {
-        ss << '-' << opt._short;
+        ss << '-';
+        
+        if (opt._short == '0')
+            ss << "NUM";
+        else
+            ss << opt._short;
 
         if (opt._long)
             ss << ", ";
