@@ -1065,8 +1065,12 @@ static void process()
             const std::string pathname = reinterpret_cast<const char*>
                 (p.u8string().c_str());
 
-            if (!process_file(pathname, *wcs))
-                continue;
+            if (!fs::is_directory(p) ||
+                g_options._directories == directories::read)
+            {
+                if (!process_file(pathname, *wcs))
+                    continue;
+            }
 
             if (fs::is_directory(p))
             {
