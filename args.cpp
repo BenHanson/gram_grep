@@ -221,8 +221,15 @@ void read_switches(const int argc, const char* const argv[],
                 process_short(i, argc, argv, configs);
         else
         {
+            namespace fs = std::filesystem;
+
             if (g_options._pattern_type == pattern_type::none && !configs.empty())
-                files.emplace_back(argv[i]);
+            {
+                files.emplace_back(g_options._directories == directories::recurse ?
+                    (std::string(argv[i]) +
+                        static_cast<char>(fs::path::preferred_separator)) + '*' :
+                    argv[i]);
+            }
             else
             {
                 add_pattern(param, configs);
@@ -266,7 +273,12 @@ void show_option(const option& opt)
     }
 
     if (opt._param)
-        ss << '=' << opt._param;
+    {
+        if (*opt._param == '[')
+            ss << '[' << '=' << opt._param + 1;
+        else
+            ss << '=' << opt._param;
+    }
 
     if (const auto sz = ss.view().size();
         sz < max_len - 1)

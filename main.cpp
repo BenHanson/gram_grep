@@ -1025,6 +1025,21 @@ static bool process_file(const std::string& pathname, const wildcards &wcs)
     return process;
 }
 
+bool include_file(const std::string& path)
+{
+    return (g_options._include._positive.empty() ||
+        std::ranges::any_of(g_options._include._positive,
+            [&path](const auto& pn)
+            {
+                return pn._wc.match(path);
+            })) &&
+        std::ranges::none_of(g_options._include._negative,
+            [&path](const auto& pn)
+            {
+                return pn._wc.match(path);
+            });
+}
+
 bool include_dir(const std::string& path)
 {
     return (g_options._exclude_dirs._negative.empty() ||
@@ -1107,8 +1122,12 @@ static void process()
                     continue;
                 }
 
-                process_file(pathname);
-                processed = true;
+                if (include_file(pathname.substr(pathname.
+                    rfind(fs::path::preferred_separator) + 1)))
+                {
+                    process_file(pathname);
+                    processed = true;
+                }
             }
         }
 

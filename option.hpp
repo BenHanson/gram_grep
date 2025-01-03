@@ -84,13 +84,13 @@ void validate_value(int& i, const char* const argv[],
     }
 }
 
-void exclude_pathname(const char* first, const char* second)
+void add_pathname(const char* first, const char* second, wildcards& wcs)
 {
     const std::string pathname(first, second);
 
     if (*first == '!')
     {
-        g_options._exclude._negative.emplace_back(wildcardtl::wildcard
+        wcs._negative.emplace_back(wildcardtl::wildcard
             { pathname, is_windows() },
             // If pathname does not include a wildcard
             // store it as a plain string for error reporting.
@@ -100,7 +100,7 @@ void exclude_pathname(const char* first, const char* second)
     }
     else
     {
-        g_options._exclude._positive.emplace_back(wildcardtl::wildcard
+        wcs._positive.emplace_back(wildcardtl::wildcard
             { pathname, is_windows() },
             // If pathname does not include a wildcard
             // store it as a plain string for error reporting.
@@ -170,11 +170,14 @@ const option g_option[]
         "regexp",
         "PATTERN",
         "use PATTERN for matching",
-        [](int&, const bool, const char* const [],
-            std::string_view, std::vector<config>&)
+        [](int& i, const bool longp, const char* const argv[],
+            std::string_view value, std::vector<config>& configs)
         {
             check_pattern_set();
+            validate_value(i, argv, longp, value);
             g_options._pattern_type = pattern_type::basic;
+            // We know that the string is zero terminated
+            add_pattern(value.data(), configs);
         }
     },
     {
@@ -343,10 +346,9 @@ const option g_option[]
         [](int& i, const bool longp, const char* const argv[],
             std::string_view value, std::vector<config>&)
         {
-            validate_value(i, argv, longp, value);
-
             std::stringstream ss;
 
+            validate_value(i, argv, longp, value);
             ss << value;
             ss >> g_options._max_count;
         }
@@ -417,10 +419,9 @@ const option g_option[]
         "label",
         "LABEL",
         "use LABEL as the standard input file name prefix",
-        [](int& i, const bool longp, const char* const argv[],
+        [](int&, const bool, const char* const [],
             std::string_view value, std::vector<config>&)
         {
-            validate_value(i, argv, longp, value);
             g_options._label = value;
         }
     },
@@ -555,14 +556,12 @@ const option g_option[]
     {
         option::type::output,
         '\0',
-        "exclude",
+        "include",
         "GLOB",
-        "skip files that match GLOB",
-        [](int& i, const bool longp, const char* const argv[],
+        "search only files that match GLOB (a file pattern)",
+        [](int&, const bool, const char* const [],
             std::string_view value, std::vector<config>&)
         {
-            validate_value(i, argv, longp, value);
-
             const char* first = value.data();
             const char* end = nullptr;
             const char* second = first + value.size();
@@ -574,7 +573,36 @@ const option g_option[]
                 end = idx == std::string_view::npos ?
                     second :
                     first + idx;
-                exclude_pathname(first, end);
+                add_pathname(first, end, g_options._include);
+
+                if (end != second)
+                    ++end;
+
+                first = end;
+            } while (end != second);
+        }
+    },
+    {
+        option::type::output,
+        '\0',
+        "exclude",
+        "GLOB",
+        "skip files that match GLOB",
+        [](int&, const bool, const char* const [],
+            std::string_view value, std::vector<config>&)
+        {
+            const char* first = value.data();
+            const char* end = nullptr;
+            const char* second = first + value.size();
+
+            do
+            {
+                const auto idx = value.find_first_of(';', value.data() - first);
+
+                end = idx == std::string_view::npos ?
+                    second :
+                    first + idx;
+                add_pathname(first, end, g_options._exclude);
 
                 if (end != second)
                     ++end;
@@ -589,11 +617,9 @@ const option g_option[]
         "exclude-from",
         "FILE",
         "skip files that match any file pattern from FILE",
-        [](int& i, const bool longp, const char* const argv[],
+        [](int&, const bool, const char* const [],
             std::string_view value, std::vector<config>&)
         {
-            validate_value(i, argv, longp, value);
-
             // We know that the string is zero terminated
             lexertl::memory_file mf(value.data());
             const char* first = mf.data();
@@ -609,7 +635,7 @@ const option g_option[]
                 while (end != second && *end != '\r' && *end != '\n')
                     ++end;
 
-                exclude_pathname(first, end);
+                add_pathname(first, end, g_options._exclude);
 
                 while (end != second && (*end == '\r' || *end == '\n'))
                     ++end;
@@ -624,11 +650,9 @@ const option g_option[]
         "exclude-dir",
         "GLOB",
         "skip directories that match GLOB",
-        [](int& i, const bool longp, const char* const argv[],
+        [](int&, const bool, const char* const [],
             std::string_view value, std::vector<config>&)
         {
-            validate_value(i, argv, longp, value);
-
             const std::string str(value);
             auto pathnames = split(str.c_str(), ';');
 
@@ -790,10 +814,9 @@ const option g_option[]
         "group-separator",
         "SEP",
         "print SEP on line between matches with context",
-        [](int& i, const bool longp, const char* const argv[],
+        [](int&, const bool, const char* const [],
             std::string_view value, std::vector<config>&)
         {
-            validate_value(i, argv, longp, value);
             g_options._separator = value;
         }
     },
@@ -832,10 +855,9 @@ const option g_option[]
         "checkout",
         "CMD",
         "checkout command (include $1 for pathname)",
-        [](int& i, const bool longp, const char* const argv[],
+        [](int&, const bool, const char* const [],
             std::string_view value, std::vector<config>&)
         {
-            validate_value(i, argv, longp, value);
             // "C:\Program Files (x86)\Microsoft Visual Studio 14.0\Common7\IDE\tf.exe"
             // checkout $1
             // *NOTE* $1 is replaced by the pathname
@@ -848,11 +870,9 @@ const option g_option[]
         "config",
         "CONFIG_FILE",
         "search using config file",
-        [](int& i, const bool longp, const char* const argv[],
+        [](int&, const bool, const char* const [],
             std::string_view value, std::vector<config>& configs)
         {
-            validate_value(i, argv, longp, value);
-
             const std::string str(value);
             auto pathnames = split(str.c_str(), ';');
 
@@ -923,10 +943,9 @@ const option g_option[]
         "exec",
         "CMD",
         "Executes the supplied command",
-        [](int& i, const bool longp, const char* const argv[],
+        [](int&, const bool, const char* const [],
             std::string_view value, std::vector<config>&)
         {
-            validate_value(i, argv, longp, value);
             g_options._exec = value;
         }
     },
@@ -976,11 +995,9 @@ const option g_option[]
         "if",
         "CONDITION",
         "make search conditional",
-        [](int& i, const bool longp, const char* const argv[],
+        [](int&, const bool, const char* const [],
             std::string_view value, std::vector<config>&)
         {
-            validate_value(i, argv, longp, value);
-
             const std::string str(value);
 
             parse_condition(str.c_str());
@@ -1044,10 +1061,9 @@ const option g_option[]
         "replace",
         "TEXT",
         "replace match with TEXT",
-        [](int& i, const bool longp, const char* const argv[],
+        [](int&, const bool, const char* const [],
             std::string_view value, std::vector<config>&)
         {
-            validate_value(i, argv, longp, value);
             g_options._replace = unescape(value);
         }
     },
@@ -1072,10 +1088,9 @@ const option g_option[]
         "shutdown",
         "CMD",
         "command to run when exiting",
-        [](int& i, const bool longp, const char* const argv[],
+        [](int&, const bool, const char* const [],
             std::string_view value, std::vector<config>&)
         {
-            validate_value(i, argv, longp, value);
             // "C:\Program Files (x86)\Microsoft Visual Studio 14.0\Common7\IDE\tf.exe"
             // /delete /collection:http://tfssrv01:8080/tfs/PartnerDev gram_grep /noprompt
             g_options._shutdown = value;
@@ -1087,10 +1102,9 @@ const option g_option[]
         "startup",
         "CMD",
         "command to run at startup",
-        [](int& i, const bool longp, const char* const argv[],
+        [](int&, const bool, const char* const[],
             std::string_view value, std::vector<config>&)
         {
-            validate_value(i, argv, longp, value);
             // "C:\Program Files (x86)\Microsoft Visual Studio 14.0\Common7\IDE\tf.exe"
             // workspace /new /collection:http://tfssrv01:8080/tfs/PartnerDev gram_grep
             // /noprompt

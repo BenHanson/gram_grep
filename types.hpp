@@ -93,6 +93,7 @@ struct options
     directories _directories = directories::read;
     dump _dump = dump::no;
     bool _dump_argv = false;
+    wildcards _include;
     wildcards _exclude;
     wildcards _exclude_dirs;
     std::string _exec;
