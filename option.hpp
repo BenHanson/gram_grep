@@ -86,7 +86,7 @@ void validate_value(int& i, const char* const argv[],
 
 void add_pathname(const char* first, const char* second, wildcards& wcs)
 {
-    const std::string pathname(first, second);
+    const std::string pathname(*first == '!' ? first + 1 : first, second);
 
     if (*first == '!')
     {
