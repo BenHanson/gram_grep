@@ -1,4 +1,5 @@
 %token INSERT INTO Name String VALUES
+%consume String
 %%
 start: insert;
 insert: INSERT into name VALUES;

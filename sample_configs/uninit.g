@@ -1,5 +1,6 @@
 %token Bool CHAR CONST EXTERN INT LONG Name NULLPTR Number RETURN
 %token SimpleType SIZE_T STATIC STD TYPEDEF UNSIGNED WindowsType
+%consume RETURN
 %%
 start: decl;
 decl: type list ';';

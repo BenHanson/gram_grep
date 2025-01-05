@@ -545,8 +545,13 @@ static void display_match(const std::string& pathname,
                 std::cout << szEraseEOL;
         }
 
-        for (; data._bol < data._curr; ++data._bol)
-            std::cout << *data._bol;
+        if (data._bol)
+        {
+            for (; data._bol < data._curr; ++data._bol)
+                std::cout << *data._bol;
+        }
+        else
+            std::cout << '\n';
 
         if (!data._negate)
         {

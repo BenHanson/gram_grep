@@ -1,7 +1,6 @@
-%token AS Integer INTO MERGE Name PERCENT TOP USING WITH
+%token AS Integer INTO MERGE Name PERCENT TOP USING
 %%
 merge: MERGE opt_top opt_into name opt_alias USING;
-/*merge: MERGE opt_top opt_into name opt_alias WITH;*/
 opt_top: %empty | TOP '(' Integer ')' opt_percent;
 opt_percent: %empty | PERCENT;
 opt_into: %empty | INTO;
@@ -16,7 +15,6 @@ opt_as: %empty | AS;
 (?i:PERCENT)                                          PERCENT
 (?i:TOP)                                              TOP
 (?i:USING)                                            USING
-(?i:WITH)                                             WITH
 \.                                                    '.'
 \(                                                    '('
 \)                                                    ')'

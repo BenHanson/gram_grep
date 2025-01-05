@@ -1,4 +1,5 @@
 %token format anything
+%consume anything
 %x PREBODY BODY PARENS
 %%
 start: format '(' ')';
