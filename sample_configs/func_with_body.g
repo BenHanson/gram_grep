@@ -9,7 +9,7 @@
 start: (name_or_op) opt_template_params ('(' ')') opt_qualifiers opt_param_list ('{' '}');
 opt_template_params: %empty | '<' name '>';
 opt_qualifiers: %empty | opt_qualifiers qualifier;
-qualifier: '&' | '&&' | 'const' | 'final' | 'override' | 'volatile' | 'throw' '(' ')';
+qualifier: '&' | '&&' | 'const' | 'final' | 'noexcept' | 'override' | 'throw' '(' ')' | 'volatile';
 opt_param_list: %empty | ':' param_list;
 param_list: param | param_list ',' param;
 param: name '(' ')' | name '{' '}';
@@ -94,6 +94,7 @@ extern\s*["]C["]\s*\{     skip()
 #.*                       skip()
 const                     'const'
 final                     'final'
+noexcept                  'noexcept'
 operator                  'operator'
 override                  'override'
 throw                     'throw'

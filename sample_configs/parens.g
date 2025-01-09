@@ -3,7 +3,7 @@
 // in order to match any embeded blocks inside those constructs.
 %token anything
 %consume anything
-%x BODY BRACES
+%x PARAMS PARENS
 %%
 start: '(' ')';
 %%
@@ -13,15 +13,15 @@ name [A-Z_a-z][0-9A-Z_a-z]*
 string \"([^"\\]|\\.)*\"|R\"\((?s:.)*?\)\"
 ws [ \t\r\n]+|\/\/.*|"/*"(?s:.)*?"*/"
 %%
-<INITIAL>\(<BODY>         '('
-<BODY,BRACES>\(<>BRACES>  skip()
-<BRACES>\)<<>             skip()
-<BODY>\)<INITIAL>         ')'
-<BRACES,BODY>{string}<.>  skip()
-<BRACES,BODY>{char}<.>    skip()
-<BRACES,BODY>{ws}<.>      skip()
-<BRACES,BODY>{name}<.>    skip()
-<BRACES,BODY>{any}<.>     skip()
+<INITIAL>\(<PARAMS>         '('
+<PARAMS,PARENS>\(<>PARENS>  skip()
+<PARENS>\)<<>             skip()
+<PARAMS>\)<INITIAL>         ')'
+<PARENS,PARAMS>{string}<.>  skip()
+<PARENS,PARAMS>{char}<.>    skip()
+<PARENS,PARAMS>{ws}<.>      skip()
+<PARENS,PARAMS>{name}<.>    skip()
+<PARENS,PARAMS>{any}<.>     skip()
 
 {string}                  anything
 {char}                    anything

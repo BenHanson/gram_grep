@@ -609,7 +609,9 @@ static bool process_matches(match_data& data,
                 const std::string cmd = build_text(g_options._exec,
                     data._captures);
 
-                std::cout << "Executing: " << cmd << '\n';
+                output_text_nl(std::cout, is_a_tty(stdout),
+                    g_options._wa_text.c_str(),
+                    std::format("Executing: {}", cmd));
                 std::cout << exec_ret(cmd);
             }
             else if (g_options._pathname_only != pathname_only::negated &&
