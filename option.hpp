@@ -117,7 +117,7 @@ const option g_option[]
         'E',
         "extended-regexp",
         nullptr,
-        "PATTERN is an extended regular expression (ERE)",
+        "PATTERNS are extended regular expressions",
         [](int&, const bool, const char* const [],
             std::string_view, std::vector<config>&)
         {
@@ -143,7 +143,7 @@ const option g_option[]
         'G',
         "basic-regexp",
         nullptr,
-        "PATTERN is a basic regular expression (BRE)",
+        "PATTERNS are basic regular expressions",
         [](int&, const bool, const char* const [],
             std::string_view, std::vector<config>&)
         {
@@ -168,8 +168,8 @@ const option g_option[]
         option::type::regexp,
         'e',
         "regexp",
-        "PATTERN",
-        "use PATTERN for matching",
+        "PATTERNS",
+        "use PATTERNS for matching",
         [](int& i, const bool longp, const char* const argv[],
             std::string_view value, std::vector<config>& configs)
         {

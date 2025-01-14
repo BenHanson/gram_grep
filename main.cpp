@@ -533,6 +533,7 @@ static void display_match(const std::string& pathname,
         output_text(std::cout, is_a_tty(stdout),
             g_options._ms_text.c_str(),
             std::string_view(start, data._curr));
+        std::cout << '\n';
     }
     else
     {
