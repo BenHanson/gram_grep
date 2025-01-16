@@ -530,10 +530,9 @@ static void display_match(const std::string& pathname,
         for (; data._curr != iter->_eoi &&
             *data._curr != '\r' && *data._curr != '\n'; ++data._curr);
 
-        output_text(std::cout, is_a_tty(stdout),
+        output_text_nl(std::cout, is_a_tty(stdout),
             g_options._ms_text.c_str(),
             std::string_view(start, data._curr));
-        std::cout << '\n';
     }
     else
     {
