@@ -1,6 +1,24 @@
 # gram_grep
 Search text using a grammar, lexer, or straight regex. Chain searches for greater refinement.
 
-This tool uses lexertl17, parsertl17 and wildcardtl so be sure to download those too from my github page.
-
 See [http://benhanson.net/gram_grep.html](http://benhanson.net/gram_grep.html) for examples.
+
+To build:
+```
+git clone https://github.com/BenHanson/gram_grep.git
+git clone https://github.com/BenHanson/parsertl17.git
+git clone https://github.com/BenHanson/lexertl17.git
+git clone https://github.com/BenHanson/wildcardtl.git
+```
+- If on Windows you can use the `gram_grep.sln` file for Visual Studio in the `gram_grep` directory
+- If on Linux you can run `make` from the `gram_grep` directory
+- If you would like to use `cmake`, instead follow the below instructions
+
+### Building Using CMake
+```
+cd gram_grep
+mkdir build
+cd build
+cmake ..
+cmake --build .
+```
