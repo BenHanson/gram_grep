@@ -120,7 +120,10 @@ static void process_long(int& i, const char* const argv[],
     }
     else
     {
-        throw gg_error(std::format("Unknown switch {}", argv[i]));
+        std::cerr << gg_text() <<
+            std::format("unrecognised option '{}'\n", argv[i]);
+        show_usage();
+        exit(2);
     }
 }
 
@@ -167,7 +170,10 @@ static void process_short(int& i, const int argc, const char* const argv[],
         }
         else
         {
-            throw gg_error(std::format("Unknown switch -{}", *param));
+            std::cerr << gg_text() <<
+                std::format("unrecognised option '-{}'\n", *param);
+            show_usage();
+            exit(2);
         }
 
         ++param;
