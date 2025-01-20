@@ -13,9 +13,9 @@ qualifier: '&' | '&&' | 'const' | 'final' | 'noexcept' | 'override' | 'throw' '(
 opt_param_list: %empty | ':' param_list;
 param_list: param | param_list ',' param;
 param: name '(' ')' | name '{' '}';
-name_or_op: name | operator;
-name: Name | name '::' opt_tilde Name;
+name_or_op: Name '::' opt_tilde Name | operator;
 opt_tilde: %empty | '~';
+name: Name | name '::' Name;
 operator: 'operator' op;
 op: name | '+' | '-' | '*'| '/' | '%' | '^' | '&' | '|' | '~' | '!' | '='
   | '<' | '>' | '+=' | '-=' | '*=' | '/=' | '%=' | '^=' | '&=' | '|='

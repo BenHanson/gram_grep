@@ -110,10 +110,9 @@ static void process_long(int& i, const char* const argv[],
 
         if (!value.empty() && !iter->_param)
         {
-            throw gg_error(std::format("{}option '{}' "
+            throw gg_error(std::format("option '{}' "
                 "doesn't accept an argument\n"
                 "Try 'gram_grep --help' for more information.",
-                gg_text(),
                 param));
         }
 
