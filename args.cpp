@@ -110,10 +110,12 @@ static void process_long(int& i, const char* const argv[],
 
         if (!value.empty() && !iter->_param)
         {
-            throw gg_error(std::format("option '{}' "
-                "doesn't accept an argument\n"
-                "Try 'gram_grep --help' for more information.",
-                param));
+            std::cerr << std::format("{}option '--{}' "
+                "doesn't allow an argument\n",
+                gg_text(),
+                param);
+            show_usage();
+            exit(2);
         }
 
         iter->_func(i, true, argv, value, configs);
@@ -159,7 +161,7 @@ static void process_short(int& i, const int argc, const char* const argv[],
             if (iter->_param && i + 1 == argc)
             {
                 std::cerr << std::format("{}option requires an "
-                    "argument -- {}\n",
+                    "argument -- '{}'\n",
                     gg_text(),
                     argv[i][1]);
                 show_usage();

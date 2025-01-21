@@ -1649,7 +1649,10 @@ int main(int argc, char* argv[])
         }
 
         if (g_pipeline.empty())
-            throw gg_error("No actions have been specified.");
+        {
+            show_usage();
+            return 2;
+        }
 
         if (g_options._pathname_only != pathname_only::no &&
             g_options._show_count)
