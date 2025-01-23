@@ -201,9 +201,7 @@ void config_state::parse(const unsigned int flags,
     _mf.open(config_pathname.c_str());
 
     if (!_mf.data())
-    {
         throw gg_error(std::format("Unable to open {}", config_pathname));
-    }
 
     iter = lexertl::citerator(_mf.data(), _mf.data() + _mf.size(),
         g_config_parser._lsm);
@@ -292,17 +290,12 @@ void config_state::parse(const unsigned int flags,
 
         if (!warnings.empty())
         {
-            if (!g_options._no_messages)
-            {
-                const std::string msg =
-                    std::format("{}Warnings from config {} : {}",
-                        gg_text(),
-                        config_pathname,
-                        warnings);
-
-                output_text(std::cerr, is_a_tty(stderr),
-                    g_options._wa_text.c_str(), msg);
-            }
+            output_text(std::cerr, is_a_tty(stderr),
+                g_options._wa_text.c_str(),
+                std::format("{}Warnings from config {} : {}",
+                    gg_text(),
+                    config_pathname,
+                    warnings));
         }
 
         for (const auto& p : grammar)
@@ -341,33 +334,23 @@ void config_state::parse(const unsigned int flags,
 
             if (!found_id)
             {
-                if (!g_options._no_messages)
-                {
-                    const std::string msg =
-                        std::format("{}Token \"{}\" does not have a "
-                            "lexer definiton.",
-                            gg_text(),
-                            terminals[i]);
-
-                    output_text_nl(std::cerr, is_a_tty(stderr),
-                        g_options._wa_text.c_str(), msg);
-                }
+                output_text_nl(std::cerr, is_a_tty(stderr),
+                    g_options._wa_text.c_str(),
+                    std::format("{}Token \"{}\" does not have a "
+                        "lexer definiton.",
+                        gg_text(),
+                        terminals[i]));
             }
 
             if (!used_tokens.contains(i) && !used_prec.contains(i) &&
                 std::ranges::find(_consume, terminals[i]) == _consume.end())
             {
-                if (!g_options._no_messages)
-                {
-                    const std::string msg =
-                        std::format("{}Token \"{}\" is not used in "
-                            "the grammar.",
-                            gg_text(),
-                            terminals[i]);
-
-                    output_text_nl(std::cerr, is_a_tty(stderr),
-                        g_options._wa_text.c_str(), msg);
-                }
+                output_text_nl(std::cerr, is_a_tty(stderr),
+                    g_options._wa_text.c_str(),
+                    std::format("{}Token \"{}\" is not used in "
+                        "the grammar.",
+                        gg_text(),
+                        terminals[i]));
             }
         }
     }

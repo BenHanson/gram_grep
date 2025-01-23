@@ -172,15 +172,11 @@ file_type load_file(std::vector<unsigned char>& utf8,
 
         if (first < tuple._first || first > tuple._second)
         {
-            if (!g_options._no_messages)
-            {
-                output_text_nl(std::cerr, is_a_tty(stderr),
-                    g_options._wa_text.c_str(),
-                    std::format("{}Cannot replace text when source is not "
-                        "contained in original string.",
-                        gg_text()));
-            }
-
+            output_text_nl(std::cerr, is_a_tty(stderr),
+                g_options._wa_text.c_str(),
+                std::format("{}Cannot replace text when source is not "
+                    "contained in original string.",
+                    gg_text()));
             return true;
         }
         else
@@ -220,18 +216,12 @@ file_type load_file(std::vector<unsigned char>& utf8,
                             replace += data._captures[idx].front();
                         else
                         {
-                            if (!g_options._no_messages)
-                            {
-                                const std::string msg =
-                                    std::format("{}Capture ${} is "
-                                        "out of range.",
-                                        gg_text(),
-                                        idx);
-
-                                output_text_nl(std::cerr, is_a_tty(stderr),
-                                    g_options._wa_text.c_str(), msg);
-                            }
-
+                            output_text_nl(std::cerr, is_a_tty(stderr),
+                                g_options._wa_text.c_str(),
+                                std::format("{}Capture ${} is "
+                                    "out of range.",
+                                    gg_text(),
+                                    idx));
                             skip = true;
                         }
                     }
@@ -682,13 +672,11 @@ static void perform_output(match_data& data, const std::string& pathname,
         {
             if (!g_options._no_messages)
             {
-                const std::string msg =
+                output_text_nl(std::cerr, is_a_tty(stderr),
+                    g_options._wa_text.c_str(),
                     std::format("{}{} is read only.",
                         gg_text(),
-                        pathname);
-
-                output_text_nl(std::cerr, is_a_tty(stderr),
-                    g_options._wa_text.c_str(), msg);
+                        pathname));
             }
         }
         else
@@ -812,13 +800,11 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
     {
         if (!g_options._no_messages)
         {
-            const std::string msg =
+            output_text_nl(std::cerr, is_a_tty(stderr),
+                g_options._wa_text.c_str(),
                 std::format("{}failed to open {}.",
                     gg_text(),
-                    pathname);
-
-            output_text_nl(std::cerr, is_a_tty(stderr),
-                g_options._wa_text.c_str(), msg);
+                    pathname));
         }
 
         return;
@@ -961,71 +947,54 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
 static bool process_file(const std::string& pathname, const wildcards &wcs)
 {
     bool process = false;
+    const char* filename = pathname.c_str() +
+        pathname.rfind(fs::path::preferred_separator) + 1;
+    bool skip = !g_options._exclude._negative.empty();
 
-    try
+    for (const auto& pn : g_options._exclude._negative)
     {
-        const char* filename = pathname.c_str() +
-            pathname.rfind(fs::path::preferred_separator) + 1;
-        bool skip = !g_options._exclude._negative.empty();
-
-        for (const auto& pn : g_options._exclude._negative)
+        if (!pn._wc.match(filename))
         {
-            if (!pn._wc.match(filename))
+            skip = false;
+            break;
+        }
+    }
+
+    if (!skip)
+    {
+        for (const auto& pn : g_options._exclude._positive)
+        {
+            if (pn._wc.match(filename))
             {
-                skip = false;
+                skip = true;
+                break;
+            }
+        }
+    }
+
+    if (!skip)
+    {
+        process = !wcs._negative.empty();
+
+        for (const auto& pn : wcs._negative)
+        {
+            if (!pn._wc.match(pathname))
+            {
+                process = false;
                 break;
             }
         }
 
-        if (!skip)
+        if (!process)
         {
-            for (const auto& pn : g_options._exclude._positive)
+            for (const auto& pn : wcs._positive)
             {
-                if (pn._wc.match(filename))
+                if (pn._wc.match(pathname))
                 {
-                    skip = true;
+                    process = true;
                     break;
                 }
             }
-        }
-
-        if (!skip)
-        {
-            process = !wcs._negative.empty();
-
-            for (const auto& pn : wcs._negative)
-            {
-                if (!pn._wc.match(pathname))
-                {
-                    process = false;
-                    break;
-                }
-            }
-
-            if (!process)
-            {
-                for (const auto& pn : wcs._positive)
-                {
-                    if (pn._wc.match(pathname))
-                    {
-                        process = true;
-                        break;
-                    }
-                }
-            }
-        }
-    }
-    catch (const std::exception& e)
-    {
-        if (!g_options._no_messages)
-        {
-            const std::string msg =
-                std::format("{}{}",
-                    gg_text(),
-                    e.what());
-
-            output_text_nl(std::cerr, is_a_tty(stderr),
-                g_options._wa_text.c_str(), msg);
         }
     }
 
@@ -1099,11 +1068,15 @@ static void process()
                 switch (g_options._directories)
                 {
                 case directories::read:
-                    output_text_nl(std::cerr, is_a_tty(stderr),
-                        g_options._wa_text.c_str(),
-                        std::format("{}{}: Is a directory",
-                            gg_text(),
-                            normalise_pathname(p.string())));
+                    if (!g_options._no_messages)
+                    {
+                        output_text_nl(std::cerr, is_a_tty(stderr),
+                            g_options._wa_text.c_str(),
+                            std::format("{}{}: Is a directory",
+                                gg_text(),
+                                normalise_pathname(p.string())));
+                    }
+
                     break;
                 case directories::recurse:
                     if (!(fs::is_symlink(p) && !g_options._follow_symlinks) &&
@@ -1555,21 +1528,19 @@ std::string env_var(const char* var)
     return ret;
 }
 
-void show_usage()
+void show_usage(const std::string& msg = std::string())
 {
-    std::cerr << usage() << try_help();
+    std::cerr << msg << usage() << try_help();
+    exit(2);
 }
 
 int main(int argc, char* argv[])
 {
-    bool running = false;
-
     try
     {
         if (argc == 1)
         {
             show_usage();
-            return 2;
         }
 
         std::vector<config> configs;
@@ -1651,7 +1622,6 @@ int main(int argc, char* argv[])
         if (g_pipeline.empty())
         {
             show_usage();
-            return 2;
         }
 
         if (g_options._pathname_only != pathname_only::no &&
@@ -1671,21 +1641,17 @@ int main(int argc, char* argv[])
         {
             if (::system(g_options._startup.c_str()))
             {
-                const std::string msg =
+                output_text_nl(std::cerr, is_a_tty(stderr),
+                    g_options._wa_text.c_str(),
                     std::format("{}Failed to execute {}.",
                         gg_text(),
-                        g_options._startup);
-
-                output_text_nl(std::cerr, is_a_tty(stderr),
-                    g_options._wa_text.c_str(), msg);
+                        g_options._startup));
                 run = false;
             }
         }
 
         if (run)
         {
-            running = true;
-
             if (g_pathnames.empty())
             {
                 std::string cin;
@@ -1699,15 +1665,12 @@ int main(int argc, char* argv[])
         if (!g_options._shutdown.empty())
             if (::system(g_options._shutdown.c_str()))
             {
-                const std::string msg =
-                    std::format("{}Failed to execute {}.",
-                        gg_text(),
-                        g_options._shutdown);
-
                 output_text_nl(std::cerr, is_a_tty(stderr), run ?
                     g_options._ms_text.c_str() :
                     g_options._wa_text.c_str(),
-                    msg);
+                    std::format("{}Failed to execute {}.",
+                        gg_text(),
+                        g_options._shutdown));
             }
 
         if (g_options._summary)
@@ -1721,16 +1684,11 @@ int main(int argc, char* argv[])
     }
     catch (const std::exception& e)
     {
-        if (!(running && g_options._no_messages))
-        {
-            const std::string msg = std::format("{}{}",
+        output_text_nl(std::cerr, is_a_tty(stderr),
+            g_options._wa_text.c_str(),
+            std::format("{}{}",
                 gg_text(),
-                e.what());
-
-            output_text_nl(std::cerr, is_a_tty(stderr),
-                g_options._wa_text.c_str(), msg);
-        }
-
+                e.what()));
         return 1;
     }
 }

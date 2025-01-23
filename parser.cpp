@@ -1104,16 +1104,11 @@ void build_config_parser()
 
     if (!warnings.empty())
     {
-        if (!g_options._no_messages)
-        {
-            const std::string msg =
-                std::format("{}Config parser warnings: {}",
-                    gg_text(),
-                    warnings);
-
-            output_text_nl(std::cerr, is_a_tty(stderr),
-                g_options._ms_text.c_str(), msg);
-        }
+        output_text_nl(std::cerr, is_a_tty(stderr),
+            g_options._ms_text.c_str(),
+            std::format("{}Config parser warnings: {}",
+                gg_text(),
+                warnings));
     }
 
     lrules.push_state("OPTION");

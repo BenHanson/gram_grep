@@ -9,7 +9,7 @@ extern options g_options;
 
 extern void add_pattern(const char* param, std::vector<config>& configs);
 extern void parse_condition(const char* str);
-extern void show_usage(); 
+extern void show_usage(const std::string& msg = std::string()); 
 extern std::string unescape(const std::string_view& vw);
 
 struct option
@@ -522,7 +522,6 @@ const option g_option[]
                         gg_text(),
                         value));
                 show_usage();
-                exit(2);
             }
         }
     },

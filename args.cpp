@@ -9,7 +9,7 @@
 
 extern void build_condition_parser();
 extern std::string dedup_apostrophes(std::string str);
-extern void show_usage();
+extern void show_usage(const std::string& msg);
 
 extern options g_options;
 extern condition_parser g_condition_parser;
@@ -100,32 +100,27 @@ static void process_long(int& i, const char* const argv[],
     {
         if (iter->_param && value.empty() && *iter->_param != '[')
         {
-            std::cerr << std::format("{}option '{}' "
+            show_usage(std::format("{}option '{}' "
                 "requires an argument\n",
                 gg_text(),
-                argv[i]);
-            show_usage();
-            exit(2);
+                argv[i]));
         }
 
         if (!value.empty() && !iter->_param)
         {
-            std::cerr << std::format("{}option '--{}' "
+            show_usage(std::format("{}option '--{}' "
                 "doesn't allow an argument\n",
                 gg_text(),
-                param);
-            show_usage();
-            exit(2);
+                param));
         }
 
         iter->_func(i, true, argv, value, configs);
     }
     else
     {
-        std::cerr << gg_text() <<
-            std::format("unrecognised option '{}'\n", argv[i]);
-        show_usage();
-        exit(2);
+        show_usage(std::format("{}unrecognised option '{}'\n",
+            gg_text(),
+            argv[i]));
     }
 }
 
@@ -160,22 +155,19 @@ static void process_short(int& i, const int argc, const char* const argv[],
         {
             if (iter->_param && i + 1 == argc)
             {
-                std::cerr << std::format("{}option requires an "
+                show_usage(std::format("{}option requires an "
                     "argument -- '{}'\n",
                     gg_text(),
-                    argv[i][1]);
-                show_usage();
-                exit(2);
+                    argv[i][1]));
             }
 
             iter->_func(i, false, argv, std::string_view(), configs);
         }
         else
         {
-            std::cerr << gg_text() <<
-                std::format("unrecognised option '-{}'\n", *param);
-            show_usage();
-            exit(2);
+            show_usage(std::format("{}unrecognised option '-{}'\n",
+                gg_text(),
+                *param));
         }
 
         ++param;
@@ -328,13 +320,12 @@ void show_help()
     auto iter = std::begin(g_option);
     auto end = std::end(g_option);
 
-    std::cout << usage();
-    std::cout << "Search for PATTERNs in each FILE or standard input.\n";
-    std::cout << "PATTERN is, by default, a basic regular expression (BRE).\n";
-    std::cout << "This is only true for the first PATTERN (for grep compatibility).\n";
-    std::cout << "Example: gram_grep -i \"hello world\" menu.h main.c\n\n";
-
-    std::cout << "Pattern selection and interpretation:\n";
+    std::cout << usage() <<
+        "Search for PATTERNs in each FILE or standard input.\n"
+        "PATTERN is, by default, a basic regular expression (BRE).\n"
+        "This is only true for the first PATTERN (for grep compatibility).\n"
+        "Example: gram_grep -i \"hello world\" menu.h main.c\n\n"
+        "Pattern selection and interpretation:\n";
 
     for (; iter->_type == option::type::regexp; ++iter)
     {
@@ -369,8 +360,7 @@ void show_help()
         show_option(*iter);
     }
 
-    std::cout << '\n';
-    std::cout << "Config file format:\n"
+    std::cout << "\nConfig file format:\n"
         "  <grammar directives>\n"
         "  %%\n"
         "  <grammar>\n"

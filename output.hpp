@@ -47,10 +47,10 @@ void output_text(std::basic_ostream<CharT, Traits>& os, const bool tty,
 
 	if (g_options._colour && tty)
 	{
-		std::cerr << szDefaultText;
+		os << szDefaultText;
 
 		if (!g_options._ne)
-			std::cout << szEraseEOL;
+			os << szEraseEOL;
 	}
 }
 
