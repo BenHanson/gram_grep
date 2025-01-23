@@ -276,15 +276,25 @@ static void print_prefix(const std::string& pathname,
     match_data& data, const std::string& separator)
 {
     if (pathname.empty())
+    {
+        if (g_options._colour && is_a_tty(stdout))
+        {
+            std::cout << g_options._fn_text;
+
+            if (!g_options._ne)
+                std::cout << szEraseEOL;
+        }
+
         std::cout << g_options._label;
+    }
     else if (g_options._show_filename != show_filename::no)
     {
         print_pathname(pathname);
     }
 
-    if (!g_options._label.empty() ||
-        (g_options._show_filename != show_filename::no &&
-            g_options._line_numbers != line_numbers::with_parens))
+    if ((!g_options._label.empty() || !pathname.empty()) &&
+        g_options._show_filename == show_filename::yes &&
+            g_options._line_numbers != line_numbers::with_parens)
     {
         output_text(std::cout, is_a_tty(stdout),
             g_options._se_text.c_str(), separator.c_str());
