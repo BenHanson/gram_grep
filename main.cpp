@@ -271,9 +271,11 @@ static void print_prefix(const std::string& pathname,
         print_pathname(pathname);
     }
 
-    if ((!g_options._label.empty() || !pathname.empty()) &&
-        g_options._show_filename == show_filename::yes &&
-            g_options._line_numbers != line_numbers::with_parens)
+    if (((!g_options._label.empty() &&
+        g_options._show_filename == show_filename::yes) ||
+        (!pathname.empty() &&
+        g_options._show_filename != show_filename::no)) &&
+        g_options._line_numbers != line_numbers::with_parens)
     {
         output_text(std::cout, is_a_tty(stdout),
             g_options._se_text.c_str(), separator.c_str());
