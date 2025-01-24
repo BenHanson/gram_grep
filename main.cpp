@@ -262,8 +262,9 @@ static void print_prefix(const std::string& pathname,
 {
     if (pathname.empty())
     {
-        output_text(std::cout, is_a_tty(stdout),
-            g_options._fn_text.c_str(), g_options._label.c_str());
+        if (g_options._show_filename == show_filename::yes)
+            output_text(std::cout, is_a_tty(stdout),
+                g_options._fn_text.c_str(), g_options._label.c_str());
     }
     else if (g_options._show_filename != show_filename::no)
     {
@@ -271,7 +272,7 @@ static void print_prefix(const std::string& pathname,
     }
 
     if ((!g_options._label.empty() || !pathname.empty()) &&
-        g_options._show_filename != show_filename::no &&
+        g_options._show_filename == show_filename::yes &&
             g_options._line_numbers != line_numbers::with_parens)
     {
         output_text(std::cout, is_a_tty(stdout),
@@ -1129,7 +1130,7 @@ void add_pathname(std::string pn,
     auto& wcs = map[path];
 
     if (g_options._show_filename == show_filename::undefined &&
-        !g_options._quiet &&
+        !g_options._quiet && !pn.empty() &&
         (g_options._directories == directories::recurse ||
             wc_idx != std::string::npos || negate))
     {
