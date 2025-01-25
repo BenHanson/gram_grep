@@ -9,7 +9,15 @@
 start: (name_or_op) opt_template_params ('(' ')') opt_qualifiers opt_param_list ('{' '}');
 opt_template_params: %empty | '<' name '>';
 opt_qualifiers: %empty | opt_qualifiers qualifier;
-qualifier: '&' | '&&' | 'const' | 'final' | 'noexcept' | 'override' | 'throw' '(' ')' | 'volatile';
+qualifier: '&'
+         | '&&'
+         | 'const'
+         | 'final'
+         | 'noexcept'
+         | 'override'
+         | 'throw' '(' ')'
+         | 'try'
+         | 'volatile';
 opt_param_list: %empty | ':' param_list;
 param_list: param | param_list ',' param;
 param: name '(' ')' | name '{' '}';
@@ -99,6 +107,7 @@ noexcept                  'noexcept'
 operator                  'operator'
 override                  'override'
 throw                     'throw'
+try                       'try'
 volatile                  'volatile'
 {string}                  anything
 {char}                    anything
