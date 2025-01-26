@@ -128,7 +128,7 @@ struct options
 
     // Colours:
     std::string _sl_text;
-    std::string _cx_text; // Not used yet
+    std::string _cx_text;
     bool _rv = false; // Not used yet
     std::string _ms_text = "\x1b[01;31m";
     std::string _mc_text = "\x1b[01;31m"; // Not used yet

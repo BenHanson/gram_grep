@@ -392,7 +392,13 @@ static std::size_t print_after(const std::string& pathname, match_data& data)
 
                 data._curr_line = before;
                 print_prefix(pathname, data, "-");
-                std::cout << std::string_view(ptr, end);
+
+                if (data._negate)
+                    std::cout << std::string_view(ptr, end);
+                else
+                    output_text(std::cout, is_a_tty(stdout),
+                        g_options._cx_text.c_str(), std::string_view(ptr, end));
+
                 ptr = end;
             }
 
@@ -447,14 +453,21 @@ static void print_separators(const std::string& pathname, match_data& data)
 
             for (; before < curr_line; ++before)
             {
+                const char* first = ptr;
+
                 data._curr_line = before;
                 print_prefix(pathname, data, "-");
 
-                for (; ptr != data._second &&
-                    *ptr != '\r' && *ptr != '\n'; ++ptr)
+                while (ptr != data._second && *ptr != '\r' && *ptr != '\n')
                 {
-                    std::cout << *ptr;
+                    ++ptr;
                 }
+
+                if (data._negate)
+                    std::cout << std::string_view(first, ptr);
+                else
+                    output_text(std::cout, is_a_tty(stdout),
+                        g_options._cx_text.c_str(), std::string_view(first, ptr));
 
                 std::cout << '\n';
 
@@ -532,7 +545,16 @@ static void display_match(const std::string& pathname,
                 std::cout << *data._bol;
         }
         else
+        {
+            const char* first = data._curr;
+            const char* second = first;
+
+            for (; second != iter->_eoi &&
+                *second != '\r' && *second != '\n'; ++second);
+
+            std::cout << std::string_view(first, second);
             std::cout << '\n';
+        }
 
         if (!data._negate)
         {
