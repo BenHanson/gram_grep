@@ -314,20 +314,18 @@ static void find_bol(match_data& data)
 {
     if (data._curr > data._eol)
     {
-        data._bol = std::to_address(std::
-            find(std::reverse_iterator(data._curr),
+        data._bol =
+            std::to_address(std::find(std::reverse_iterator(data._curr),
                 std::reverse_iterator(data._first), '\n'));
 
         if (data._bol != data._first)
             ++data._bol;
 
-        data._eol = std::find(data._curr, data._second, '\n');
-
-        if (data._eol != data._second)
-        {
-            if (*(data._eol - 1) == '\r')
-                --data._eol;
-        }
+        data._eol = std::find_if(data._curr, data._second,
+            [](const char c)
+            {
+                return c == '\r' || c == '\n';
+            });
     }
 }
 
@@ -385,10 +383,11 @@ static std::size_t print_after(const std::string& pathname, match_data& data)
 
             for (; before < until; ++before)
             {
-                const char* end = std::find(ptr, data._second, '\n');
-
-                if (end != data._second)
-                    ++end;
+                const char* end = std::find_if(ptr, data._second,
+                    [](const char c)
+                    {
+                        return c == '\r' || c == '\n';
+                    });
 
                 data._curr_line = before;
                 print_prefix(pathname, data, "-");
@@ -398,6 +397,14 @@ static std::size_t print_after(const std::string& pathname, match_data& data)
                 else
                     output_text(std::cout, is_a_tty(stdout),
                         g_options._cx_text.c_str(), std::string_view(ptr, end));
+
+                std::cout << '\n';
+
+                if (end != data._second && *end == '\r')
+                    ++end;
+
+                if (end != data._second && *end == '\n')
+                    ++end;
 
                 ptr = end;
             }
