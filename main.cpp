@@ -653,10 +653,19 @@ static bool process_matches(match_data& data,
             else if (g_options._pathname_only != pathname_only::negated &&
                 !g_options._show_count && !g_rule_print && !g_options._quiet)
             {
+                if (data._negate && data._curr != data._first)
+                {
+                    data._curr = std::find_if(data._curr, data._second,
+                        [](const char c) { return c == '\r' || c == '\n'; });
+                    data._curr = consume_eol(data._curr, data._second);
+                }
+
                 do
                 {
                     display_match(pathname, data, iter);
-                } while (data._negate && data._curr != iter->_eoi);
+                } while (data._negate && std::find_if(data._curr, iter->_eoi,
+                    [](const char c) { return c == '\r' || c == '\n'; }) !=
+                    iter->_eoi);
             }
 
             ++data._hits;
