@@ -499,9 +499,27 @@ static void display_match(const std::string& pathname,
     {
         if (data._eol)
         {
+            if (g_options._colour && is_a_tty(stdout) &&
+                !g_options._sl_text.empty())
+            {
+                std::cout << g_options._sl_text;
+
+                if (!g_options._ne)
+                    std::cout << szEraseEOL;
+            }
+
             // Print remaining text until the end of line
             for (; data._bol != data._eol; ++data._bol)
                 std::cout << *data._bol;
+
+            if (g_options._colour && is_a_tty(stdout) &&
+                !g_options._sl_text.empty())
+            {
+                std::cout << szDefaultText;
+
+                if (!g_options._ne)
+                    std::cout << szEraseEOL;
+            }
 
             std::cout << '\n';
         }
@@ -569,15 +587,6 @@ static void display_match(const std::string& pathname,
             std::cout << std::string_view(first, data._curr);
             std::cout << '\n';
             data._curr = consume_eol(data._curr, data._second);
-        }
-
-        if (g_options._colour && is_a_tty(stdout) &&
-            !g_options._sl_text.empty())
-        {
-            std::cout << szDefaultText;
-
-            if (!g_options._ne)
-                std::cout << szEraseEOL;
         }
 
         if (!data._negate)
@@ -946,8 +955,26 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
         !g_options._show_count && g_options._print.empty() &&
         !g_rule_print && !g_options._quiet)
     {
+        if (g_options._colour && is_a_tty(stdout) &&
+            !g_options._sl_text.empty())
+        {
+            std::cout << g_options._sl_text;
+
+            if (!g_options._ne)
+                std::cout << szEraseEOL;
+        }
+
         for (; data._bol != data._eol; ++data._bol)
             std::cout << *data._bol;
+
+        if (g_options._colour && is_a_tty(stdout) &&
+            !g_options._sl_text.empty())
+        {
+            std::cout << szDefaultText;
+
+            if (!g_options._ne)
+                std::cout << szEraseEOL;
+        }
 
         if (data._bol)
             // Only output newline if there has been at least one match
