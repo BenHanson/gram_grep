@@ -213,10 +213,11 @@ const option g_option[]
                     regex += '\n';
 
                 regex.append(first, end);
-
-                while (end != second && (*end == '\r' || *end == '\n'))
-                    ++end;
-
+                end = std::find_if(end, second,
+                    [](const char c)
+                    {
+                        return c != '\r' && c != '\n';
+                    });
                 first = end;
             } while (first != second);
 
@@ -629,14 +630,17 @@ const option g_option[]
 
             do
             {
-                while (end != second && *end != '\r' && *end != '\n')
-                    ++end;
-
+                end = std::find_if(end, second,
+                    [](const char c)
+                    {
+                        return c == '\r' || c == '\n';
+                    });
                 add_pathname(first, end, g_options._exclude);
-
-                while (end != second && (*end == '\r' || *end == '\n'))
-                    ++end;
-
+                end = std::find_if(end, second,
+                    [](const char c)
+                    {
+                        return c != '\r' && c != '\n';
+                    });
                 first = end;
             } while (end != second);
         }

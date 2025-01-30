@@ -344,6 +344,17 @@ InputIterator find_nth_if(InputIterator first, InputIterator last,
         return last;
 }
 
+[[nodiscard]] static const char* consume_eol(const char* ptr, const char* eoi)
+{
+    if (ptr != eoi && *ptr == '\r')
+        ++ptr;
+
+    if (ptr != eoi && *ptr == '\n')
+        ++ptr;
+
+    return ptr;
+}
+
 static std::size_t print_after(const std::string& pathname, match_data& data)
 {
     std::size_t before = 0;
@@ -399,13 +410,7 @@ static std::size_t print_after(const std::string& pathname, match_data& data)
                         g_options._cx_text.c_str(), std::string_view(ptr, end));
 
                 std::cout << '\n';
-
-                if (end != data._second && *end == '\r')
-                    ++end;
-
-                if (end != data._second && *end == '\n')
-                    ++end;
-
+                end = consume_eol(end, data._second);
                 ptr = end;
             }
 
@@ -464,11 +469,11 @@ static void print_separators(const std::string& pathname, match_data& data)
 
                 data._curr_line = before;
                 print_prefix(pathname, data, "-");
-
-                while (ptr != data._second && *ptr != '\r' && *ptr != '\n')
-                {
-                    ++ptr;
-                }
+                ptr = std::find_if(ptr, data._second,
+                    [](const char c)
+                    {
+                        return c == '\r' || c == '\n';
+                    });
 
                 if (data._negate)
                     std::cout << std::string_view(first, ptr);
@@ -477,13 +482,7 @@ static void print_separators(const std::string& pathname, match_data& data)
                         g_options._cx_text.c_str(), std::string_view(first, ptr));
 
                 std::cout << '\n';
-
-                if (ptr != data._second && *ptr == '\r')
-                    ++ptr;
-
-                if (ptr != data._second && *ptr == '\n')
-                    ++ptr;
-
+                ptr = consume_eol(ptr, data._second);
                 ++data._curr_line;
             }
 
@@ -509,7 +508,10 @@ static void display_match(const std::string& pathname,
 
         data._prev_line = data._curr_line;
         data._curr_line = std::count(data._first, data._curr, '\n');
-        print_separators(pathname, data);
+
+        if (!data._negate)
+            print_separators(pathname, data);
+
         print_prefix(pathname, data, ":");
     }
 
@@ -528,8 +530,11 @@ static void display_match(const std::string& pathname,
     {
         const char* start = data._curr;
 
-        for (; data._curr != iter->_eoi &&
-            *data._curr != '\r' && *data._curr != '\n'; ++data._curr);
+        data._curr = std::find_if(data._curr, iter->_eoi,
+            [](const char c)
+            {
+                return c == '\r' || c == '\n';
+            });
 
         output_text_nl(std::cout, is_a_tty(stdout),
             g_options._ms_text.c_str(),
@@ -554,13 +559,25 @@ static void display_match(const std::string& pathname,
         else
         {
             const char* first = data._curr;
-            const char* second = first;
 
-            for (; second != iter->_eoi &&
-                *second != '\r' && *second != '\n'; ++second);
+            data._curr = std::find_if(first, iter->_eoi,
+                [](const char c)
+                {
+                    return c == '\r' || c == '\n';
+                });
 
-            std::cout << std::string_view(first, second);
+            std::cout << std::string_view(first, data._curr);
             std::cout << '\n';
+            data._curr = consume_eol(data._curr, data._second);
+        }
+
+        if (g_options._colour && is_a_tty(stdout) &&
+            !g_options._sl_text.empty())
+        {
+            std::cout << szDefaultText;
+
+            if (!g_options._ne)
+                std::cout << szEraseEOL;
         }
 
         if (!data._negate)
@@ -627,7 +644,10 @@ static bool process_matches(match_data& data,
             else if (g_options._pathname_only != pathname_only::negated &&
                 !g_options._show_count && !g_rule_print && !g_options._quiet)
             {
-                display_match(pathname, data, iter);
+                do
+                {
+                    display_match(pathname, data, iter);
+                } while (data._negate && data._curr != iter->_eoi);
             }
 
             ++data._hits;
@@ -936,7 +956,9 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
         data._prev_line = data._curr_line;
         data._curr_line = std::count(data._first, data._second, '\n');
         data._curr = data._second;
-        print_after(pathname, data);
+
+        if (!data._negate)
+            print_after(pathname, data);
     }
 
     if (data._hits)
