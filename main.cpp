@@ -456,7 +456,7 @@ static void print_separators(const std::string& pathname, match_data& data)
 
             if (!g_options._separator.empty() &&
                 data._prev_line != std::string::npos &&
-                data._curr_line - 1 - data._prev_line >=
+                data._curr_line - 1 - data._prev_line >
                 g_options._before_context)
             {
                 output_text_nl(std::cout, is_a_tty(stdout),
