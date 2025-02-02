@@ -4,7 +4,7 @@
 %captures
 %token anything Name
 %consume anything
-%x BODY BRACES PARAMS PARENS
+%x BODY BRACES PARAMS PARENS SKIP
 %%
 start: (name_or_op) opt_template_params ('(' ')') opt_qualifiers opt_param_list ('{' '}');
 opt_template_params: %empty | '<' name '>';
@@ -15,15 +15,13 @@ qualifier: '&'
          | 'final'
          | 'noexcept'
          | 'override'
-         | 'throw' '(' ')'
-         | 'try'
-         | 'volatile';
+         | 'volatile'
+         | 'throw' '(' ')';
 opt_param_list: %empty | ':' param_list;
 param_list: param | param_list ',' param;
 param: name '(' ')' | name '{' '}';
 name_or_op: name | operator;
-name: Name | name '::' opt_tilde Name;
-opt_tilde: %empty | '~';
+name: Name | name '::' Name;
 operator: 'operator' op;
 op: name | '+' | '-' | '*'| '/' | '%' | '^' | '&' | '|' | '~' | '!' | '='
   | '<' | '>' | '+=' | '-=' | '*=' | '/=' | '%=' | '^=' | '&=' | '|='
@@ -36,7 +34,20 @@ name [A-Z_a-z][0-9A-Z_a-z]*
 string \"([^"\\]|\\.)*\"|R\"\((?s:.)*?\)\"
 ws [ \t\r\n]+|\/\/.*|"/*"(?s:.)*?"*/"
 %%
-(class|struct|namespace|union)\s+{name}?[^;,>{]*\{? skip()
+ /* Open brace must be discarded following
+    one of these keywords or else we will skip
+    the entire block possibly missing functions
+    inside. In the case of a forward declaration,
+    semi-colon will terminate the block instead. */
+<INITIAL>class|struct|namespace|union<SKIP>
+<SKIP>;<INITIAL>         skip()
+<SKIP>\{<INITIAL>        skip()
+<SKIP>{char}<.>
+<SKIP>{name}<.>
+<SKIP>{string}<.>
+<SKIP>{ws}<.>
+<SKIP>{any}<.>
+
 extern\s*["]C["]\s*\{     skip()
 
 <INITIAL>\(<PARAMS>         '('
@@ -107,7 +118,6 @@ noexcept                  'noexcept'
 operator                  'operator'
 override                  'override'
 throw                     'throw'
-try                       'try'
 volatile                  'volatile'
 {string}                  anything
 {char}                    anything
