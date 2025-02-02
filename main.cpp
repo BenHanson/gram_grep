@@ -1248,15 +1248,17 @@ void add_pathname(std::string pn,
     }
 
     if (negate)
-        wcs._negative.emplace_back(wildcardtl::wildcard{ pn, is_windows() },
+        // Not using emplace_back() for compatibility with Macintosh
+        wcs._negative.push_back({ wildcardtl::wildcard{ pn, is_windows() },
             wc_idx == std::string::npos ?
             pn :
-            std::string());
+            std::string() });
     else
-        wcs._positive.emplace_back(wildcardtl::wildcard{ pn, is_windows() },
+        // Not using emplace_back() for compatibility with Macintosh
+        wcs._positive.push_back({ wildcardtl::wildcard{ pn, is_windows() },
             wc_idx == std::string::npos ?
             pn :
-            std::string());
+            std::string() });
 }
 
 lexertl::state_machine word_lexer()

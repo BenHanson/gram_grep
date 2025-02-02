@@ -89,23 +89,25 @@ void add_pathname(const char* first, const char* second, wildcards& wcs)
 
     if (*first == '!')
     {
-        wcs._negative.emplace_back(wildcardtl::wildcard
+        // Not using emplace_back() for compatibility with Macintosh
+        wcs._negative.push_back({ wildcardtl::wildcard
             { pathname, is_windows() },
             // If pathname does not include a wildcard
             // store it as a plain string for error reporting.
             pathname.find_first_of("*?[") == std::string::npos ?
             pathname :
-            std::string());
+            std::string() });
     }
     else
     {
-        wcs._positive.emplace_back(wildcardtl::wildcard
+        // Not using emplace_back() for compatibility with Macintosh
+        wcs._positive.push_back({ wildcardtl::wildcard
             { pathname, is_windows() },
             // If pathname does not include a wildcard
             // store it as a plain string for error reporting.
             pathname.find_first_of("*?[") == std::string::npos ?
             pathname :
-            std::string());
+            std::string() });
     }
 }
 
@@ -668,25 +670,27 @@ const option g_option[]
                 {
                     const std::string pathname(&p[1], std::to_address(p.end()));
 
-                    g_options._exclude_dirs._negative.emplace_back(wildcardtl::wildcard
+                    // Not using emplace_back() for compatibility with Macintosh
+                    g_options._exclude_dirs._negative.push_back({ wildcardtl::wildcard
                         { pathname, is_windows() },
                         // If pathname does not include a wildcard
                         // store it as a plain string for error reporting.
                         pathname.find_first_of("*?[") == std::string::npos ?
                         pathname :
-                        std::string());
+                        std::string() });
                 }
                 else
                 {
                     const std::string pathname(p);
 
-                    g_options._exclude_dirs._positive.emplace_back(wildcardtl::wildcard
+                    // Not using emplace_back() for compatibility with Macintosh
+                    g_options._exclude_dirs._positive.push_back({ wildcardtl::wildcard
                         { pathname, is_windows() },
                         // If pathname does not include a wildcard
                         // store it as a plain string for error reporting.
                         pathname.find_first_of("*?[") == std::string::npos ?
                         pathname :
-                        std::string());
+                        std::string() });
                 }
             }
         }
