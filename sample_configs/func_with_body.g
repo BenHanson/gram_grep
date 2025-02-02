@@ -15,8 +15,9 @@ qualifier: '&'
          | 'final'
          | 'noexcept'
          | 'override'
-         | 'volatile'
-         | 'throw' '(' ')';
+         | 'throw' '(' ')'
+         | 'try'
+         | 'volatile';
 opt_param_list: %empty | ':' param_list;
 param_list: param | param_list ',' param;
 param: name '(' ')' | name '{' '}';
@@ -118,6 +119,7 @@ noexcept                  'noexcept'
 operator                  'operator'
 override                  'override'
 throw                     'throw'
+try                       'try'
 volatile                  'volatile'
 {string}                  anything
 {char}                    anything
