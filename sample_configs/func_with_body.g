@@ -4,7 +4,7 @@
 %captures
 %token anything Name
 %consume anything
-%x BODY BRACES PARAMS PARENS SKIP
+%x BLOCK BODY BRACES CHEVRONS PARAMS PARENS TPARAMS
 %%
 start: (name_or_op) opt_template_params ('(' ')') opt_qualifiers opt_param_list ('{' '}');
 opt_template_params: %empty | '<' name '>';
@@ -40,14 +40,26 @@ ws [ \t\r\n]+|\/\/.*|"/*"(?s:.)*?"*/"
     the entire block possibly missing functions
     inside. In the case of a forward declaration,
     semi-colon will terminate the block instead. */
-<INITIAL>class|struct|namespace|union<SKIP>
-<SKIP>;<INITIAL>         skip()
-<SKIP>\{<INITIAL>        skip()
-<SKIP>{char}<.>
-<SKIP>{name}<.>
-<SKIP>{string}<.>
-<SKIP>{ws}<.>
-<SKIP>{any}<.>
+<INITIAL>class|struct|namespace|union<BLOCK>
+<BLOCK>;<INITIAL>         skip()
+<BLOCK>\{<INITIAL>        skip()
+<BLOCK>{char}<.>
+<BLOCK>{name}<.>
+<BLOCK>{string}<.>
+<BLOCK>{ws}<.>
+<BLOCK>{any}<.>
+
+ /* templates can have the class keyword in their parameters
+    which need to be skipped. */
+<INITIAL>template\s*\<<TPARAMS>
+<TPARAMS,CHEVRONS>\(<>CHEVRONS>  skip()
+<CHEVRONS>\><<>             skip()
+<TPARAMS>\><INITIAL>        skip()
+<CHEVRONS,TPARAMS>{string}<.>  skip()
+<CHEVRONS,TPARAMS>{char}<.>    skip()
+<CHEVRONS,TPARAMS>{ws}<.>      skip()
+<CHEVRONS,TPARAMS>{name}<.>    skip()
+<CHEVRONS,TPARAMS>{any}<.>     skip()
 
 extern\s*["]C["]\s*\{     skip()
 
