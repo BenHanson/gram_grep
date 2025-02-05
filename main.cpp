@@ -932,6 +932,8 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
                 finished = process_matches(data, temp_replacements, pathname);
             }
         }
+        else
+            data._negate = false;
 
         const match old = data._ranges.back();
 
