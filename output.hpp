@@ -1,8 +1,12 @@
 #pragma once
 
 #include "colours.hpp"
-#include <iostream>
 #include "types.hpp"
+
+#include <cstdio>
+#include <iostream>
+#include <string>
+#include <string_view>
 
 extern options g_options;
 

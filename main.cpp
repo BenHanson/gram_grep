@@ -4,21 +4,57 @@
 #include "pch.h"
 
 #include "args.hpp"
+#include "colours.hpp"
+#include "gg_error.hpp"
+#include "output.hpp"
+#include "parser.hpp"
+#include "search.hpp"
+#include "types.hpp"
+#include "version.hpp"
+
 #include <lexertl/debug.hpp>
 #include <lexertl/dot.hpp>
+#include <lexertl/enums.hpp>
+#include <parsertl/enums.hpp>
+#include <lexertl/generator.hpp>
+#include <parsertl/generator.hpp>
+#include <lexertl/iterator.hpp>
+#include <parsertl/iterator.hpp>
+#include <lexertl/memory_file.hpp>
+#include <lexertl/rules.hpp>
+#include <parsertl/rules.hpp>
+#include <lexertl/state_machine.hpp>
+#include <parsertl/state_machine.hpp>
+#include <lexertl/utf_iterators.hpp>
+#include <wildcardtl/wildcard.hpp>
+
+#include <algorithm>
+#include <bit>
+#include <cstdint>
+#include <cstring>
+#include <exception>
 #include <filesystem>
 #include <format>
 #include <fstream>
-#include <parsertl/generator.hpp>
-#include "gg_error.hpp"
-#include <parsertl/iterator.hpp>
-#include <lexertl/memory_file.hpp>
-#include "output.hpp"
-#include "parser.hpp"
+#include <iosfwd>
+#include <iostream>
+#include <map>
+
+#ifdef _WIN32
+#include <minwindef.h>
+#include <processenv.h>
+#endif
+
 #include <queue>
-#include "search.hpp"
+#include <regex>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string>
+#include <system_error>
 #include <type_traits>
-#include "version.hpp"
+#include <utility>
+#include <variant>
+#include <vector>
 
 extern std::string build_text(const std::string& input,
     const capture_vector& captures);
@@ -51,7 +87,7 @@ pipeline g_pipeline;
 bool g_rule_print = false;
 std::size_t g_searched = 0;
 
-file_type fetch_file_type(const char* data, std::size_t size)
+static file_type fetch_file_type(const char* data, std::size_t size)
 {
     file_type type = file_type::ansi;
 
@@ -91,7 +127,7 @@ file_type fetch_file_type(const char* data, std::size_t size)
     return type;
 }
 
-file_type load_file(std::vector<unsigned char>& utf8,
+static file_type load_file(std::vector<unsigned char>& utf8,
     const char*& data_first, const char*& data_second,
     std::vector<match>& ranges)
 {
@@ -102,15 +138,12 @@ file_type load_file(std::vector<unsigned char>& utf8,
     {
     case file_type::utf16:
     {
-        using in_iter =
-            lexertl::basic_utf16_in_iterator<const uint16_t*, int32_t>;
-        using out_iter = lexertl::basic_utf8_out_iterator<in_iter>;
         auto first = std::bit_cast<const uint16_t*>(data_first + 2);
         auto second = std::bit_cast<const uint16_t*>(data_second);
-        in_iter in(first, second);
-        in_iter in_end(second, second);
-        out_iter out(in, in_end);
-        out_iter out_end(in_end, in_end);
+        utf16_in_iterator in(first, second);
+        utf16_in_iterator in_end(second, second);
+        utf8_out_iterator out(in, in_end);
+        utf8_out_iterator out_end(in_end, in_end);
 
         utf8.reserve(size / 2 - 1);
 
@@ -1081,7 +1114,7 @@ static bool process_file(const std::string& pathname, const wildcards &wcs)
     return process;
 }
 
-bool include_file(const std::string& path)
+static bool include_file(const std::string& path)
 {
     return (g_options._include._positive.empty() ||
         std::ranges::any_of(g_options._include._positive,
@@ -1096,7 +1129,7 @@ bool include_file(const std::string& path)
             });
 }
 
-bool include_dir(const std::string& path)
+static bool include_dir(const std::string& path)
 {
     return (g_options._exclude_dirs._negative.empty() ||
         std::ranges::any_of(g_options._exclude_dirs._negative,
@@ -1209,7 +1242,7 @@ static void process()
     }
 }
 
-void add_pathname(std::string pn,
+static void add_pathname(std::string pn,
     std::map<std::string, wildcards>& map)
 {
     const std::size_t wc_idx = pn.find_first_of("*?[");
@@ -1279,193 +1312,205 @@ lexertl::state_machine word_lexer()
     return sm;
 }
 
+static void queue_dfa_regex(config& cfg)
+{
+    if (g_options._force_unicode)
+    {
+        // Use the lexertl enum operator
+        using namespace lexertl;
+        using rules_type = basic_rules<char, char32_t>;
+        using ugenerator = basic_generator<rules_type, u32state_machine>;
+        rules_type rules;
+        ulexer lexer;
+
+        lexer._flags = cfg._flags;
+        lexer._conditions = std::move(cfg._conditions);
+
+        if (lexer._flags & *config_flags::icase)
+            rules.flags(*regex_flags::icase |
+                *regex_flags::dot_not_cr_lf);
+
+        rules.push(cfg._param, 1);
+
+        if (g_options._dump == dump::no)
+            rules.push("(?s:.)", rules_type::skip());
+
+        ugenerator::build(rules, lexer._sm);
+        g_pipeline.emplace_back(std::move(lexer));
+    }
+    else
+    {
+        // Use the lexertl enum operator
+        using namespace lexertl;
+        rules rules;
+        lexer lexer;
+
+        lexer._flags = cfg._flags;
+        lexer._conditions = std::move(cfg._conditions);
+
+        if (lexer._flags & *config_flags::icase)
+            rules.flags(*regex_flags::icase |
+                *regex_flags::dot_not_cr_lf);
+
+        rules.push(cfg._param, 1);
+
+        if (g_options._dump == dump::no)
+            rules.push("(?s:.)", rules::skip());
+
+        generator::build(rules, lexer._sm);
+        g_pipeline.emplace_back(std::move(lexer));
+    }
+}
+
+static void queue_parser(config& cfg)
+{
+    if (g_options._force_unicode)
+    {
+        uparser parser;
+        config_state state;
+
+        parser._flags = cfg._flags;
+        parser._conditions = std::move(cfg._conditions);
+        g_curr_uparser = &parser;
+
+        if (g_config_parser._gsm.empty())
+            build_config_parser();
+
+        state.parse(cfg._flags, cfg._param);
+        g_rule_print |= state._print;
+
+        if (parser._gsm.empty())
+        {
+            ulexer lexer;
+
+            lexer._flags = parser._flags;
+            lexer._conditions = std::move(parser._conditions);
+            lexer._sm.swap(parser._lsm);
+            g_pipeline.emplace_back(std::move(lexer));
+        }
+        else
+            g_pipeline.emplace_back(std::move(parser));
+    }
+    else
+    {
+        parser parser;
+        config_state state;
+
+        parser._flags = cfg._flags;
+        parser._conditions = std::move(cfg._conditions);
+        g_curr_parser = &parser;
+
+        if (g_config_parser._gsm.empty())
+            build_config_parser();
+
+        state.parse(cfg._flags, cfg._param);
+        g_rule_print |= state._print;
+
+        if (parser._gsm.empty())
+        {
+            lexer lexer;
+
+            lexer._flags = parser._flags;
+            lexer._conditions = std::move(parser._conditions);
+            lexer._sm.swap(parser._lsm);
+            g_pipeline.emplace_back(std::move(lexer));
+        }
+        else
+            g_pipeline.emplace_back(std::move(parser));
+    }
+}
+
+static void queue_regex(config& cfg)
+{
+    // Use the lexertl enum operator
+    using namespace lexertl;
+    regex regex;
+    std::regex::flag_type rx_flags{};
+
+    regex._flags = cfg._flags;
+    regex._conditions = std::move(cfg._conditions);
+
+    if (regex._flags & *config_flags::icase)
+        rx_flags |= std::regex_constants::icase;
+
+    if (regex._flags & *config_flags::grep)
+        rx_flags |= std::regex_constants::grep;
+    else if (regex._flags & *config_flags::egrep)
+        rx_flags |= std::regex_constants::egrep;
+    else
+        rx_flags |= std::regex_constants::ECMAScript;
+
+    regex._rx.assign(cfg._param, rx_flags);
+    g_pipeline.emplace_back(std::move(regex));
+}
+
+static void queue_text(config& cfg)
+{
+    text text;
+
+    text._flags = cfg._flags;
+    text._conditions = std::move(cfg._conditions);
+    text._text = cfg._param;
+    g_pipeline.emplace_back(std::move(text));
+}
+
+static void queue_word_list(config& cfg, std::size_t& word_list_idx)
+{
+    word_list words;
+    lexertl::memory_file& mf =
+        g_options._word_list_files[word_list_idx++];
+    const lexertl::state_machine sm = word_lexer();
+    lexertl::citerator iter;
+
+    words._flags = cfg._flags;
+    words._conditions = std::move(cfg._conditions);
+    mf.open(cfg._param.c_str());
+
+    if (mf.data() == nullptr)
+        throw gg_error(std::format("Cannot open {}", cfg._param));
+
+    iter = lexertl::citerator(mf.data(), mf.data() + mf.size(), sm);
+
+    for (; iter->id != 0; ++iter)
+    {
+        words._list.push_back(iter->view());
+    }
+
+    std::ranges::sort(words._list);
+    g_pipeline.emplace_back(std::move(words));
+}
+
 static void fill_pipeline(std::vector<config>&& configs)
 {
     std::size_t word_list_idx = 0;
 
     // Postponed to allow -i to be processed first.
-    for (auto&& config : std::move(configs))
+    for (auto&& cfg : std::move(configs))
     {
-        switch (config._type)
+        switch (cfg._type)
         {
         case match_type::dfa_regex:
-        {
-            if (g_options._force_unicode)
-            {
-                // Use the lexertl enum operator
-                using namespace lexertl;
-                using rules_type = basic_rules<char, char32_t>;
-                using ugenerator = basic_generator<rules_type,
-                    u32state_machine>;
-                rules_type rules;
-                ulexer lexer;
-
-                lexer._flags = config._flags;
-                lexer._conditions = std::move(config._conditions);
-
-                if (lexer._flags & *config_flags::icase)
-                    rules.flags(*regex_flags::icase |
-                        *regex_flags::dot_not_cr_lf);
-
-                rules.push(config._param, 1);
-
-                if (g_options._dump == dump::no)
-                    rules.push("(?s:.)", rules_type::skip());
-
-                ugenerator::build(rules, lexer._sm);
-                g_pipeline.emplace_back(std::move(lexer));
-            }
-            else
-            {
-                // Use the lexertl enum operator
-                using namespace lexertl;
-                rules rules;
-                lexer lexer;
-
-                lexer._flags = config._flags;
-                lexer._conditions = std::move(config._conditions);
-
-                if (lexer._flags & *config_flags::icase)
-                    rules.flags(*regex_flags::icase |
-                        *regex_flags::dot_not_cr_lf);
-
-                rules.push(config._param, 1);
-
-                if (g_options._dump == dump::no)
-                    rules.push("(?s:.)", rules::skip());
-
-                generator::build(rules, lexer._sm);
-                g_pipeline.emplace_back(std::move(lexer));
-            }
-
+            queue_dfa_regex(cfg);
             break;
-        }
         case match_type::parser:
-        {
-            if (g_options._force_unicode)
-            {
-                uparser parser;
-                config_state state;
-
-                parser._flags = config._flags;
-                parser._conditions = std::move(config._conditions);
-                g_curr_uparser = &parser;
-
-                if (g_config_parser._gsm.empty())
-                    build_config_parser();
-
-                state.parse(config._flags, config._param);
-                g_rule_print |= state._print;
-
-                if (parser._gsm.empty())
-                {
-                    ulexer lexer;
-
-                    lexer._flags = parser._flags;
-                    lexer._conditions = std::move(parser._conditions);
-                    lexer._sm.swap(parser._lsm);
-                    g_pipeline.emplace_back(std::move(lexer));
-                }
-                else
-                    g_pipeline.emplace_back(std::move(parser));
-            }
-            else
-            {
-                parser parser;
-                config_state state;
-
-                parser._flags = config._flags;
-                parser._conditions = std::move(config._conditions);
-                g_curr_parser = &parser;
-
-                if (g_config_parser._gsm.empty())
-                    build_config_parser();
-
-                state.parse(config._flags, config._param);
-                g_rule_print |= state._print;
-
-                if (parser._gsm.empty())
-                {
-                    lexer lexer;
-
-                    lexer._flags = parser._flags;
-                    lexer._conditions = std::move(parser._conditions);
-                    lexer._sm.swap(parser._lsm);
-                    g_pipeline.emplace_back(std::move(lexer));
-                }
-                else
-                    g_pipeline.emplace_back(std::move(parser));
-            }
-
+            queue_parser(cfg);
             break;
-        }
         case match_type::regex:
-        {
-            // Use the lexertl enum operator
-            using namespace lexertl;
-            regex regex;
-            std::regex::flag_type rx_flags{};
-
-            regex._flags = config._flags;
-            regex._conditions = std::move(config._conditions);
-
-            if (regex._flags & *config_flags::icase)
-                rx_flags |= std::regex_constants::icase;
-
-            if (regex._flags & *config_flags::grep)
-                rx_flags |= std::regex_constants::grep;
-            else if (regex._flags & *config_flags::egrep)
-                rx_flags |= std::regex_constants::egrep;
-            else
-                rx_flags |= std::regex_constants::ECMAScript;
-
-            regex._rx.assign(config._param, rx_flags);
-            g_pipeline.emplace_back(std::move(regex));
+            queue_regex(cfg);
             break;
-        }
         case match_type::text:
-        {
-            text text;
-
-            text._flags = config._flags;
-            text._conditions = std::move(config._conditions);
-            text._text = config._param;
-            g_pipeline.emplace_back(std::move(text));
+            queue_text(cfg);
             break;
-        }
         case match_type::word_list:
-        {
-            word_list words;
-            lexertl::memory_file& mf =
-                g_options._word_list_files[word_list_idx];
-            const lexertl::state_machine sm = word_lexer();
-            lexertl::citerator iter;
-
-            words._flags = config._flags;
-            words._conditions = std::move(config._conditions);
-            mf.open(config._param.c_str());
-
-            if (mf.data() == nullptr)
-                throw gg_error(std::format("Cannot open {}", config._param));
-
-            iter = lexertl::citerator(mf.data(), mf.data() + mf.size(), sm);
-
-            for (; iter->id != 0; ++iter)
-            {
-                words._list.push_back(iter->view());
-            }
-
-            std::ranges::sort(words._list);
-            g_pipeline.emplace_back(std::move(words));
+            queue_word_list(cfg, word_list_idx);
             break;
-        }
         default:
             break;
         }
     }
 }
 
-void parse_colours(const std::string& colours)
+static void parse_colours(const std::string& colours)
 {
     parsertl::rules grules;
     parsertl::state_machine gsm;
@@ -1538,15 +1583,11 @@ void parse_colours(const std::string& colours)
                 g_options._ms_text = std::format("\x1b[{}m", value);
                 g_options._mc_text = std::format("\x1b[{}m", value);
             }
-            else
+            else if (auto iter = std::ranges::find_if(lookup,
+                [name](const auto& pair) { return name == pair.first; });
+                iter != std::end(lookup))
             {
-                auto iter = std::ranges::find_if(lookup, [name](const auto& pair)
-                    {
-                        return name == pair.first;
-                    });
-
-                if (iter != std::end(lookup))
-                    iter->second = std::format("\x1b[{}m", value);
+                iter->second = std::format("\x1b[{}m", value);
             }
         }
         else if (giter->entry.param == rv_idx)
@@ -1558,7 +1599,7 @@ void parse_colours(const std::string& colours)
     }
 }
 
-std::vector<const char*> to_vector(std::string& grep_options)
+static std::vector<const char*> to_vector(std::string& grep_options)
 {
     std::vector<const char*> ret;
     char* prev = &grep_options[0];
@@ -1589,7 +1630,7 @@ std::vector<const char*> to_vector(std::string& grep_options)
     return ret;
 }
 
-std::string env_var(const char* var)
+static std::string env_var(const char* var)
 {
     std::string ret;
 #ifdef _WIN32
@@ -1597,8 +1638,11 @@ std::string env_var(const char* var)
 
     if (dwSize)
     {
-        ret.resize(dwSize - 1, ' ');
-        ::GetEnvironmentVariableA(var, &ret.front(), dwSize);
+        // Placate SonarQube (does not like dwSize - 1)
+        std::vector<char> buff(dwSize, ' ');
+
+        ::GetEnvironmentVariableA(var, &buff.front(), dwSize);
+        ret.assign(&buff.front());
     }
 #else
     const char* str = std::getenv(var);

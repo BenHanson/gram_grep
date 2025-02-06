@@ -1,15 +1,41 @@
 #pragma once
 
-#include <charconv>
-#include <filesystem>
+#include "gg_error.hpp"
 #include "output.hpp"
+#include "types.hpp"
+
+#include <lexertl/memory_file.hpp>
+#include <wildcardtl/wildcard.hpp>
+
+#ifdef _WIN32
+#include <consoleapi.h>
+#include <minwindef.h>
+#include <processenv.h>
+#include <WinBase.h>
+#include <winnt.h>
+#endif
+
+#include <charconv>
+#include <cstdlib>
+#include <cstdio>
+#include <filesystem>
+#include <format>
+#include <iosfwd>
+#include <iostream>
+#include <string>
+#include <string_view>
+#include <type_traits>
+#include <vector>
 
 extern unsigned int g_flags;
 extern options g_options;
 
 extern void add_pattern(const char* param, std::vector<config>& configs);
+extern bool is_windows();
 extern void parse_condition(const char* str);
+extern void show_help();
 extern void show_usage(const std::string& msg = std::string()); 
+extern std::vector<std::string_view> split(const char* str, const char c);
 extern std::string unescape(const std::string_view& vw);
 
 struct option
@@ -56,13 +82,13 @@ void colour(int&, const bool, const char* const [], std::string_view value,
         HANDLE hOutput = GetStdHandle(STD_OUTPUT_HANDLE);
         DWORD dwMode = 0;
 
-        GetConsoleMode(hOutput, &dwMode);
+        ::GetConsoleMode(hOutput, &dwMode);
 
         if (value.empty() || value == "auto")
             g_options._colour = (dwMode & ENABLE_VIRTUAL_TERMINAL_PROCESSING) != 0;
         else
         {
-            SetConsoleMode(hOutput, dwMode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+            ::SetConsoleMode(hOutput, dwMode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
             g_options._colour = true;
         }
 

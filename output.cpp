@@ -1,12 +1,12 @@
 #include "pch.h"
 
-#include <stdio.h>
+#include <cstdio>
+
 #if _WIN32
 #include <io.h>
 #else
 #include <unistd.h>
 #endif
-#include "output.hpp"
 
 const char* gg_text()
 {

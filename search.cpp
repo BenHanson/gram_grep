@@ -1,11 +1,30 @@
 #include "pch.h"
 
-#include <array>
-#include <execution>
-#include <format>
 #include "gg_error.hpp"
-#include <parsertl/search.hpp>
 #include "search.hpp"
+#include "types.hpp"
+
+#include <lexertl/iterator.hpp>
+#include <parsertl/search.hpp>
+#include <lexertl/state_machine.hpp>
+#include <parsertl/state_machine.hpp>
+#include <parsertl/token.hpp>
+
+#include <algorithm>
+#include <cctype>
+#include <cstdint>
+#include <format>
+#include <iostream>
+#include <map>
+#include <memory>
+#include <regex>
+#include <stack>
+#include <stdlib.h>
+#include <string>
+#include <tuple>
+#include <type_traits>
+#include <utility>
+#include <variant>
 
 extern std::regex g_capture_rx;
 extern options g_options;
@@ -18,7 +37,7 @@ using results = std::vector<std::vector<std::pair
     <const char*, const char*>>>;
 using prod_map_t = std::vector<std::pair<uint16_t, token::token_vector>>;
 using uresults = std::vector<std::vector<std::pair
-    <utf8_iterator, utf8_iterator>>>;
+    <utf8_in_iterator, utf8_in_iterator>>>;
 using uprod_map_t = std::vector<std::pair<uint16_t,
     parsertl::token<crutf8iterator>::token_vector>>;
 
@@ -27,7 +46,7 @@ static const char* get_ptr(const char* ptr)
     return ptr;
 }
 
-static const char* get_ptr(const utf8_iterator& iter)
+static const char* get_ptr(const utf8_in_iterator& iter)
 {
     return iter.get();
 }
@@ -42,12 +61,14 @@ static const char* get_second(const std::pair<const char*, const char*>& pair)
     return pair.second;
 }
 
-static const char* get_first(const std::pair<utf8_iterator, utf8_iterator>& pair)
+static const char* get_first(const std::pair<utf8_in_iterator,
+    utf8_in_iterator>& pair)
 {
     return pair.first.get();
 }
 
-static const char* get_second(const std::pair<utf8_iterator, utf8_iterator>& pair)
+static const char* get_second(const std::pair<utf8_in_iterator,
+    utf8_in_iterator>& pair)
 {
     return pair.second.get();
 }
@@ -629,11 +650,11 @@ static std::pair<bool, lexertl::criterator> lexer_search(const lexer& l,
 static std::pair<bool, crutf8iterator> lexer_search(const ulexer& l,
     const char* data_first, std::vector<match>& ranges)
 {
-    crutf8iterator iter(utf8_iterator(ranges.back()._first, ranges.back()._eoi),
-        utf8_iterator(ranges.back()._eoi, ranges.back()._eoi), l._sm);
+    crutf8iterator iter(utf8_in_iterator(ranges.back()._first, ranges.back()._eoi),
+        utf8_in_iterator(ranges.back()._eoi, ranges.back()._eoi), l._sm);
     results cap_vec;
     bool success =
-        iter->first != utf8_iterator(ranges.back()._eoi, ranges.back()._eoi);
+        iter->first != utf8_in_iterator(ranges.back()._eoi, ranges.back()._eoi);
 
     cap_vec.emplace_back();
     cap_vec.back().emplace_back(iter->first.get(), iter->second.get());
@@ -644,11 +665,11 @@ static std::pair<bool, crutf8iterator> lexer_search(const ulexer& l,
             ranges.front()._eoi, l._flags) ||
         !conditions_met(l._conditions, cap_vec)))
     {
-        iter = crutf8iterator(utf8_iterator(iter->second.get(), iter->eoi.get()),
-            utf8_iterator(iter->eoi.get(), iter->eoi.get()), l._sm);
+        iter = crutf8iterator(utf8_in_iterator(iter->second.get(), iter->eoi.get()),
+            utf8_in_iterator(iter->eoi.get(), iter->eoi.get()), l._sm);
         cap_vec.back().back().first = iter->first.get();
         cap_vec.back().back().second = iter->second.get();
-        success = iter->first != utf8_iterator(ranges.back()._eoi,
+        success = iter->first != utf8_in_iterator(ranges.back()._eoi,
             ranges.back()._eoi);
     }
 
@@ -744,8 +765,8 @@ get_iterators(const parser& p, const std::vector<match>& ranges)
 static std::tuple<crutf8iterator, crutf8iterator, uprod_map_t, uresults>
 get_iterators(const uparser& p, const std::vector<match>& ranges)
 {
-    crutf8iterator iter(utf8_iterator(ranges.back()._first, ranges.back()._eoi),
-        utf8_iterator(ranges.back()._eoi, ranges.back()._eoi), p._lsm);
+    crutf8iterator iter(utf8_in_iterator(ranges.back()._first, ranges.back()._eoi),
+        utf8_in_iterator(ranges.back()._eoi, ranges.back()._eoi), p._lsm);
 
     return std::make_tuple(std::move(iter), crutf8iterator(),
         uprod_map_t(), uresults());

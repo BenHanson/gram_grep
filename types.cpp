@@ -1,12 +1,30 @@
 #include "pch.h"
 
-#include <format>
-#include <lexertl/generator.hpp>
-#include <parsertl/generator.hpp>
 #include "gg_error.hpp"
-#include <parsertl/lookup.hpp>
 #include "output.hpp"
 #include "types.hpp"
+
+#include <lexertl/enums.hpp>
+#include <parsertl/enums.hpp>
+#include <lexertl/generator.hpp>
+#include <parsertl/generator.hpp>
+#include <lexertl/iterator.hpp>
+#include <parsertl/lookup.hpp>
+#include <lexertl/rules.hpp>
+#include <parsertl/rules.hpp>
+#include <lexertl/state_machine.hpp>
+
+#include <algorithm>
+#include <array>
+#include <cstdio>
+#include <exception>
+#include <format>
+#include <iostream>
+#include <memory>
+#include <regex>
+#include <set>
+#include <string>
+#include <vector>
 
 extern options g_options;
 extern config_parser g_config_parser;

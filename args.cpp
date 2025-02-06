@@ -1,11 +1,27 @@
 #include "pch.h"
 
-#include "args.hpp"
-#include <format>
 #include "gg_error.hpp"
-#include <parsertl/iterator.hpp>
 #include "option.hpp"
 #include "output.hpp"
+#include "types.hpp"
+
+#include <parsertl/enums.hpp>
+#include <lexertl/iterator.hpp>
+#include <parsertl/iterator.hpp>
+
+#include <cctype>
+#include <charconv>
+#include <cstdlib>
+#include <cstring>
+#include <filesystem>
+#include <format>
+#include <iosfwd>
+#include <iostream>
+#include <regex>
+#include <string>
+#include <string_view>
+#include <type_traits>
+#include <vector>
 
 extern void build_condition_parser();
 extern std::string dedup_apostrophes(std::string str);
@@ -237,7 +253,7 @@ void read_switches(const int argc, const char* const argv[],
     }
 }
 
-void show_option(const option& opt)
+static void show_option(const option& opt)
 {
     constexpr std::size_t max_len = 28;
     std::vector<std::string_view> long_options;

@@ -1,7 +1,9 @@
 #pragma once
 
-#include <string>
 #include "types.hpp"
+
+#include <string>
+#include <string_view>
 #include <vector>
 
 std::vector<std::string_view> split(const char* str, const char c);

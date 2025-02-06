@@ -1,20 +1,29 @@
 #pragma once
 
-#include <array>
 #include <lexertl/iterator.hpp>
-#include <memory>
+#include <lexertl/match_results.hpp>
+#include <parsertl/match_results.hpp>
 #include <lexertl/memory_file.hpp>
-#include <regex>
 #include <lexertl/rules.hpp>
 #include <parsertl/rules.hpp>
 #include <lexertl/state_machine.hpp>
 #include <parsertl/state_machine.hpp>
-#include <string_view>
 #include <parsertl/token.hpp>
 #include <lexertl/utf_iterators.hpp>
+#include <wildcardtl/wildcard.hpp>
+
+#include <cstdint>
+#include <map>
+#include <memory>
+#include <regex>
+#include <set>
+#include <stack>
+#include <string>
+#include <string_view>
+#include <type_traits>
+#include <utility>
 #include <variant>
 #include <vector>
-#include <wildcardtl/wildcard.hpp>
 
 enum class config_flags
 {
@@ -561,9 +570,14 @@ struct match_data
     std::size_t _curr_line = std::string::npos;
 };
 
-using utf8_iterator = lexertl::basic_utf8_in_iterator<const char*, char32_t>;
-using utf8results = lexertl::recursive_match_results<utf8_iterator>;
+using utf8_in_iterator = lexertl::basic_utf8_in_iterator<const char*, char32_t>;
+using utf8_results = lexertl::recursive_match_results<utf8_in_iterator>;
 using crutf8iterator =
-    lexertl::iterator<utf8_iterator, lexertl::u32state_machine, utf8results>;
+lexertl::iterator<utf8_in_iterator, lexertl::u32state_machine, utf8_results>;
+
+using utf16_in_iterator =
+    lexertl::basic_utf16_in_iterator<const uint16_t*, int32_t>;
+using utf8_out_iterator =
+    lexertl::basic_utf8_out_iterator<utf16_in_iterator>;
 
 [[nodiscard]] std::string exec_ret(const std::string& cmd);

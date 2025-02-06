@@ -1,11 +1,29 @@
 #include "pch.h"
 
-#include <format>
-//#include <parsertl/debug.hpp>
-#include <parsertl/generator.hpp>
 #include "gg_error.hpp"
 #include "output.hpp"
 #include "types.hpp"
+
+//#include <parsertl/debug.hpp>
+#include <lexertl/enums.hpp>
+#include <parsertl/enums.hpp>
+#include <lexertl/generator.hpp>
+#include <parsertl/generator.hpp>
+#include <memory>
+#include <lexertl/parser/tokeniser/re_tokeniser_helper.hpp>
+#include <lexertl/parser/tokeniser/re_tokeniser_state.hpp>
+#include <lexertl/rules.hpp>
+#include <parsertl/rules.hpp>
+
+#include <cstdint>
+#include <format>
+#include <iostream>
+#include <locale>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string>
+#include <string_view>
+#include <type_traits>
 
 extern options g_options;
 extern condition_parser g_condition_parser;
@@ -55,7 +73,7 @@ std::string dedup_apostrophes(std::string str)
     return str;
 }
 
-std::string unescape_str(const std::string& str)
+static std::string unescape_str(const std::string& str)
 {
     return dedup_apostrophes(unescape(str));
 }
