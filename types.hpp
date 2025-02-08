@@ -564,6 +564,7 @@ struct match_data
     std::vector<match> _ranges;
     std::stack<std::string> _matches;
     capture_vector _captures;
+    std::size_t _count = 0;
     std::size_t _hits = 0;
     std::map<std::pair<std::size_t, std::size_t>, std::string> _replacements;
     std::size_t _prev_line = 0;

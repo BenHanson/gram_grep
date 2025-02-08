@@ -701,12 +701,45 @@ static bool process_matches(match_data& data,
                     iter->_eoi);
             }
 
+            if (g_options._show_count)
+            {
+                auto eol = std::find_if(data._negate ?
+                    data._ranges.back()._eoi :
+                    data._curr,
+                    data._second,
+                    [](const char c)
+                    {
+                        return c == '\r' || c == '\n';
+                    });
+
+                if (data._eol != eol)
+                {
+                    if (data._negate)
+                    {
+                        if (data._eol)
+                        {
+                            const std::size_t count =
+                                std::count(data._curr, eol, '\n') - 1;
+
+                            data._count += count;
+                        }
+                        else
+                            data._count += std::count(data._first,
+                                data._ranges.back()._eoi, '\n');
+                    }
+                    else
+                        ++data._count;
+                }
+
+                data._eol = eol;
+            }
+
             ++data._hits;
             break;
         }
     }
 
-    if (data._hits == g_options._max_count)
+    if (data._count == g_options._max_count)
         finished = true;
 
     return finished;
@@ -1045,7 +1078,7 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
             std::cout << ':';
         }
 
-        std::cout << data._hits << output_nl;
+        std::cout << data._count << output_nl;
     }
 
     if (g_options._pathname_only == pathname_only::negated && !data._hits)
