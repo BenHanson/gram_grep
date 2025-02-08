@@ -703,10 +703,7 @@ static bool process_matches(match_data& data,
 
             if (g_options._show_count)
             {
-                auto eol = std::find_if(data._negate ?
-                    data._ranges.back()._eoi :
-                    data._curr,
-                    data._second,
+                auto eol = std::find_if(data._ranges.back()._eoi, data._second,
                     [](const char c)
                     {
                         return c == '\r' || c == '\n';
@@ -728,7 +725,8 @@ static bool process_matches(match_data& data,
                                 data._ranges.back()._eoi, '\n');
                     }
                     else
-                        ++data._count;
+                        data._count += std::count(data._ranges.back()._first,
+                            consume_eol(eol, data._second), '\n');
                 }
 
                 data._eol = eol;
