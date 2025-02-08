@@ -114,7 +114,7 @@ struct options
     std::string _label;
     bool _line_buffered = false;
     line_numbers _line_numbers = line_numbers::none;
-    std::size_t _max_count = 0;
+    std::size_t _max_count = std::string::npos;
     bool _no_messages = false;
     bool _only_matching = false;
     pathname_only _pathname_only = pathname_only::no;
