@@ -564,6 +564,9 @@ static void display_match(const std::string& pathname,
             print_separators(pathname, data);
 
         print_prefix(pathname, data, ":");
+
+        if (g_options._max_count != std::string::npos)
+            ++data._count;
     }
 
     if (!g_options._only_matching && !g_options._whole_match &&
