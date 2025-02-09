@@ -290,6 +290,12 @@ static void print_pathname(const std::string& pathname)
         g_options._fn_text.c_str(), pn);
 }
 
+static void print_separator(const std::string& separator)
+{
+    output_text(std::cout, is_a_tty(stdout),
+        g_options._se_text.c_str(), separator);
+}
+
 static void print_prefix(const std::string& pathname,
     match_data& data, const std::string& separator)
 {
@@ -297,7 +303,7 @@ static void print_prefix(const std::string& pathname,
     {
         if (g_options._show_filename == show_filename::yes)
             output_text(std::cout, is_a_tty(stdout),
-                g_options._fn_text.c_str(), g_options._label.c_str());
+                g_options._fn_text.c_str(), g_options._label);
     }
     else if (g_options._show_filename != show_filename::no)
     {
@@ -310,24 +316,20 @@ static void print_prefix(const std::string& pathname,
         g_options._show_filename != show_filename::no)) &&
         g_options._line_numbers != line_numbers::with_parens)
     {
-        output_text(std::cout, is_a_tty(stdout),
-            g_options._se_text.c_str(), separator.c_str());
+        print_separator(separator);
     }
 
     if (g_options._line_numbers == line_numbers::with_parens)
-        output_text(std::cout, is_a_tty(stdout),
-            g_options._se_text.c_str(), "(");
+        print_separator("(");
 
     if (g_options._line_numbers != line_numbers::none)
     {
         output_text(std::cout, is_a_tty(stdout),
             g_options._ln_text.c_str(),
             std::to_string(1 + data._curr_line));
-        output_text(std::cout, is_a_tty(stdout),
-            g_options._se_text.c_str(),
-            g_options._line_numbers == line_numbers::with_parens ?
-            (')' + separator).c_str() :
-            separator.c_str());
+        print_separator(g_options._line_numbers == line_numbers::with_parens ?
+            (')' + separator) :
+            separator);
     }
 
     if (g_options._byte_offset)
@@ -335,8 +337,7 @@ static void print_prefix(const std::string& pathname,
         output_text(std::cout, is_a_tty(stdout),
             g_options._bn_text.c_str(),
             std::to_string(data._curr - data._first));
-        output_text(std::cout, is_a_tty(stdout),
-            g_options._se_text.c_str(), separator.c_str());
+        print_separator(separator);
     }
 
     if (g_options._initial_tab)
@@ -439,8 +440,11 @@ static std::size_t print_after(const std::string& pathname, match_data& data)
                 if (data._negate)
                     std::cout << std::string_view(ptr, end);
                 else
+                {
                     output_text(std::cout, is_a_tty(stdout),
-                        g_options._cx_text.c_str(), std::string_view(ptr, end));
+                        g_options._cx_text.c_str(),
+                        std::string_view(ptr, end));
+                }
 
                 std::cout << '\n';
                 end = consume_eol(end, data._second);
@@ -492,8 +496,7 @@ static void print_separators(const std::string& pathname, match_data& data)
                 data._curr_line - 1 - data._prev_line >
                 g_options._before_context)
             {
-                output_text_nl(std::cout, is_a_tty(stdout),
-                    g_options._se_text.c_str(), g_options._separator.c_str());
+                print_separator(g_options._separator);
             }
 
             for (; before < curr_line; ++before)
@@ -982,8 +985,7 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
                 !g_options._show_count && g_options._print.empty() &&
                 !g_rule_print && !g_options._quiet)
             {
-                output_text_nl(std::cout, is_a_tty(stdout),
-                    g_options._se_text.c_str(), g_options._separator.c_str());
+                print_separator(g_options._separator);
             }
 
             first_hit = false;
@@ -1076,7 +1078,7 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
         if (g_options._show_filename != show_filename::no)
         {
             print_pathname(pathname);
-            std::cout << ':';
+            print_separator(":");
         }
 
         std::cout << data._count << output_nl;
