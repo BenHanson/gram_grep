@@ -4,10 +4,9 @@
 %captures
 %token anything Name
 %consume anything
-%x BLOCK BODY BRACES CHEVRONS PARAMS PARENS TPARAMS
+%x BODY BRACES CHEVRONS PARAMS PARENS SKIP TPARAMS
 %%
-start: (name_or_op) opt_template_params ('(' ')') opt_qualifiers opt_param_list ('{' '}');
-opt_template_params: %empty | '<' name '>';
+start: (name_or_op) ('(' ')') opt_qualifiers opt_param_list ('{' '}');
 opt_qualifiers: %empty | opt_qualifiers qualifier;
 qualifier: '&'
          | '&&'
@@ -22,7 +21,11 @@ opt_param_list: %empty | ':' param_list;
 param_list: param | param_list ',' param;
 param: name '(' ')' | name '{' '}';
 name_or_op: name | operator;
-name: Name | name '::' Name;
+opt_template_params: %empty | '<' template_param_list '>';
+template_param_list: %empty | template_param_list token;
+token: 'const' | name | '*' | ',' | '...';
+name: name_opt_template | name '::' name_opt_template;
+name_opt_template: Name opt_template_params;
 operator: 'operator' op;
 op: name | '+' | '-' | '*'| '/' | '%' | '^' | '&' | '|' | '~' | '!' | '='
   | '<' | '>' | '+=' | '-=' | '*=' | '/=' | '%=' | '^=' | '&=' | '|='
@@ -40,29 +43,18 @@ ws [ \t\r\n]+|\/\/.*|"/*"(?s:.)*?"*/"
     the entire block possibly missing functions
     inside. In the case of a forward declaration,
     semi-colon will terminate the block instead. */
-<INITIAL>class|struct|namespace|union<BLOCK>
-<BLOCK>;<INITIAL>         skip()
-<BLOCK>\{<INITIAL>        skip()
-<BLOCK>{char}<.>
-<BLOCK>{name}<.>
-<BLOCK>{string}<.>
-<BLOCK>{ws}<.>
-<BLOCK>{any}<.>
-
- /* templates can have the class keyword in their parameters
-    which need to be skipped. */
-<INITIAL>template\s*\<<TPARAMS>
-<TPARAMS,CHEVRONS>\(<>CHEVRONS>  skip()
-<CHEVRONS>\><<>             skip()
-<TPARAMS>\><INITIAL>        skip()
-<CHEVRONS,TPARAMS>{string}<.>  skip()
-<CHEVRONS,TPARAMS>{char}<.>    skip()
-<CHEVRONS,TPARAMS>{ws}<.>      skip()
-<CHEVRONS,TPARAMS>{name}<.>    skip()
-<CHEVRONS,TPARAMS>{any}<.>     skip()
+<INITIAL>class|struct|namespace|union<SKIP>
+<SKIP>;<INITIAL>         skip()
+<SKIP>\{<INITIAL>        skip()
+<SKIP>{char}<.>
+<SKIP>{name}<.>
+<SKIP>{string}<.>
+<SKIP>{ws}<.>
+<SKIP>{any}<.>
 
 extern\s*["]C["]\s*\{     skip()
 
+ /* Consume nested parenthesis at top level (function parameters) */
 <INITIAL>\(<PARAMS>         '('
 <PARAMS,PARENS>\(<>PARENS>  skip()
 <PARENS>\)<<>               skip()
@@ -73,6 +65,7 @@ extern\s*["]C["]\s*\{     skip()
 <PARENS,PARAMS>{name}<.>    skip()
 <PARENS,PARAMS>{any}<.>     skip()
 
+ /* Consume nested braces at top level (function body) */
 <INITIAL>\{<BODY>         '{'
 <BODY,BRACES>\{<>BRACES>  skip()
 <BRACES>\}<<>             skip()
@@ -82,6 +75,18 @@ extern\s*["]C["]\s*\{     skip()
 <BRACES,BODY>{ws}<.>      skip()
 <BRACES,BODY>{name}<.>    skip()
 <BRACES,BODY>{any}<.>     skip()
+
+ /* templates can have the class keyword in their parameters
+    which need to be skipped. */
+<INITIAL>template\s*\<<TPARAMS>
+<TPARAMS,CHEVRONS>\<<>CHEVRONS> skip()
+<CHEVRONS>\><<>                 skip()
+<TPARAMS>\><INITIAL>            skip()
+<CHEVRONS,TPARAMS>{string}<.>   skip()
+<CHEVRONS,TPARAMS>{char}<.>     skip()
+<CHEVRONS,TPARAMS>{ws}<.>       skip()
+<CHEVRONS,TPARAMS>{name}<.>     skip()
+<CHEVRONS,TPARAMS>{any}<.>      skip()
 
 \+                        '+'
 -                         '-'
@@ -124,6 +129,7 @@ extern\s*["]C["]\s*\{     skip()
 \]                        ']'
 :                         ':'
 ::                        '::'
+\.\.\.                    '...'
 #.*                       skip()
 const                     'const'
 final                     'final'
