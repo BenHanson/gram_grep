@@ -497,6 +497,7 @@ static void print_separators(const std::string& pathname, match_data& data)
                 g_options._before_context)
             {
                 print_separator(g_options._separator);
+                std::cout << '\n';
             }
 
             for (; before < curr_line; ++before)
