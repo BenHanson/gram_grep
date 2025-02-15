@@ -531,10 +531,21 @@ static void print_separators(const std::string& pathname, match_data& data)
 }
 
 static void display_match(const std::string& pathname,
-    match_data& data, const match_rev_iter& iter)
+    match_data& data, const match_rev_iter& iter, bool& finished)
 {
     if (data._curr > data._eol)
     {
+        if (g_options._max_count != std::string::npos)
+        {
+            ++data._count;
+
+            if (data._count > g_options._max_count)
+            {
+                finished = true;
+                return;
+            }
+        }
+
         if (data._eol)
         {
             if (g_options._colour && is_a_tty(stdout) &&
@@ -569,9 +580,6 @@ static void display_match(const std::string& pathname,
             print_separators(pathname, data);
 
         print_prefix(pathname, data, ":");
-
-        if (g_options._max_count != std::string::npos)
-            ++data._count;
     }
 
     if (!g_options._only_matching && !g_options._whole_match &&
@@ -703,7 +711,7 @@ static bool process_matches(match_data& data,
 
                 do
                 {
-                    display_match(pathname, data, iter);
+                    display_match(pathname, data, iter, finished);
                 } while (data._negate && std::find_if(data._curr, iter->_eoi,
                     [](const char c) { return c == '\r' || c == '\n'; }) !=
                     iter->_eoi);
@@ -738,6 +746,9 @@ static bool process_matches(match_data& data,
                 }
 
                 data._eol = eol;
+
+                if (data._count == g_options._max_count)
+                    finished = true;
             }
 
             ++data._hits;
@@ -745,8 +756,6 @@ static bool process_matches(match_data& data,
         }
     }
 
-    if (data._count == g_options._max_count)
-        finished = true;
 
     return finished;
 }
