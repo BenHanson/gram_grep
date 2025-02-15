@@ -21,6 +21,7 @@
 #include <lexertl/iterator.hpp>
 #include <parsertl/iterator.hpp>
 #include <lexertl/memory_file.hpp>
+#include <boost/regex.hpp>
 #include <lexertl/rules.hpp>
 #include <parsertl/rules.hpp>
 #include <lexertl/state_machine.hpp>
@@ -70,7 +71,7 @@ enum class file_type
 using match_rev_iter = std::reverse_iterator<std::vector<match>::iterator>;
 namespace fs = std::filesystem;
 
-std::regex g_capture_rx(R"(\$\d+)");
+boost::regex g_capture_rx(R"(\$\d+)");
 condition_map g_conditions;
 condition_parser g_condition_parser;
 config_parser g_config_parser;
@@ -1462,20 +1463,20 @@ static void queue_regex(config& cfg)
     // Use the lexertl enum operator
     using namespace lexertl;
     regex regex;
-    std::regex::flag_type rx_flags{};
+    boost::regex::flag_type rx_flags{};
 
     regex._flags = cfg._flags;
     regex._conditions = std::move(cfg._conditions);
 
     if (regex._flags & *config_flags::icase)
-        rx_flags |= std::regex_constants::icase;
+        rx_flags |= boost::regex_constants::icase;
 
     if (regex._flags & *config_flags::grep)
-        rx_flags |= std::regex_constants::grep;
+        rx_flags |= boost::regex_constants::grep;
     else if (regex._flags & *config_flags::egrep)
-        rx_flags |= std::regex_constants::egrep;
+        rx_flags |= boost::regex_constants::egrep;
     else
-        rx_flags |= std::regex_constants::ECMAScript;
+        rx_flags |= boost::regex_constants::ECMAScript;
 
     regex._rx.assign(cfg._param, rx_flags);
     g_pipeline.emplace_back(std::move(regex));

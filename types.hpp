@@ -4,6 +4,7 @@
 #include <lexertl/match_results.hpp>
 #include <parsertl/match_results.hpp>
 #include <lexertl/memory_file.hpp>
+#include <boost/regex.hpp>
 #include <lexertl/rules.hpp>
 #include <parsertl/rules.hpp>
 #include <lexertl/state_machine.hpp>
@@ -15,7 +16,6 @@
 #include <cstdint>
 #include <map>
 #include <memory>
-#include <regex>
 #include <set>
 #include <stack>
 #include <string>
@@ -46,7 +46,7 @@ enum class show_filename
     yes
 };
 
-using condition_map = std::map<uint16_t, std::regex>;
+using condition_map = std::map<uint16_t, boost::regex>;
 
 struct wildcards
 {
@@ -164,7 +164,7 @@ struct text : match_type_base
 
 struct regex : match_type_base
 {
-    std::regex _rx;
+    boost::regex _rx;
 };
 
 struct lexer : match_type_base

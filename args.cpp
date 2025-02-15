@@ -8,6 +8,7 @@
 #include <parsertl/enums.hpp>
 #include <lexertl/iterator.hpp>
 #include <parsertl/iterator.hpp>
+#include <boost/regex.hpp>
 
 #include <cctype>
 #include <charconv>
@@ -17,7 +18,6 @@
 #include <format>
 #include <iosfwd>
 #include <iostream>
-#include <regex>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -85,7 +85,7 @@ void parse_condition(const char* str)
             const auto rx = giter.dollar(4);
 
             g_options._conditions[atoi(index.first + 1) & 0xffff] =
-                std::regex(dedup_apostrophes(rx.substr(1, 1)));
+                boost::regex(dedup_apostrophes(rx.substr(1, 1)));
         }
     }
 

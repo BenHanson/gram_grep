@@ -10,6 +10,7 @@
 #include <parsertl/generator.hpp>
 #include <lexertl/iterator.hpp>
 #include <parsertl/lookup.hpp>
+#include <boost/regex.hpp>
 #include <lexertl/rules.hpp>
 #include <parsertl/rules.hpp>
 #include <lexertl/state_machine.hpp>
@@ -185,7 +186,7 @@ std::string cmd_data::system() const
         break;
     }
     case cmd::type::replace_all:
-        output = std::regex_replace(_params[0], std::regex(_params[1]), _params[2]);
+        output = boost::regex_replace(_params[0], boost::regex(_params[1]), _params[2]);
         break;
     case cmd::type::string:
         output = _params.back();

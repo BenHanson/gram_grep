@@ -20,6 +20,10 @@ endif()
 
 message(STATUS "CMAKE_CXX_FLAGS_DEBUG: ${CMAKE_CXX_FLAGS_DEBUG}")
 
+cmake_policy(SET CMP0144 NEW)
+find_package(Boost COMPONENTS regex)
+include_directories(${Boost_INCLUDE_DIRS})
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(target_name gram_grep)

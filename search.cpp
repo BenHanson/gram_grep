@@ -5,6 +5,7 @@
 #include "types.hpp"
 
 #include <lexertl/iterator.hpp>
+#include <boost/regex.hpp>
 #include <parsertl/search.hpp>
 #include <lexertl/state_machine.hpp>
 #include <parsertl/state_machine.hpp>
@@ -26,7 +27,7 @@
 #include <utility>
 #include <variant>
 
-extern std::regex g_capture_rx;
+extern boost::regex g_capture_rx;
 extern options g_options;
 extern pipeline g_pipeline;
 
@@ -113,9 +114,9 @@ static std::string format_item(const std::string& input,
 {
     std::string output;
     const char* last = input.c_str();
-    std::cregex_iterator iter(last, last + input.size(),
+    boost::cregex_iterator iter(last, last + input.size(),
         g_capture_rx);
-    std::cregex_iterator end;
+    boost::cregex_iterator end;
 
     for (; iter != end; ++iter)
     {
@@ -139,9 +140,9 @@ static std::string format_item(const std::string& input,
 {
     std::string output;
     const char* last = input.c_str();
-    std::cregex_iterator iter(last, last + input.size(),
+    boost::cregex_iterator iter(last, last + input.size(),
         g_capture_rx);
-    std::cregex_iterator end;
+    boost::cregex_iterator end;
 
     for (; iter != end; ++iter)
     {
@@ -172,7 +173,7 @@ bool conditions_met(const condition_map& conditions, const T& cap_vec)
 
         for (const auto& cap : cap_vec[idx])
         {
-            if (std::regex_search(get_first(cap), get_second(cap), rx))
+            if (boost::regex_search(get_first(cap), get_second(cap), rx))
             {
                 success = true;
                 break;
@@ -325,9 +326,9 @@ void process_action(const parser_t& p, const char* start,
                 const auto index2 = get_ptr(param.second) - start;
                 auto pair = std::pair(index1, index2 - index1);
                 auto iter = replacements.find(pair);
-                const std::regex rx(action_iter->second.exec(c->_params[0]));
+                const boost::regex rx(action_iter->second.exec(c->_params[0]));
                 const std::string text =
-                    std::regex_replace(iter == replacements.end() ?
+                    boost::regex_replace(iter == replacements.end() ?
                         std::string(get_ptr(param.first), get_ptr(param.second)) :
                         iter->second,
                         rx, action_iter->second.exec(c->_params[1]));
@@ -346,9 +347,9 @@ std::string build_text(const std::string& input, const capture_vector& captures)
 {
     std::string output;
     const char* last = input.c_str();
-    std::cregex_iterator iter(input.c_str(),
+    boost::cregex_iterator iter(input.c_str(),
         input.c_str() + input.size(), g_capture_rx);
-    std::cregex_iterator end;
+    boost::cregex_iterator end;
 
     for (; iter != end; ++iter)
     {
@@ -519,15 +520,15 @@ static bool process_regex(const regex& r, const char* data_first,
 {
     // Use the lexertl enum operator
     using namespace lexertl;
-    std::cregex_iterator iter(ranges.back()._first,
+    boost::cregex_iterator iter(ranges.back()._first,
         ranges.back()._eoi, r._rx);
-    std::cregex_iterator end;
+    boost::cregex_iterator end;
     results cap_vec;
     bool success = iter != end;
 
     cap_vec.emplace_back();
     cap_vec.back().emplace_back(iter == end ?
-        std::csub_match{} :
+        boost::csub_match{} :
         (*iter)[0]);
 
     while (success && (!is_whole_word(data_first,
@@ -536,7 +537,7 @@ static bool process_regex(const regex& r, const char* data_first,
             ranges.front()._eoi, r._flags) ||
         !conditions_met(r._conditions, cap_vec)))
     {
-        iter = std::cregex_iterator((*iter)[0].second, ranges.back()._eoi, r._rx);
+        iter = boost::cregex_iterator((*iter)[0].second, ranges.back()._eoi, r._rx);
         cap_vec.back().back() = (*iter)[0];
         success = iter != end;
     }
