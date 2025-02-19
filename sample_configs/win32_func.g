@@ -10,11 +10,21 @@ Currently we are not interested in the cppwinrt and winrt directories so these c
 %x BLOCK BRACE BODY BRACKETS PARAMS
 %%
 // Function prototype grammar:
-start: (NAME) '(' params ')' opt_ifdef terminate;
+start: (NAME) '(' params ')' opt_qualifiers opt_ifdef terminate;
 params: %empty | param_list;
 param_list: (param) | param_list ',' (param);
 param: item | param item;
 item: NAME | '*' | '...' | '(' params ')' '(' params ')';
+opt_qualifiers: %empty | opt_qualifiers qualifier;
+qualifier: '&'
+         | '&&'
+         | 'const'
+         | 'final'
+         | 'noexcept'
+         | 'override'
+         | 'throw' '(' ')'
+         | 'try'
+         | 'volatile';
 opt_ifdef: %empty | IFDEF;
 terminate: ';' | BLOCK;
 %%
@@ -22,6 +32,17 @@ terminate: ';' | BLOCK;
 id [A-Z_a-z]\w*
 %%
  /*Lexer:*/
+;        ';'
+&        '&'
+&&       '&&'
+const    'const'
+final    'final'
+noexcept 'noexcept'
+override 'override'
+throw    'throw'
+try      'try'
+volatile 'volatile'
+
 <INITIAL,PARAMS>{id}<.>      NAME
 
  /* Consume macros used in function parameters */
@@ -38,12 +59,11 @@ id [A-Z_a-z]\w*
 <BLOCK>\}<INITIAL>           BLOCK
 <BLOCK,BRACE>(?s:.)<.>       skip()
 
-<PARAMS>\*<.>                        '*'
 <INITIAL>\(<PARAMS>                  '('
-<PARAMS>\)<INITIAL>                  ')'
+<PARAMS>\*<.>                        '*'
 <PARAMS>,<.>                         ','
 <PARAMS>"..."<.>                     '...'
-;                                    ';'
+<PARAMS>\)<INITIAL>                  ')'
 
  /* Tokens we want to discard */
 

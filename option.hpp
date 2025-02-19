@@ -594,11 +594,11 @@ const option g_option[]
 
             do
             {
-                const auto idx = value.find_first_of(';', value.data() - first);
+                const auto idx = value.find_first_of(';', first - value.data());
 
                 end = idx == std::string_view::npos ?
                     second :
-                    first + idx;
+                    value.data() + idx;
                 add_pathname(first, end, g_options._include);
 
                 if (end != second)
@@ -623,11 +623,11 @@ const option g_option[]
 
             do
             {
-                const auto idx = value.find_first_of(';', value.data() - first);
+                const auto idx = value.find_first_of(';', first - value.data());
 
                 end = idx == std::string_view::npos ?
                     second :
-                    first + idx;
+                    value.data() + idx;
                 add_pathname(first, end, g_options._exclude);
 
                 if (end != second)
