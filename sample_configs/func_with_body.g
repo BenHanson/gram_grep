@@ -25,7 +25,8 @@ opt_template_params: %empty | '<' template_param_list '>';
 template_param_list: %empty | template_param_list token;
 token: 'const' | name | '*' | ',' | '...';
 name: name_opt_template | name '::' name_opt_template;
-name_opt_template: Name opt_template_params;
+name_opt_template: opt_tilda Name opt_template_params;
+opt_tilda: %empty | '~';
 operator: 'operator' op;
 op: name | '+' | '-' | '*'| '/' | '%' | '^' | '&' | '|' | '~' | '!' | '='
   | '<' | '>' | '+=' | '-=' | '*=' | '/=' | '%=' | '^=' | '&=' | '|='
