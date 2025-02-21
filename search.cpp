@@ -18,7 +18,6 @@
 #include <iostream>
 #include <map>
 #include <memory>
-#include <regex>
 #include <stack>
 #include <stdlib.h>
 #include <string>

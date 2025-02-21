@@ -30,7 +30,6 @@ extern condition_parser g_condition_parser;
 extern config_parser g_config_parser;
 extern parser* g_curr_parser;
 extern uparser* g_curr_uparser;
-extern bool g_modify;
 
 std::string unescape(const std::string_view& vw)
 {
@@ -566,7 +565,7 @@ void build_config_parser()
     g_config_parser._actions[grules.push("single_cmd", "mod_cmd")] =
         [](config_state&, const config_parser&)
         {
-            g_modify = true;
+            g_options._modify = true;
         };
     g_config_parser._actions[grules.push("mod_cmd", "'erase' '(' Index ')'")] =
         [](config_state& state, const config_parser& parser)

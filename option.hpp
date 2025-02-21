@@ -27,7 +27,6 @@
 #include <type_traits>
 #include <vector>
 
-extern unsigned int g_flags;
 extern options g_options;
 
 extern void add_pattern(const char* param, std::vector<config>& configs);
@@ -265,7 +264,7 @@ const option g_option[]
             // Use the lexertl enum operator
             using namespace lexertl;
 
-            g_flags |= *config_flags::icase;
+            g_options._flags |= *config_flags::icase;
         }
     },
     {
@@ -280,7 +279,7 @@ const option g_option[]
             // Use the lexertl enum operator
             using namespace lexertl;
 
-            g_flags &= *config_flags::icase;
+            g_options._flags &= *config_flags::icase;
         }
     },
     {
@@ -295,7 +294,7 @@ const option g_option[]
             // Use the lexertl enum operator
             using namespace lexertl;
 
-            g_flags |= *config_flags::whole_word;
+            g_options._flags |= *config_flags::whole_word;
         }
     },
     {
@@ -310,7 +309,7 @@ const option g_option[]
             // Use the lexertl enum operator
             using namespace lexertl;
 
-            g_flags |= *config_flags::bol_eol;
+            g_options._flags |= *config_flags::bol_eol;
         }
     },
     {
@@ -337,7 +336,7 @@ const option g_option[]
             // Use the lexertl enum operator
             using namespace lexertl;
 
-            g_flags |= *config_flags::negate;
+            g_options._flags |= *config_flags::negate;
         }
     },
     {
@@ -912,11 +911,11 @@ const option g_option[]
                 auto pn = p.data();
 
                 configs.emplace_back(match_type::parser,
-                    std::string(pn, pn + p.size()), g_flags,
+                    std::string(pn, pn + p.size()), g_options._flags,
                     g_options._conditions);
             }
 
-            g_flags = 0;
+            g_options._flags = 0;
             g_options._conditions.clear();
         }
     },
@@ -992,7 +991,7 @@ const option g_option[]
             // Use the lexertl enum operator
             using namespace lexertl;
 
-            g_flags |= *config_flags::extend_search;
+            g_options._flags |= *config_flags::extend_search;
         }
     },
     {
@@ -1046,7 +1045,7 @@ const option g_option[]
             // Use the lexertl enum operator
             using namespace lexertl;
 
-            g_flags |= *config_flags::negate | *config_flags::all;
+            g_options._flags |= *config_flags::negate | *config_flags::all;
         }
     },
     {
@@ -1110,7 +1109,7 @@ const option g_option[]
             // Use the lexertl enum operator
             using namespace lexertl;
 
-            g_flags |= *config_flags::ret_prev_match;
+            g_options._flags |= *config_flags::ret_prev_match;
         }
     },
     {
@@ -1179,9 +1178,9 @@ const option g_option[]
             g_options._word_list_files =
                 std::vector<lexertl::memory_file>
                 (g_options._word_list_files.size() + 1);
-            configs.emplace_back(match_type::word_list, value, g_flags,
+            configs.emplace_back(match_type::word_list, value, g_options._flags,
                 std::move(g_options._conditions));
-            g_flags = 0;
+            g_options._flags = 0;
         }
     },
     {

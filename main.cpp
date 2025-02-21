@@ -47,7 +47,6 @@
 #endif
 
 #include <queue>
-#include <regex>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>
@@ -79,13 +78,8 @@ parser* g_curr_parser = nullptr;
 uparser* g_curr_uparser = nullptr;
 std::size_t g_files = 0;
 std::size_t g_hits = 0;
-bool g_modify = false; // Set when grammar has modifying operations
 options g_options;
-// maps path to pair.
-// pair is wildcards and negated wildcards
-std::map<std::string, wildcards> g_pathnames;
 pipeline g_pipeline;
-bool g_rule_print = false;
 std::size_t g_searched = 0;
 
 static file_type fetch_file_type(const char* data, std::size_t size)
@@ -200,7 +194,7 @@ static file_type load_file(std::vector<unsigned char>& utf8,
     const match& tuple, match_data& data)
 {
     // Only allow _replace if g_modify (grammar actions) not set
-    if (g_options._perform_output && !g_modify)
+    if (g_options._perform_output && !g_options._modify)
     {
         const char* first = data._negate ? iter->_first : iter->_second;
 
@@ -700,7 +694,7 @@ static bool process_matches(match_data& data,
                 std::cout << exec_ret(cmd);
             }
             else if (g_options._pathname_only != pathname_only::negated &&
-                !g_options._show_count && !g_rule_print && !g_options._quiet)
+                !g_options._show_count && !g_options._rule_print && !g_options._quiet)
             {
                 if (data._negate && data._curr != data._first)
                 {
@@ -994,7 +988,7 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
             if (g_options._hit_separator && g_hits && first_hit &&
                 g_options._pathname_only != pathname_only::negated &&
                 !g_options._show_count && g_options._print.empty() &&
-                !g_rule_print && !g_options._quiet)
+                !g_options._rule_print && !g_options._quiet)
             {
                 print_separator(g_options._separator);
             }
@@ -1044,7 +1038,7 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
 
     if (g_options._pathname_only != pathname_only::negated &&
         !g_options._show_count && g_options._print.empty() &&
-        !g_rule_print && !g_options._quiet)
+        !g_options._rule_print && !g_options._quiet)
     {
         if (g_options._colour && is_a_tty(stdout) &&
             !g_options._sl_text.empty())
@@ -1195,7 +1189,7 @@ static void process()
 {
     std::queue<std::pair<std::string, const wildcards*>> queue;
 
-    for (const auto& [path, wcs] : g_pathnames)
+    for (const auto& [path, wcs] : g_options._pathnames)
     {
         queue.emplace(path, &wcs);
     }
@@ -1424,7 +1418,7 @@ static void queue_parser(config& cfg)
             build_config_parser();
 
         state.parse(cfg._flags, cfg._param);
-        g_rule_print |= state._print;
+        g_options._rule_print |= state._print;
 
         if (parser._gsm.empty())
         {
@@ -1451,7 +1445,7 @@ static void queue_parser(config& cfg)
             build_config_parser();
 
         state.parse(cfg._flags, cfg._param);
-        g_rule_print |= state._print;
+        g_options._rule_print |= state._print;
 
         if (parser._gsm.empty())
         {
@@ -1738,14 +1732,15 @@ int main(int argc, char* argv[])
             {
                 const char* param = p.data();
 
-                add_pathname(std::string(param, param + p.size()), g_pathnames);
+                add_pathname(std::string(param, param + p.size()),
+                    g_options._pathnames);
             }
         }
 
         if (g_options._show_filename == show_filename::undefined &&
-            g_pathnames.size() == 1)
+            g_options._pathnames.size() == 1)
         {
-            auto iter = g_pathnames.begin();
+            auto iter = g_options._pathnames.begin();
 
             if (iter->second._negative.size() +
                 iter->second._positive.size() == 1)
@@ -1803,10 +1798,10 @@ int main(int argc, char* argv[])
             throw gg_error("Cannot combine -l and --count.");
         }
 
-        if (g_options._perform_output && g_pathnames.empty())
+        if (g_options._perform_output && g_options._pathnames.empty())
             throw gg_error("Cannot combine stdin with -o.");
 
-        if (!g_options._replace.empty() && g_modify)
+        if (!g_options._replace.empty() && g_options._modify)
             throw gg_error("Cannot combine --replace with grammar "
                 "actions that modify the input.");
 
@@ -1825,7 +1820,7 @@ int main(int argc, char* argv[])
 
         if (run)
         {
-            if (g_pathnames.empty())
+            if (g_options._pathnames.empty())
             {
                 std::string cin;
 

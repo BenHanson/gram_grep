@@ -22,7 +22,6 @@
 #include <format>
 #include <iostream>
 #include <memory>
-#include <regex>
 #include <set>
 #include <string>
 #include <vector>

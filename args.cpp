@@ -29,7 +29,6 @@ extern void show_usage(const std::string& msg);
 
 extern options g_options;
 extern condition_parser g_condition_parser;
-unsigned int g_flags = 0;
 
 std::vector<std::string_view> split(const char* str, const char c)
 {
@@ -209,17 +208,17 @@ void add_pattern(const char* param, std::vector<config>& configs)
         } ();
 
     if (g_options._pattern_type == pattern_type::extended)
-        g_flags |= *config_flags::egrep;
+        g_options._flags |= *config_flags::egrep;
     else if (g_options._pattern_type == pattern_type::basic ||
         g_options._pattern_type == pattern_type::none)
     {
-        g_flags |= *config_flags::grep;
+        g_options._flags |= *config_flags::grep;
     }
 
-    configs.emplace_back(type, param, g_flags,
+    configs.emplace_back(type, param, g_options._flags,
         std::move(g_options._conditions));
     g_options._pattern_type = pattern_type::none;
-    g_flags = 0;
+    g_options._flags = 0;
 }
 
 void read_switches(const int argc, const char* const argv[],
