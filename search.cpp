@@ -537,8 +537,12 @@ static bool process_regex(const regex& r, const char* data_first,
         !conditions_met(r._conditions, cap_vec)))
     {
         iter = boost::cregex_iterator((*iter)[0].second, ranges.back()._eoi, r._rx);
-        cap_vec.back().back() = (*iter)[0];
         success = iter != end;
+
+        if (!success)
+            break;
+
+        cap_vec.back().back() = (*iter)[0];
     }
 
     if (success)
@@ -639,9 +643,13 @@ static std::pair<bool, lexertl::criterator> lexer_search(const lexer& l,
         !conditions_met(l._conditions, cap_vec)))
     {
         iter = lexertl::criterator(iter->second, iter->eoi, l._sm);
+        success = iter->first != ranges.back()._eoi;
+
+        if (!success)
+            break;
+
         cap_vec.back().back().first = iter->first;
         cap_vec.back().back().second = iter->second;
-        success = iter->first != ranges.back()._eoi;
     }
 
     return std::make_pair(success, std::move(iter));
@@ -667,10 +675,14 @@ static std::pair<bool, crutf8iterator> lexer_search(const ulexer& l,
     {
         iter = crutf8iterator(utf8_in_iterator(iter->second.get(), iter->eoi.get()),
             utf8_in_iterator(iter->eoi.get(), iter->eoi.get()), l._sm);
-        cap_vec.back().back().first = iter->first.get();
-        cap_vec.back().back().second = iter->second.get();
         success = iter->first != utf8_in_iterator(ranges.back()._eoi,
             ranges.back()._eoi);
+
+        if (!success)
+            break;
+
+        cap_vec.back().back().first = iter->first.get();
+        cap_vec.back().back().second = iter->second.get();
     }
 
     return std::make_pair(success, std::move(iter));

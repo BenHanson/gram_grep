@@ -991,14 +991,28 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
                 !g_options._rule_print && !g_options._quiet)
             {
                 print_separator(g_options._separator);
+                std::cout << '\n';
             }
 
             first_hit = false;
 
             if (type == file_type::binary)
             {
-                std::cout << output_gg << "Binary file " <<
-                    normalise_pathname(pathname) << " matches\n";
+                if (g_options._pathname_only == pathname_only::no)
+                    output_text(std::cout, is_a_tty(stdout),
+                        g_options._fn_text.c_str(),
+                        std::format("{}Binary file ", gg_text()));
+
+                output_text(std::cout, is_a_tty(stdout),
+                    g_options._fn_text.c_str(),
+                    normalise_pathname(pathname));
+
+                if (g_options._pathname_only == pathname_only::no)
+                    output_text(std::cout, is_a_tty(stdout),
+                        g_options._fn_text.c_str(),
+                        " matches");
+
+                std::cout << '\n';
                 return;
             }
             else
