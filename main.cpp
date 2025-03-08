@@ -701,14 +701,23 @@ static bool process_matches(match_data& data,
                     data._curr = std::find_if(data._curr, data._second,
                         [](const char c) { return c == '\r' || c == '\n'; });
                     data._curr = consume_eol(data._curr, data._second);
+                    data._curr_line =
+                        std::count(data._first, data._ranges.back()._eoi, '\n');
                 }
 
-                do
+                if (!(data._negate && data._curr_line - data._prev_line <= 1))
                 {
-                    display_match(pathname, data, iter, finished);
-                } while (data._negate && std::find_if(data._curr, iter->_eoi,
-                    [](const char c) { return c == '\r' || c == '\n'; }) !=
-                    iter->_eoi);
+                    // do ... while in case the line is blank
+                    do
+                    {
+                        display_match(pathname, data, iter, finished);
+                    } while (data._negate && std::find_if(data._curr, iter->_eoi,
+                        [](const char c) { return c == '\r' || c == '\n'; }) !=
+                        iter->_eoi);
+                }
+
+                if (data._negate)
+                    data._prev_line = std::count(data._first, data._curr, '\n');
             }
 
             if (g_options._show_count)
