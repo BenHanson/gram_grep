@@ -519,8 +519,8 @@ static bool process_regex(const regex& r, const char* data_first,
 {
     // Use the lexertl enum operator
     using namespace lexertl;
-    boost::cregex_iterator iter(ranges.back()._first,
-        ranges.back()._eoi, r._rx);
+    boost::cregex_iterator iter(ranges.back()._first, ranges.back()._eoi,
+        r._rx, boost::regex_constants::match_not_dot_newline);
     boost::cregex_iterator end;
     results cap_vec;
     bool success = iter != end;
@@ -536,7 +536,8 @@ static bool process_regex(const regex& r, const char* data_first,
             ranges.front()._eoi, r._flags) ||
         !conditions_met(r._conditions, cap_vec)))
     {
-        iter = boost::cregex_iterator((*iter)[0].second, ranges.back()._eoi, r._rx);
+        iter = boost::cregex_iterator((*iter)[0].second, ranges.back()._eoi,
+            r._rx, boost::regex_constants::match_not_dot_newline);
         success = iter != end;
 
         if (!success)
