@@ -48,4 +48,3 @@ cmake ..
 cmake --build .
 ```
 
-test update
