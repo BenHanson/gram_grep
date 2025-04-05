@@ -585,8 +585,7 @@ static void display_match(const std::string& pathname,
     if (g_options._whole_match)
     {
         output_text_nl(std::cout, is_a_tty(stdout),
-            g_options._ms_text.c_str(),
-            std::string_view(iter->_first, iter->_second));
+            g_options._ms_text.c_str(), iter->view());
     }
     else if (g_options._only_matching)
     {

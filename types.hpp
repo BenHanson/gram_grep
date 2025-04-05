@@ -553,7 +553,10 @@ struct match
 
     std::string_view view() const
     {
-        return std::string_view(_first, _eoi);
+        return std::string_view(_first,
+            _first == _second ?
+            _eoi :
+            _second);
     }
 };
 
