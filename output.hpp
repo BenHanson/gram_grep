@@ -39,7 +39,7 @@ template<class CharT, class Traits>
 void output_text(std::basic_ostream<CharT, Traits>& os, const bool tty,
 	const CharT* szColour, const std::basic_string_view<CharT> text)
 {
-	if (g_options._colour && tty)
+	if (g_options._colour && *szColour && tty)
 	{
 		os << szColour;
 
@@ -49,7 +49,7 @@ void output_text(std::basic_ostream<CharT, Traits>& os, const bool tty,
 
 	os << text;
 
-	if (g_options._colour && tty)
+	if (g_options._colour && *szColour && tty)
 	{
 		os << szDefaultText;
 

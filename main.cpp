@@ -542,26 +542,29 @@ static void display_match(const std::string& pathname,
 
         if (data._eol)
         {
-            if (g_options._colour && is_a_tty(stdout) &&
-                !g_options._sl_text.empty())
+            if (data._bol != data._eol)
             {
-                std::cout << g_options._sl_text;
+                if (g_options._colour && is_a_tty(stdout) &&
+                    !g_options._sl_text.empty())
+                {
+                    std::cout << g_options._sl_text;
 
-                if (!g_options._ne)
-                    std::cout << szEraseEOL;
-            }
+                    if (!g_options._ne)
+                        std::cout << szEraseEOL;
+                }
 
-            // Print remaining text until the end of line
-            for (; data._bol != data._eol; ++data._bol)
-                std::cout << *data._bol;
+                // Print remaining text until the end of line
+                for (; data._bol != data._eol; ++data._bol)
+                    std::cout << *data._bol;
 
-            if (g_options._colour && is_a_tty(stdout) &&
-                !g_options._sl_text.empty())
-            {
-                std::cout << szDefaultText;
+                if (g_options._colour && is_a_tty(stdout) &&
+                    !g_options._sl_text.empty())
+                {
+                    std::cout << szDefaultText;
 
-                if (!g_options._ne)
-                    std::cout << szEraseEOL;
+                    if (!g_options._ne)
+                        std::cout << szEraseEOL;
+                }
             }
 
             std::cout << '\n';
@@ -576,8 +579,8 @@ static void display_match(const std::string& pathname,
         print_prefix(pathname, data, ":");
     }
 
-    if (!g_options._only_matching && !g_options._whole_match &&
-        !data._negate)
+    if (!g_options._only_matching && !g_options._whole_match/* &&
+        !data._negate*/)
     {
         find_bol(data);
     }
@@ -603,6 +606,20 @@ static void display_match(const std::string& pathname,
     }
     else
     {
+        if (data._negate && data._bol && data._bol < data._last)
+        {
+            if (g_options._colour && is_a_tty(stdout))
+            {
+                std::cout << g_options._ms_text;
+
+                if (!g_options._ne)
+                    std::cout << szEraseEOL;
+            }
+
+            for (; data._bol < data._last; ++data._bol)
+                std::cout << *data._bol;
+        }
+
         if (g_options._colour && is_a_tty(stdout) &&
             !g_options._sl_text.empty())
         {
@@ -632,7 +649,7 @@ static void display_match(const std::string& pathname,
             data._curr = consume_eol(data._curr, data._second);
         }
 
-        if (!data._negate)
+        //if (!data._negate)
         {
             const char* eoi = data._eol > iter->_second ?
                 (iter->_first == iter->_second ?
@@ -646,6 +663,9 @@ static void display_match(const std::string& pathname,
                 g_options._ms_text.c_str(),
                 std::string_view(data._bol, eoi));
             data._bol = eoi;
+
+            if (data._negate)
+                data._last = data._ranges.back()._second;
         }
     }
 }
@@ -696,24 +716,24 @@ static bool process_matches(match_data& data,
             else if (g_options._pathname_only != pathname_only::negated &&
                 !g_options._show_count && !g_options._rule_print && !g_options._quiet)
             {
-                if (data._negate && data._curr != data._first)
+                /*if (data._negate && data._curr != data._first)
                 {
                     data._curr = std::find_if(data._curr, data._second,
                         [](const char c) { return c == '\r' || c == '\n'; });
                     data._curr = consume_eol(data._curr, data._second);
                     data._curr_line =
                         std::count(data._first, data._ranges.back()._eoi, '\n');
-                }
+                }*/
 
-                if (!(data._negate && data._curr_line - data._prev_line <= 1))
+                //if (!(data._negate && data._curr_line - data._prev_line <= 1))
                 {
                     // do ... while in case the line is blank
-                    do
+                    //do
                     {
                         display_match(pathname, data, iter, finished);
-                    } while (data._negate && std::find_if(data._curr, iter->_eoi,
+                    } /*while (data._negate && std::find_if(data._curr, iter->_eoi,
                         [](const char c) { return c == '\r' || c == '\n'; }) !=
-                        iter->_eoi);
+                        iter->_eoi);*/
                 }
 
                 if (data._negate)
@@ -758,7 +778,6 @@ static bool process_matches(match_data& data,
             break;
         }
     }
-
 
     return finished;
 }
@@ -1092,7 +1111,7 @@ static void process_file(const std::string& pathname, std::string* cin = nullptr
         data._curr_line = std::count(data._first, data._second, '\n');
         data._curr = data._second;
 
-        if (!data._negate)
+        //if (!data._negate)
             print_after(pathname, data);
     }
 
@@ -1651,7 +1670,12 @@ static void parse_colours(const std::string& colours)
                 [name](const auto& pair) { return name == pair.first; });
                 iter != std::end(lookup))
             {
-                iter->second = std::format("\x1b[{}m", value);
+                iter->second = "\x1b[";
+
+                if (value.find(';') == std::string::npos)
+                    iter->second += "0;";
+
+                iter->second += std::format("{}m", value);
             }
         }
         else if (giter->entry.param == rv_idx)

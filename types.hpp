@@ -145,12 +145,12 @@ struct options
     std::string _sl_text;
     std::string _cx_text;
     bool _rv = false; // Not used yet
-    std::string _ms_text = "\x1b[01;31m";
-    std::string _mc_text = "\x1b[01;31m"; // Not used yet
-    std::string _fn_text = "\x1b[35m";
-    std::string _ln_text = "\x1b[32m";
-    std::string _bn_text = "\x1b[32m";
-    std::string _se_text = "\x1b[36m";
+    std::string _ms_text = "\x1b[1;31m";
+    std::string _mc_text = "\x1b[1;31m"; // Not used yet
+    std::string _fn_text = "\x1b[0;35m";
+    std::string _ln_text = "\x1b[0;32m";
+    std::string _bn_text = "\x1b[0;32m";
+    std::string _se_text = "\x1b[0;36m";
     bool _ne = false;
     std::string _wa_text = "\x1b[38;5;229m";
 };
@@ -570,6 +570,7 @@ struct match_data
     const char* _first = nullptr;
     const char* _second = nullptr;
     const char* _curr = nullptr;
+    const char* _last = nullptr;
     std::vector<match> _ranges;
     std::stack<std::string> _matches;
     capture_vector _captures;

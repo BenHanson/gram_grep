@@ -472,7 +472,11 @@ static bool process_text(const text& t, const char* data_first,
                     success = false;
                 }
                 else if (!(t._flags & *config_flags::ret_prev_match))
+                {
+                    // Store end of match
+                    ranges.back()._second = second;
                     ranges.emplace_back(ranges.back()._first, first, first);
+                }
             }
         }
         else if (!(t._flags & *config_flags::ret_prev_match))
@@ -568,9 +572,13 @@ static bool process_regex(const regex& r, const char* data_first,
 
                     success = false;
                 }
-                else if(!(r._flags & *config_flags::ret_prev_match))
+                else if (!(r._flags & *config_flags::ret_prev_match))
+                {
+                    // Store end of match
+                    ranges.back()._second = (*iter)[0].second;
                     ranges.emplace_back(ranges.back()._first, (*iter)[0].first,
                         (*iter)[0].first);
+                }
             }
         }
         else if(!(r._flags & *config_flags::ret_prev_match))
@@ -720,8 +728,11 @@ bool process_lexer(const lexer_t& l, const char* data_first,
                     success = false;
                 }
                 else if (!(l._flags & *config_flags::ret_prev_match))
+                {
+                    ranges.back()._second = get_second(iter);
                     ranges.emplace_back(ranges.back()._first,
                         get_first(iter), get_first(iter));
+                }
             }
         }
         else if (!(l._flags & *config_flags::ret_prev_match))
@@ -840,8 +851,12 @@ bool process_parser(parser_t& p, const char* data_first,
                     success = false;
                 }
                 else if (!(p._flags & *config_flags::ret_prev_match))
+                {
+                    // Store end of match
+                    ranges.back()._second = get_second(iter);
                     ranges.emplace_back(ranges.back()._first,
                         get_first(iter), get_first(iter));
+                }
             }
         }
         else
@@ -1053,7 +1068,11 @@ static bool process_word_list(const word_list& w, const char* data_first,
                     success = false;
                 }
                 else if (!(w._flags & *config_flags::ret_prev_match))
+                {
+                    // Store end of match
+                    ranges.back()._second = second;
                     ranges.emplace_back(ranges.back()._first, first, first);
+                }
             }
         }
         else if (!(w._flags & *config_flags::ret_prev_match))
