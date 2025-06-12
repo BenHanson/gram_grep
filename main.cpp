@@ -137,8 +137,8 @@ static file_type load_file(std::vector<unsigned char>& utf8,
         auto second = std::bit_cast<const uint16_t*>(data_second);
         utf16_in_iterator in(first, second);
         utf16_in_iterator in_end(second, second);
-        utf8_out_iterator out(in);
-        utf8_out_iterator out_end(in_end);
+        utf8_out_iterator out(in, in_end);
+        utf8_out_iterator out_end(in_end, in_end);
 
         utf8.reserve(size / 2 - 1);
 
@@ -163,8 +163,8 @@ static file_type load_file(std::vector<unsigned char>& utf8,
             second(std::bit_cast<const uint16_t*>(data_second));
         in_flip_iter in(first, second);
         in_flip_iter in_end(second, second);
-        out_flip_iter out(in);
-        out_flip_iter out_end(in_end);
+        out_flip_iter out(in, in_end);
+        out_flip_iter out_end(in_end, in_end);
 
         utf8.reserve(size / 2 - 1);
 
@@ -861,9 +861,9 @@ static void perform_output(match_data& data, const std::string& pathname,
                 {
                     const int32_t val = *iter;
                     lexertl::basic_utf16_out_iterator<const int32_t*, uint16_t>
-                        out_iter(&val);
+                        out_iter(&val, &val + 1);
                     lexertl::basic_utf16_out_iterator<const int32_t*, uint16_t>
-                        out_end(&val + 1);
+                        out_end(&val + 1, &val + 1);
 
                     for (; out_iter != out_end; ++out_iter)
                     {
@@ -896,9 +896,9 @@ static void perform_output(match_data& data, const std::string& pathname,
                 {
                     const int32_t val = *iter;
                     lexertl::basic_utf16_out_iterator<const int32_t*, uint16_t>
-                        out_iter(&val);
+                        out_iter(&val, &val + 1);
                     lexertl::basic_utf16_out_iterator<const int32_t*, uint16_t>
-                        out_end(&val + 1);
+                        out_end(&val + 1, &val + 1);
 
                     for (; out_iter != out_end; ++out_iter)
                     {

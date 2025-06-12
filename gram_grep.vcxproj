@@ -91,7 +91,7 @@
       <SDLCheck>true</SDLCheck>
       <AdditionalOptions>/permissive- /bigobj %(AdditionalOptions)</AdditionalOptions>
       <TreatWarningAsError>true</TreatWarningAsError>
-      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
       <EnableModules>false</EnableModules>
       <BuildStlModules>false</BuildStlModules>
       <AdditionalIncludeDirectories>$(BOOST_ROOT);../lexertl17/include;../parsertl17/include;../wildcardtl/include</AdditionalIncludeDirectories>
@@ -140,7 +140,7 @@
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <EnableModules>false</EnableModules>
       <BuildStlModules>false</BuildStlModules>
-      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
       <EnableModules>false</EnableModules>
       <BuildStlModules>false</BuildStlModules>
       <AdditionalIncludeDirectories>$(BOOST_ROOT);../lexertl17/include;../parsertl17/include;../wildcardtl/include</AdditionalIncludeDirectories>
