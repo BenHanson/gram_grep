@@ -9,17 +9,7 @@ gram_grep now has a dependency on boost::regex due to the std version having an 
 
 - See <a href="https://www.boost.org/users/download/">here</a> to download boost.
 
-## To build boost on Windows
-
-From the boost root directory:
-```
-.\bootstrap.bat
-.\b2
-```
-
-## To build boost on Linux/UNIX Variants
-
-See <a href="https://www.boost.org/doc/libs/1_87_0/more/getting_started/unix-variants.html#prepare-to-use-a-boost-library-binary">here</a>.
+Luckily boost::regex is now header only and so there is no need to build it anymore.
 
 ## Acquiring the Source Dependencies
 
@@ -31,7 +21,7 @@ git clone https://github.com/BenHanson/wildcardtl.git
 ```
 
 ## Setting BOOST_ROOT
-All platforms now require that you set the BOOST_ROOT environment variable to the root of your boost source (e.g. `/home/ben/Dev/boost/boost_1_77_0`).
+All platforms now require that you set the BOOST_ROOT environment variable to the root of your boost source (e.g. `/home/ben/Dev/boost/boost_1_87_0`).
 
 ## Building
 
