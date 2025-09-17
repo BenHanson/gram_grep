@@ -120,8 +120,7 @@ struct options
     bool _no_messages = false;
     bool _only_matching = false;
     pathname_only _pathname_only = pathname_only::no;
-    // maps path to pair.
-    // pair is wildcards and negated wildcards
+    // maps path to wildcards.
     std::map<std::string, wildcards> _pathnames;
     pattern_type _pattern_type = pattern_type::none;
     bool _perform_output = false;

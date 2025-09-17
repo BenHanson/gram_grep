@@ -1135,7 +1135,7 @@ void build_config_parser()
     lrules.push_state("REGEX");
     lrules.push_state("RULE");
     lrules.push_state("ID");
-    lrules.insert_macro("c_comment", R"("/*"(?s:.)*?"*/")");
+    lrules.insert_macro("c_comment", R"("/*"([^*]|\*+[^*/])*\*+\/)");
     lrules.insert_macro("control_char", "c[@A-Za-z]");
     lrules.insert_macro("hex", "x[0-9A-Fa-f]+");
     lrules.insert_macro("escape", R"(\\([^0-9cx]|\d{1,3}|{hex}|{control_char}))");
