@@ -281,10 +281,14 @@ void config_state::parse(const unsigned int flags,
 
     if (_grules.grammar().empty())
     {
-        if (g_options._force_unicode)
-            _lurules.push("(?s:.)", lurules::skip());
-        else
-            _lrules.push("(?s:.)", lexertl::rules::skip());
+        if (g_options._dump == dump::no)
+        {
+            // Searching using a lexer needs a dummy skip rule
+            if (g_options._force_unicode)
+                _lurules.push("(?s:.)", lurules::skip());
+            else
+                _lrules.push("(?s:.)", lexertl::rules::skip());
+        }
     }
     else
     {

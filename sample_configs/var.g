@@ -11,12 +11,12 @@ name: Name | name '::' Name;
 opt_assign: %empty | '=' value;
 value: 'false'
      | Float
-	 | Hex
-	 | Integer
-	 | name
-	 | 'nullptr'
-	 | String
-	 | 'true';
+     | Hex
+     | Integer
+     | name
+     | 'nullptr'
+     | String
+     | 'true';
 %%
 name [A-Z_a-z]\w*
 %%

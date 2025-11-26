@@ -1416,7 +1416,10 @@ static void queue_dfa_regex(config& cfg)
         rules.push(cfg._param, 1);
 
         if (g_options._dump == dump::no)
+        {
+            // Searching using a lexer needs a dummy skip rule
             rules.push("(?s:.)", rules_type::skip());
+        }
 
         ugenerator::build(rules, lexer._sm);
         g_pipeline.emplace_back(std::move(lexer));

@@ -71,7 +71,7 @@ BEGIN
             VALUE "FileDescription", "gram_grep: grep for the 21st century"
             VALUE "FileVersion", g_version_string
             VALUE "InternalName", "gram_grep.exe"
-            VALUE "LegalCopyright", "Copyright Ben Hanson (C) 2024"
+            VALUE "LegalCopyright", "Copyright Ben Hanson (C) 2017"
             VALUE "OriginalFilename", "gram_grep.exe"
             VALUE "ProductName", "gram_grep"
             VALUE "ProductVersion", g_version_string
