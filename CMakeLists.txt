@@ -4,6 +4,7 @@ project(gram_grep
     DESCRIPTION "gram_grep: grep for the 21st century"
     HOMEPAGE_URL "http://benhanson.net/gram_grep.html"
     LANGUAGES CXX
+    VERSION 0.9.11
 )
 
 if(ENABLE_ASAN)
