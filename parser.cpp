@@ -28,6 +28,7 @@
 extern options g_options;
 extern condition_parser g_condition_parser;
 extern config_parser g_config_parser;
+extern replace_parser g_replace_parser;
 extern parser* g_curr_parser;
 extern uparser* g_curr_uparser;
 
@@ -98,6 +99,15 @@ void push_ret_kwd(const config_state& state)
 }
 
 template<typename T>
+void push_ret_kwd(replace_state& state)
+{
+    auto command = std::make_shared<T>();
+
+    state._actions._cmd_stack.back()->push(command.get());
+    state._actions.push(std::move(command));
+}
+
+template<typename T>
 void push_kwd(const config_state& state)
 {
     const uint16_t rule_idx = state._grules.grammar().size() & 0xffff;
@@ -134,6 +144,11 @@ static void pop_ret_cmd(const config_state& state)
     }
 
     ptr->_cmd_stack.pop_back();
+}
+
+static void pop_replace_cmd(replace_state& state)
+{
+    state._actions._cmd_stack.pop_back();
 }
 
 void build_condition_parser()
@@ -827,6 +842,66 @@ void build_config_parser()
         {
             push_kwd<replace_all_inplace_cmd>(state);
         };
+    g_config_parser._actions[grules.push("mod_cmd",
+        "tolower_kwd '(' Index ')'")] =
+        [](config_state& state, const config_parser& parser)
+        {
+            const uint16_t rule_idx = state._grules.grammar().size() & 0xffff;
+            const auto& token2 = state._results.dollar(2, parser._gsm,
+                state._productions);
+            const uint16_t index = (atoi(token2.first + 1) - 1) & 0xffff;
+            actions* ptr = nullptr;
+            cmd* command = nullptr;
+
+            if (g_options._force_unicode)
+            {
+                ptr = &g_curr_uparser->_actions[rule_idx];
+            }
+            else
+            {
+                ptr = &g_curr_parser->_actions[rule_idx];
+            }
+
+            command = ptr->_commands.back();
+            command->_param1 = index;
+            // Pop copy of command
+            ptr->_cmd_stack.pop_back();
+        };
+        g_config_parser._actions[grules.push("tolower_kwd", "'tolower'")] =
+        [](config_state& state, const config_parser&)
+        {
+            push_kwd<tolower_inplace_cmd>(state);
+        };
+        g_config_parser._actions[grules.push("mod_cmd",
+            "toupper_kwd '(' Index ')'")] =
+            [](config_state& state, const config_parser& parser)
+            {
+                const uint16_t rule_idx = state._grules.grammar().size() & 0xffff;
+                const auto& token2 = state._results.dollar(2, parser._gsm,
+                    state._productions);
+                const uint16_t index = (atoi(token2.first + 1) - 1) & 0xffff;
+                actions* ptr = nullptr;
+                cmd* command = nullptr;
+
+                if (g_options._force_unicode)
+                {
+                    ptr = &g_curr_uparser->_actions[rule_idx];
+                }
+                else
+                {
+                    ptr = &g_curr_parser->_actions[rule_idx];
+                }
+
+                command = ptr->_commands.back();
+                command->_param1 = index;
+                // Pop copy of command
+                ptr->_cmd_stack.pop_back();
+            };
+        g_config_parser._actions[grules.push("toupper_kwd", "'toupper'")] =
+            [](config_state& state, const config_parser&)
+            {
+                push_kwd<toupper_inplace_cmd>(state);
+            };
 
     g_config_parser._actions[grules.push("ret_function", "ScriptString")] =
         [](config_state& state, const config_parser& parser)
@@ -851,20 +926,9 @@ void build_config_parser()
                     dedup_apostrophes(text.substr(1, 1))));
             ptr->_cmd_stack.back()->push(ptr->_storage.back().get());
         };
-    grules.push("ret_function", "perform_system "
-        "| perform_format "
-        "| perform_replace_all");
-    g_config_parser._actions[grules.push("perform_system",
-        "system_kwd '(' ret_function ')'")] =
-        [](config_state& state, const config_parser&)
-        {
-            pop_ret_cmd(state);
-        };
-    g_config_parser._actions[grules.push("system_kwd", "'system'")] =
-        [](config_state& state, const config_parser&)
-        {
-            push_ret_kwd<system_cmd>(state);
-        };
+    grules.push("ret_function", "perform_format "
+        "| perform_replace_all "
+        "| perform_system");
     g_config_parser._actions[grules.push("perform_format",
         "format_kwd '(' ret_function format_params ')'")] =
         [](config_state& state, const config_parser&)
@@ -886,6 +950,17 @@ void build_config_parser()
         [](config_state& state, const config_parser&)
         {
             push_ret_kwd<replace_all_cmd>(state);
+        };
+    g_config_parser._actions[grules.push("perform_system",
+        "system_kwd '(' ret_function ')'")] =
+        [](config_state& state, const config_parser&)
+        {
+            pop_ret_cmd(state);
+        };
+    g_config_parser._actions[grules.push("system_kwd", "'system'")] =
+        [](config_state& state, const config_parser&)
+        {
+            push_ret_kwd<system_cmd>(state);
         };
 
     grules.push("format_params", "%empty | format_params ',' ret_function");
@@ -1193,6 +1268,8 @@ void build_config_parser()
     lrules.push("SCRIPT", "second", grules.token_id("'second'"), ".");
     lrules.push("SCRIPT", "substr", grules.token_id("'substr'"), ".");
     lrules.push("SCRIPT", "system", grules.token_id("'system'"), ".");
+    lrules.push("SCRIPT", "tolower", grules.token_id("'tolower'"), ".");
+    lrules.push("SCRIPT", "toupper", grules.token_id("'toupper'"), ".");
     lrules.push("SCRIPT", R"(\d+)", grules.token_id("Integer"), ".");
     lrules.push("SCRIPT", R"(\s+)", lexertl::rules::skip(), ".");
     lrules.push("SCRIPT", R"(\$[1-9]\d*)", grules.token_id("Index"), ".");
@@ -1246,4 +1323,96 @@ void build_config_parser()
     lrules.push("RULE,ID", "{nl}", lexertl::rules::skip(), "RULE");
     lrules.push("ID", R"(skip\s*\(\s*\))", grules.token_id("'skip()'"), "RULE");
     lexertl::generator::build(lrules, g_config_parser._lsm);
+}
+
+void build_replace_parser()
+{
+    parsertl::rules grules;
+    lexertl::rules lrules;
+
+    grules.token("ScriptString");
+    grules.push("start", "ret_function");
+    g_replace_parser._actions[grules.push("ret_function", "ScriptString")] =
+        [](replace_state& state)
+        {
+            const auto& text = state._iter.dollar(0);
+
+            state._actions._storage.push_back(std::make_shared<string_cmd>
+                (dedup_apostrophes(text.substr(1, 1))));
+            state._actions._cmd_stack.back()->push(state._actions._storage.back().get());
+        };
+    grules.push("ret_function", "perform_format "
+        "| perform_replace_all "
+        "| perform_system "
+        "| perform_tolower "
+        "| perform_toupper");
+    g_replace_parser._actions[grules.push("perform_format",
+        "format_kwd '(' ret_function format_params ')'")] =
+        [](replace_state& state)
+        {
+            pop_replace_cmd(state);
+        };
+    g_replace_parser._actions[grules.push("format_kwd", "'format'")] =
+        [](replace_state& state)
+        {
+            push_ret_kwd<format_cmd>(state);
+        };
+    g_replace_parser._actions[grules.push("perform_replace_all",
+        "replace_all_kwd '(' ret_function ',' ret_function ',' ret_function ')'")] =
+        [](replace_state& state)
+        {
+            pop_replace_cmd(state);
+        };
+    g_replace_parser._actions[grules.push("replace_all_kwd", "'replace_all'")] =
+        [](replace_state& state)
+        {
+            push_ret_kwd<replace_all_cmd>(state);
+        };
+    g_replace_parser._actions[grules.push("perform_system",
+        "system_kwd '(' ret_function ')'")] =
+        [](replace_state& state)
+        {
+            pop_replace_cmd(state);
+        };
+    g_replace_parser._actions[grules.push("system_kwd", "'system'")] =
+        [](replace_state& state)
+        {
+            push_ret_kwd<system_cmd>(state);
+        };
+    g_replace_parser._actions[grules.push("perform_tolower",
+        "tolower_kwd '(' ret_function ')'")] =
+        [](replace_state& state)
+        {
+            pop_replace_cmd(state);
+        };
+    g_replace_parser._actions[grules.push("tolower_kwd", "'tolower'")] =
+        [](replace_state& state)
+        {
+            push_ret_kwd<tolower_cmd>(state);
+        };
+    g_replace_parser._actions[grules.push("perform_toupper",
+        "toupper_kwd '(' ret_function ')'")] =
+        [](replace_state& state)
+        {
+            pop_replace_cmd(state);
+        };
+    g_replace_parser._actions[grules.push("toupper_kwd", "'toupper'")] =
+        [](replace_state& state)
+        {
+            push_ret_kwd<toupper_cmd>(state);
+        };
+    grules.push("format_params", "%empty | format_params ',' ret_function");
+    parsertl::generator::build(grules, g_replace_parser._gsm);
+
+    lrules.push(R"(\()", grules.token_id("'('"));
+    lrules.push(R"(\))", grules.token_id("')'"));
+    lrules.push(",", grules.token_id("','"));
+    lrules.push("'(''|[^'])*'", grules.token_id("ScriptString"));
+    lrules.push("format", grules.token_id("'format'"));
+    lrules.push("replace_all", grules.token_id("'replace_all'"));
+    lrules.push("system", grules.token_id("'system'"));
+    lrules.push("tolower", grules.token_id("'tolower'"));
+    lrules.push("toupper", grules.token_id("'toupper'"));
+    lrules.push("[ \t]+", lexertl::rules::skip());
+    lexertl::generator::build(lrules, g_replace_parser._lsm);
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <lexertl/iterator.hpp>
+#include <parsertl/iterator.hpp>
 #include <lexertl/match_results.hpp>
 #include <parsertl/match_results.hpp>
 #include <lexertl/memory_file.hpp>
@@ -14,6 +15,7 @@
 #include <wildcardtl/wildcard.hpp>
 
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <memory>
 #include <set>
@@ -121,13 +123,14 @@ struct options
     bool _only_matching = false;
     pathname_only _pathname_only = pathname_only::no;
     // maps path to wildcards.
-    std::map<std::string, wildcards> _pathnames;
+    std::map<std::string, wildcards, std::less<>> _pathnames;
     pattern_type _pattern_type = pattern_type::none;
     bool _perform_output = false;
     std::string _print;
     bool _print_null = false;
     bool _quiet = false;
     std::string _replace;
+    std::string _replace_script;
     bool _rule_print = false;
     std::string _separator = "--";
     bool _show_count = false;
@@ -197,7 +200,11 @@ struct cmd
         replace,
         replace_all,
         replace_all_inplace,
-        system
+        system,
+        tolower,
+        tolower_inplace,
+        toupper,
+        toupper_inplace
     };
 
     type _type = type::unknown;
@@ -206,7 +213,7 @@ struct cmd
     uint16_t _param2 = 0;
     bool _second2 = true;
 
-    cmd(const type type) :
+    explicit cmd(const type type) :
         _type(type)
     {
     }
@@ -270,14 +277,11 @@ struct erase_cmd : cmd
     }
 };
 
-struct system_cmd : cmd
+struct param_cmd : cmd
 {
     cmd* _param = nullptr;
 
-    explicit system_cmd() :
-        cmd(cmd::type::system)
-    {
-    }
+    using cmd::cmd;
 
     void push(cmd* command) override
     {
@@ -285,14 +289,11 @@ struct system_cmd : cmd
     }
 };
 
-struct format_cmd : cmd
+struct vector_cmd : cmd
 {
     std::vector<cmd*> _params;
 
-    explicit format_cmd() :
-        cmd(type::format)
-    {
-    }
+    using cmd::cmd;
 
     void push(cmd* command) override
     {
@@ -300,18 +301,19 @@ struct format_cmd : cmd
     }
 };
 
-struct insert_cmd : cmd
+struct format_cmd : vector_cmd
 {
-    cmd* _param = nullptr;
-
-    explicit insert_cmd() :
-        cmd(cmd::type::insert)
+    format_cmd() :
+        vector_cmd(type::format)
     {
     }
+};
 
-    void push(cmd* command) override
+struct insert_cmd : param_cmd
+{
+    insert_cmd() :
+        param_cmd(cmd::type::insert)
     {
-        _param = command;
     }
 };
 
@@ -320,69 +322,38 @@ struct match_cmd : cmd
     uint16_t _front = 0;
     uint16_t _back = 0;
 
-    match_cmd(const type type, const uint16_t index) :
-        cmd(type, index)
+    using cmd::cmd;
+};
+
+struct print_cmd : param_cmd
+{
+    print_cmd() :
+        param_cmd(cmd::type::print)
     {
     }
 };
 
-struct print_cmd : cmd
+struct replace_cmd : param_cmd
 {
-    cmd* _param = nullptr;
-
-    explicit print_cmd() :
-        cmd(cmd::type::print)
-    {
-    }
-
-    void push(cmd* command) override
-    {
-        _param = command;
-    }
-};
-
-struct replace_cmd : cmd
-{
-    cmd* _param = nullptr;
-
     replace_cmd() :
-        cmd(cmd::type::replace)
+        param_cmd(cmd::type::replace)
     {
-    }
-
-    void push(cmd* command) override
-    {
-        _param = command;
     }
 };
 
-struct replace_all_cmd : cmd
+struct replace_all_cmd : vector_cmd
 {
-    std::vector<cmd*> _params;
-
     replace_all_cmd() :
-        cmd(type::replace_all)
+        vector_cmd(type::replace_all)
     {
-    }
-
-    void push(cmd* command) override
-    {
-        _params.push_back(command);
     }
 };
 
-struct replace_all_inplace_cmd : cmd
+struct replace_all_inplace_cmd : vector_cmd
 {
-    std::vector<cmd*> _params;
-
     replace_all_inplace_cmd() :
-        cmd(type::replace_all_inplace)
+        vector_cmd(type::replace_all_inplace)
     {
-    }
-
-    void push(cmd* command) override
-    {
-        _params.push_back(command);
     }
 };
 
@@ -393,6 +364,46 @@ struct string_cmd : cmd
     explicit string_cmd(std::string&& str) :
         cmd(type::string),
         _str(std::move(str))
+    {
+    }
+};
+
+struct system_cmd : param_cmd
+{
+    system_cmd() :
+        param_cmd(cmd::type::system)
+    {
+    }
+};
+
+struct tolower_cmd : param_cmd
+{
+    tolower_cmd() :
+        param_cmd(cmd::type::tolower)
+    {
+    }
+};
+
+struct tolower_inplace_cmd : param_cmd
+{
+    tolower_inplace_cmd() :
+        param_cmd(cmd::type::tolower_inplace)
+    {
+    }
+};
+
+struct toupper_cmd : param_cmd
+{
+    toupper_cmd() :
+        param_cmd(cmd::type::toupper)
+    {
+    }
+};
+
+struct toupper_inplace_cmd : param_cmd
+{
+    toupper_inplace_cmd() :
+        param_cmd(cmd::type::toupper_inplace)
     {
     }
 };
@@ -414,7 +425,7 @@ struct cmd_data
         return _param_count == _params.size();
     }
 
-    std::string system() const;
+    std::string run() const;
 };
 
 struct actions
@@ -519,6 +530,12 @@ struct config_state
     void parse(const unsigned int flags, const std::string& config_pathname);
 };
 
+struct replace_state
+{
+    actions _actions;
+    parsertl::citerator _iter;
+};
+
 struct condition_parser
 {
     parsertl::state_machine _gsm;
@@ -527,14 +544,25 @@ struct condition_parser
 
 struct config_parser;
 
-using config_actions_map = std::map<uint16_t, void(*)(config_state& state,
-    const config_parser& parser)>;
+using config_actions_map = std::map<uint16_t,
+    void(*)(config_state& state, const config_parser& parser)>;
 
 struct config_parser
 {
     parsertl::state_machine _gsm;
     lexertl::state_machine _lsm;
     config_actions_map _actions;
+};
+
+struct replace_parser;
+
+using replace_actions_map = std::map<uint16_t, void(*)(replace_state& state)>;
+
+struct replace_parser
+{
+    parsertl::state_machine _gsm;
+    lexertl::state_machine _lsm;
+    replace_actions_map _actions;
 };
 
 struct match

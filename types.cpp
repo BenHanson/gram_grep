@@ -64,7 +64,8 @@ std::string actions::exec(cmd* command)
     std::string output;
     std::vector<cmd_data> stack;
 
-    _cmd_stack.push_back(command);
+    if (command)
+        _cmd_stack.push_back(command);
 
     while (!_cmd_stack.empty())
     {
@@ -127,8 +128,10 @@ std::string actions::exec(cmd* command)
             break;
         }
         case cmd::type::system:
+        case cmd::type::tolower:
+        case cmd::type::toupper:
         {
-            auto ptr = static_cast<system_cmd*>(command);
+            auto ptr = static_cast<param_cmd*>(command);
 
             _index_stack.push_back(stack.size());
             stack.emplace_back(ptr->_type, 1);
@@ -142,7 +145,7 @@ std::string actions::exec(cmd* command)
         while (!stack.empty() && stack.back().ready())
         {
             // Execute command
-            output = stack.back().system();
+            output = stack.back().run();
 
             if (!_index_stack.empty())
             {
@@ -160,7 +163,7 @@ std::string actions::exec(cmd* command)
     return output;
 }
 
-std::string cmd_data::system() const
+std::string cmd_data::run() const
 {
     std::string output;
 
@@ -192,6 +195,16 @@ std::string cmd_data::system() const
         break;
     case cmd::type::system:
         output = exec_ret(_params.back());
+        break;
+    case cmd::type::tolower:
+        output = _params.back();
+        std::transform(output.begin(), output.end(), output.begin(),
+            [](const char c) { return static_cast<char>(::tolower(c)); });
+        break;
+    case cmd::type::toupper:
+        output = _params.back();
+        std::transform(output.begin(), output.end(), output.begin(),
+            [](const char c) { return static_cast<char>(::toupper(c)); });
         break;
     default:
         break;

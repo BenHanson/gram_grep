@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
+#include <cstdlib>
 #include <format>
 #include <iostream>
 #include <map>
@@ -333,6 +334,36 @@ void process_action(const parser_t& p, const char* start,
                         rx, action_iter->second.exec(c->_params[1]));
 
                 replacements[pair] = text;
+            }
+
+            break;
+        case cmd::type::tolower_inplace:
+            if (g_options._perform_output)
+            {
+                const auto& param = dollar(item.first, cmd->_param1, p._gsm,
+                    productions);
+                const auto index1 = get_ptr(param.first) - start;
+                const auto index2 = get_ptr(param.second) - start;
+                auto text = std::string(get_ptr(param.first), get_ptr(param.second));
+
+                std::transform(text.begin(), text.end(), text.begin(),
+                    [](const char c) { return static_cast<char>(::tolower(c)); });
+                replacements[std::pair(index1, index2 - index1)] = text;
+            }
+
+            break;
+        case cmd::type::toupper_inplace:
+            if (g_options._perform_output)
+            {
+                const auto& param = dollar(item.first, cmd->_param1, p._gsm,
+                    productions);
+                const auto index1 = get_ptr(param.first) - start;
+                const auto index2 = get_ptr(param.second) - start;
+                auto text = std::string(get_ptr(param.first), get_ptr(param.second));
+
+                std::transform(text.begin(), text.end(), text.begin(),
+                    [](const char c) { return static_cast<char>(::toupper(c)); });
+                replacements[std::pair(index1, index2 - index1)] = text;
             }
 
             break;
@@ -802,6 +833,7 @@ bool process_parser(parser_t& p, const char* data_first,
     std::map<std::pair<std::size_t, std::size_t>, std::string>& replacements,
     capture_vector& captures)
 {
+    using enum config_flags;
     // Use the lexertl enum operator
     using namespace lexertl;
     auto [iter, end, prod_map, cap_vec] = get_iterators(p, ranges);
@@ -830,27 +862,27 @@ bool process_parser(parser_t& p, const char* data_first,
 
     if (success)
     {
-        if (p._flags & *config_flags::negate)
+        if (p._flags & *negate)
         {
-            if (p._flags & *config_flags::all)
+            if (p._flags & *all)
                 success = false;
             else
             {
                 const char* last_start = ranges.back()._first;
 
-                if (!(p._flags & *config_flags::ret_prev_match))
+                if (!(p._flags & *ret_prev_match))
                     ranges.back()._second = get_first(end);
 
                 if (last_start == get_first(iter))
                 {
-                    if (!(p._flags & *config_flags::ret_prev_match))
+                    if (!(p._flags & *ret_prev_match))
                         // The match is right at the beginning, so skip.
                         ranges.emplace_back(get_second(iter),
                             get_second(iter), get_second(iter));
 
                     success = false;
                 }
-                else if (!(p._flags & *config_flags::ret_prev_match))
+                else if (!(p._flags & *ret_prev_match))
                 {
                     // Store end of match
                     ranges.back()._second = get_second(iter);
@@ -864,20 +896,20 @@ bool process_parser(parser_t& p, const char* data_first,
             if (!p._actions.empty())
                 matches.emplace();
 
-            if (!(p._flags & *config_flags::ret_prev_match))
+            if (!(p._flags & *ret_prev_match))
             {
                 // Store start of match
                 ranges.back()._first = get_first(iter);
                 // Store end of match
                 ranges.back()._second = get_first(end);
                 ranges.emplace_back((p._flags &
-                    *config_flags::extend_search) ?
+                    *extend_search) ?
                     get_first(end) :
                     get_first(iter),
-                    (p._flags & *config_flags::extend_search) ?
+                    (p._flags & *extend_search) ?
                     get_first(end) :
                     get_first(iter),
-                    (p._flags & *config_flags::extend_search) ?
+                    (p._flags & *extend_search) ?
                     ranges.back()._eoi :
                     get_first(end));
             }
@@ -897,7 +929,7 @@ bool process_parser(parser_t& p, const char* data_first,
                     process_action(p, data_first, action_iter, item, matches,
                         replacements);
 
-                    if (!(p._flags & *config_flags::ret_prev_match))
+                    if (!(p._flags & *ret_prev_match))
                     {
                         ranges.back()._first = ranges.back()._second =
                             matches.top().c_str();
@@ -914,7 +946,7 @@ bool process_parser(parser_t& p, const char* data_first,
 
                         if (!matches.empty())
                         {
-                            if (!(p._flags & *config_flags::ret_prev_match))
+                            if (!(p._flags & *ret_prev_match))
                             {
                                 ranges.back()._first = ranges.back()._second =
                                     matches.top().c_str();
@@ -927,10 +959,10 @@ bool process_parser(parser_t& p, const char* data_first,
             }
         }
     }
-    else if ((p._flags & *config_flags::negate) &&
+    else if ((p._flags & *negate) &&
         ranges.back()._first != ranges.back()._eoi)
     {
-        if (!(p._flags & *config_flags::ret_prev_match))
+        if (!(p._flags & *ret_prev_match))
         {
             ranges.back()._second = get_first(iter);
             ranges.emplace_back(ranges.back()._first,
@@ -940,11 +972,11 @@ bool process_parser(parser_t& p, const char* data_first,
         success = true;
     }
 
-    if (success && !(p._flags & *config_flags::ret_prev_match))
+    if (success && !(p._flags & *ret_prev_match))
     {
         captures.clear();
 
-        if (p._flags & *config_flags::negate)
+        if (p._flags & *negate)
         {
             captures.emplace_back();
             captures.back().emplace_back(ranges.back()._first,

@@ -37,6 +37,7 @@
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <functional>
 #include <iosfwd>
 #include <iostream>
 #include <map>
@@ -58,6 +59,7 @@
 
 extern std::string build_text(const std::string& input,
     const capture_vector& captures);
+static void parse_replace(const std::string& script, replace_state& state);
 extern const char* try_help();
 extern std::string unescape(const std::string_view& vw);
 extern const char* usage();
@@ -74,6 +76,7 @@ boost::regex g_capture_rx(R"(\$\d+)");
 condition_map g_conditions;
 condition_parser g_condition_parser;
 config_parser g_config_parser;
+replace_parser g_replace_parser;
 parser* g_curr_parser = nullptr;
 uparser* g_curr_uparser = nullptr;
 std::size_t g_files = 0;
@@ -229,10 +232,22 @@ static file_type load_file(std::vector<unsigned char>& utf8,
                     lexertl::generator::build(rules, cap_sm);
                 }
 
-                lexertl::citerator i(g_options._replace.c_str(),
-                    g_options._replace.c_str() + g_options._replace.size(),
-                    cap_sm);
+                std::string temp;
+                lexertl::citerator i;
                 lexertl::citerator e;
+
+                if (g_options._replace_script.empty())
+                {
+                    i = lexertl::citerator(g_options._replace.c_str(),
+                        g_options._replace.c_str() + g_options._replace.size(),
+                        cap_sm);
+                }
+                else
+                {
+                    temp = g_options._replace_script;
+                    i = lexertl::citerator(temp.c_str(),
+                        temp.c_str() + temp.size(), cap_sm);
+                }
 
                 for (; i != e; ++i)
                 {
@@ -255,6 +270,14 @@ static file_type load_file(std::vector<unsigned char>& utf8,
                     }
                     else
                         replace.push_back(*i->first);
+                }
+
+                if (!g_options._replace_script.empty())
+                {
+                    replace_state state;
+
+                    parse_replace(replace, state);
+                    replace = state._actions.exec(nullptr);
                 }
 
                 if (!skip)
@@ -1326,7 +1349,7 @@ static void process()
 }
 
 static void add_pathname(std::string pn,
-    std::map<std::string, wildcards>& map)
+    std::map<std::string, wildcards, std::less<>>& map)
 {
     const std::size_t wc_idx = pn.find_first_of("*?[");
     const std::size_t sep_idx = pn.rfind(fs::path::preferred_separator,
@@ -1690,6 +1713,32 @@ static void parse_colours(const std::string& colours)
     }
 }
 
+static void parse_replace(const std::string& script, replace_state& state)
+{
+    lexertl::citerator liter(script.c_str(),
+        script.c_str() + script.size(), g_replace_parser._lsm);
+
+    state._iter = parsertl::citerator(liter, g_replace_parser._gsm);
+    state._actions.emplace(std::make_shared<print_cmd>());
+    // Temporary copy for ret_functions to connect to
+    state._actions._cmd_stack.
+        push_back(state._actions._commands.back());
+
+    for (; state._iter->entry.action != parsertl::action::accept &&
+        state._iter->entry.action != parsertl::action::error; ++state._iter)
+    {
+        auto iter = g_replace_parser._actions.find(state._iter->entry.param);
+
+        if (iter != g_replace_parser._actions.end())
+        {
+            iter->second(state);
+        }
+    }
+
+    if (state._iter->entry.action == parsertl::action::error)
+        throw gg_error("Parse error in --replace-script.");
+}
+
 static std::vector<const char*> to_vector(std::string& grep_options)
 {
     std::vector<const char*> ret;
@@ -1770,6 +1819,10 @@ int main(int argc, char* argv[])
             &options.front(), configs, files);
         parse_colours(env_var("GREP_COLORS"));
         read_switches(argc, argv, configs, files);
+
+        if (!g_options._replace_script.empty())
+            build_replace_parser();
+
         fill_pipeline(std::move(configs));
 
         // Postponed to allow -r to be processed first as

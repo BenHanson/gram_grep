@@ -1094,7 +1094,25 @@ const option g_option[]
         [](int&, const bool, const char* const [],
             std::string_view value, std::vector<config>&)
         {
+            if (!g_options._replace_script.empty())
+                throw gg_error("conflicting replacments specified");
+
             g_options._replace = unescape(value);
+        }
+    },
+    {
+        option::type::gram_grep,
+        '\0',
+        "replace-script",
+        "TEXT",
+        "replace match with script in TEXT",
+        [](int&, const bool, const char* const [],
+            std::string_view value, std::vector<config>&)
+        {
+            if (!g_options._replace.empty())
+                throw gg_error("conflicting replacments specified");
+
+            g_options._replace_script = unescape(value);
         }
     },
     {
