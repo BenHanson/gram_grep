@@ -1731,7 +1731,7 @@ static void parse_replace(const std::string& script, replace_state& state)
 
         if (iter != g_replace_parser._actions.end())
         {
-            iter->second(state);
+            iter->second(state, g_replace_parser);
         }
     }
 

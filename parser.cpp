@@ -2,6 +2,7 @@
 
 #include "gg_error.hpp"
 #include "output.hpp"
+#include "parser.hpp"
 #include "types.hpp"
 
 //#include <parsertl/debug.hpp>
@@ -24,6 +25,7 @@
 #include <string>
 #include <string_view>
 #include <type_traits>
+#include <utility>
 
 extern options g_options;
 extern condition_parser g_condition_parser;
@@ -78,12 +80,10 @@ static std::string unescape_str(const std::string& str)
     return dedup_apostrophes(unescape(str));
 }
 
-template<typename T>
-void push_ret_kwd(const config_state& state)
+static actions* create_actions(const parsertl::rules& grules)
 {
-    const uint16_t rule_idx = state._grules.grammar().size() & 0xffff;
-    auto command = std::make_shared<T>();
     actions* ptr = nullptr;
+    const uint16_t rule_idx = grules.grammar().size() & 0xffff;
 
     if (g_options._force_unicode)
     {
@@ -93,6 +93,15 @@ void push_ret_kwd(const config_state& state)
     {
         ptr = &g_curr_parser->_actions[rule_idx];
     }
+
+    return ptr;
+}
+
+template<typename T>
+void push_ret_kwd(const config_state& state)
+{
+    actions* ptr = create_actions(state._grules);
+    auto command = std::make_shared<T>();
 
     ptr->_cmd_stack.back()->push(command.get());
     ptr->push(std::move(command));
@@ -110,18 +119,8 @@ void push_ret_kwd(replace_state& state)
 template<typename T>
 void push_kwd(const config_state& state)
 {
-    const uint16_t rule_idx = state._grules.grammar().size() & 0xffff;
+    actions* ptr = create_actions(state._grules);
     auto command = std::make_shared<T>();
-    actions* ptr = nullptr;
-
-    if (g_options._force_unicode)
-    {
-        ptr = &g_curr_uparser->_actions[rule_idx];
-    }
-    else
-    {
-        ptr = &g_curr_parser->_actions[rule_idx];
-    }
 
     // Final command, emplace
     ptr->emplace(std::move(command));
@@ -131,22 +130,12 @@ void push_kwd(const config_state& state)
 
 static void pop_ret_cmd(const config_state& state)
 {
-    const uint16_t rule_idx = state._grules.grammar().size() & 0xffff;
-    actions* ptr = nullptr;
-
-    if (g_options._force_unicode)
-    {
-        ptr = &g_curr_uparser->_actions[rule_idx];
-    }
-    else
-    {
-        ptr = &g_curr_parser->_actions[rule_idx];
-    }
+    actions* ptr = create_actions(state._grules);
 
     ptr->_cmd_stack.pop_back();
 }
 
-static void pop_replace_cmd(replace_state& state)
+static void pop_ret_cmd(replace_state& state)
 {
     state._actions._cmd_stack.pop_back();
 }
@@ -438,32 +427,21 @@ void build_config_parser()
     g_config_parser._actions[grules.push("cmd", "'match' '=' Index")] =
         [](config_state& state, const config_parser& parser)
         {
-            const uint16_t rule_idx = (state._grules.grammar().size()) & 0xffff;
+            actions* ptr = create_actions(state._grules);
             const auto& token = state._results.dollar(2, parser._gsm,
                 state._productions);
             const uint16_t index = (atoi(token.first + 1) - 1) & 0xffff;
             auto command = std::make_shared<match_cmd>
                 (cmd::type::assign, index);
-            actions* ptr = nullptr;
 
             command->_front = atoi(token.first) & 0xffff;
-
-            if (g_options._force_unicode)
-            {
-                ptr = &g_curr_uparser->_actions[rule_idx];
-            }
-            else
-            {
-                ptr = &g_curr_parser->_actions[rule_idx];
-            }
-
             ptr->emplace(std::move(command));
         };
     g_config_parser._actions[grules.push("cmd",
         "'match' '=' 'substr' '(' Index ',' Integer ',' Integer ')'")] =
         [](config_state& state, const config_parser& parser)
         {
-            const uint16_t rule_idx = (state._grules.grammar().size()) & 0xffff;
+            actions* ptr = create_actions(state._grules);
             const auto& token4 = state._results.dollar(4, parser._gsm,
                 state._productions);
             const uint16_t index = (atoi(token4.first + 1) - 1) & 0xffff;
@@ -472,40 +450,19 @@ void build_config_parser()
             const auto& token8 = state._results.dollar(8, parser._gsm,
                 state._productions);
             auto command = std::make_shared<match_cmd>(cmd::type::assign, index);
-            actions* ptr = nullptr;
 
             command->_front = atoi(token6.first) & 0xffff;
             command->_back = atoi(token8.first) & 0xffff;
-
-            if (g_options._force_unicode)
-            {
-                ptr = &g_curr_uparser->_actions[rule_idx];
-            }
-            else
-            {
-                ptr = &g_curr_parser->_actions[rule_idx];
-            }
-
             ptr->emplace(std::move(command));
         };
     g_config_parser._actions[grules.push("cmd", "'match' '+=' Index")] =
         [](config_state& state, const config_parser& parser)
         {
-            const uint16_t rule_idx = (state._grules.grammar().size()) & 0xffff;
+            actions* ptr = create_actions(state._grules);
             const auto& token = state._results.dollar(2, parser._gsm,
                 state._productions);
             const uint16_t index = (atoi(token.first + 1) - 1) & 0xffff;
             auto command = std::make_shared<match_cmd>(cmd::type::append, index);
-            actions* ptr = nullptr;
-
-            if (g_options._force_unicode)
-            {
-                ptr = &g_curr_uparser->_actions[rule_idx];
-            }
-            else
-            {
-                ptr = &g_curr_parser->_actions[rule_idx];
-            }
 
             ptr->emplace(std::move(command));
         };
@@ -513,7 +470,7 @@ void build_config_parser()
         "'match' '+=' 'substr' '(' Index ',' Integer ',' Integer ')'")] =
         [](config_state& state, const config_parser& parser)
         {
-            const uint16_t rule_idx = state._grules.grammar().size() & 0xffff;
+            actions* ptr = create_actions(state._grules);
             const auto& token4 = state._results.dollar(4, parser._gsm,
                 state._productions);
             const uint16_t index = (atoi(token4.first + 1) - 1) & 0xffff;
@@ -522,37 +479,16 @@ void build_config_parser()
             const auto& token8 = state._results.dollar(8, parser._gsm,
                 state._productions);
             auto command = std::make_shared<match_cmd>(cmd::type::append, index);
-            actions* ptr = nullptr;
 
             command->_front = atoi(token6.first) & 0xffff;
             command->_back = atoi(token8.first) & 0xffff;
-
-            if (g_options._force_unicode)
-            {
-                ptr = &g_curr_uparser->_actions[rule_idx];
-            }
-            else
-            {
-                ptr = &g_curr_parser->_actions[rule_idx];
-            }
-
             ptr->emplace(std::move(command));
         };
     g_config_parser._actions[grules.push("cmd",
         "print_kwd '(' ret_function ')'")] =
         [](config_state& state, const config_parser&)
         {
-            const uint16_t rule_idx = state._grules.grammar().size() & 0xffff;
-            actions* ptr = nullptr;
-
-            if (g_options._force_unicode)
-            {
-                ptr = &g_curr_uparser->_actions[rule_idx];
-            }
-            else
-            {
-                ptr = &g_curr_parser->_actions[rule_idx];
-            }
+            actions* ptr = create_actions(state._grules);
 
             ptr->_cmd_stack.pop_back();
             state._print = true;
@@ -560,18 +496,8 @@ void build_config_parser()
     g_config_parser._actions[grules.push("print_kwd", "'print'")] =
         [](config_state& state, const config_parser&)
         {
-            const uint16_t rule_idx = state._grules.grammar().size() & 0xffff;
+            actions* ptr = create_actions(state._grules);
             auto command = std::make_shared<print_cmd>();
-            actions* ptr = nullptr;
-
-            if (g_options._force_unicode)
-            {
-                ptr = &g_curr_uparser->_actions[rule_idx];
-            }
-            else
-            {
-                ptr = &g_curr_parser->_actions[rule_idx];
-            }
 
             ptr->emplace(command);
             ptr->_cmd_stack.push_back(command.get());
@@ -585,21 +511,11 @@ void build_config_parser()
     g_config_parser._actions[grules.push("mod_cmd", "'erase' '(' Index ')'")] =
         [](config_state& state, const config_parser& parser)
         {
+            actions* ptr = create_actions(state._grules);
             const auto& token = state._results.dollar(2, parser._gsm,
                 state._productions);
-            const uint16_t rule_idx = state._grules.grammar().size() & 0xffff;
             const uint16_t index = (atoi(token.first + 1) - 1) & 0xffff;
             auto command = std::make_shared<erase_cmd>(index);
-            actions* ptr = nullptr;
-
-            if (g_options._force_unicode)
-            {
-                ptr = &g_curr_uparser->_actions[rule_idx];
-            }
-            else
-            {
-                ptr = &g_curr_parser->_actions[rule_idx];
-            }
 
             ptr->emplace(std::move(command));
         };
@@ -607,7 +523,7 @@ void build_config_parser()
         "'erase' '(' Index ',' Index ')'")] =
         [](config_state& state, const config_parser& parser)
         {
-            const uint16_t rule_idx = state._grules.grammar().size() & 0xffff;
+            actions* ptr = create_actions(state._grules);
             const auto& token2 = state._results.dollar(2, parser._gsm,
                 state._productions);
             const auto& token4 = state._results.dollar(4, parser._gsm,
@@ -615,16 +531,6 @@ void build_config_parser()
             const uint16_t index1 = (atoi(token2.first + 1) - 1) & 0xffff;
             const uint16_t index2 = (atoi(token4.first + 1) - 1) & 0xffff;
             auto command = std::make_shared<erase_cmd>(index1, index2);
-            actions* ptr = nullptr;
-
-            if (g_options._force_unicode)
-            {
-                ptr = &g_curr_uparser->_actions[rule_idx];
-            }
-            else
-            {
-                ptr = &g_curr_parser->_actions[rule_idx];
-            }
 
             ptr->emplace(std::move(command));
         };
@@ -632,7 +538,7 @@ void build_config_parser()
         "'erase' '(' Index '.' first_second ',' Index '.' first_second ')'")] =
         [](config_state& state, const config_parser& parser)
         {
-            const uint16_t rule_idx = state._grules.grammar().size() & 0xffff;
+            actions* ptr = create_actions(state._grules);
             const auto& token2 = state._results.dollar(2, parser._gsm,
                 state._productions);
             const bool second1 = *state._results.dollar(4, parser._gsm,
@@ -645,16 +551,6 @@ void build_config_parser()
             const uint16_t index2 = (atoi(token6.first + 1) - 1) & 0xffff;
             auto command = std::make_shared<erase_cmd>
                 (index1, second1, index2, second2);
-            actions* ptr = nullptr;
-
-            if (g_options._force_unicode)
-            {
-                ptr = &g_curr_uparser->_actions[rule_idx];
-            }
-            else
-            {
-                ptr = &g_curr_parser->_actions[rule_idx];
-            }
 
             ptr->emplace(std::move(command));
         };
@@ -663,23 +559,12 @@ void build_config_parser()
         "insert_kwd '(' Index ',' ret_function ')'")] =
         [](config_state& state, const config_parser& parser)
         {
-            const uint16_t rule_idx = state._grules.grammar().size() & 0xffff;
+            actions* ptr = create_actions(state._grules);
+            cmd* command = ptr->_commands.back();
             const auto& token2 = state._results.dollar(2, parser._gsm,
                 state._productions);
             const uint16_t index = (atoi(token2.first + 1) - 1) & 0xffff;
-            actions* ptr = nullptr;
-            cmd* command = nullptr;
 
-            if (g_options._force_unicode)
-            {
-                ptr = &g_curr_uparser->_actions[rule_idx];
-            }
-            else
-            {
-                ptr = &g_curr_parser->_actions[rule_idx];
-            }
-
-            command = ptr->_commands.back();
             command->_param1 = index;
             // Pop copy of command
             ptr->_cmd_stack.pop_back();
@@ -688,23 +573,12 @@ void build_config_parser()
         "insert_kwd '(' Index '.' 'second' ',' ret_function ')'")] =
         [](config_state& state, const config_parser& parser)
         {
-            const uint16_t rule_idx = state._grules.grammar().size() & 0xffff;
+            actions* ptr = create_actions(state._grules);
+            cmd* command = ptr->_commands.back();
             const auto& token2 = state._results.dollar(2, parser._gsm,
                 state._productions);
             const uint16_t index = (atoi(token2.first + 1) - 1) & 0xffff;
-            actions* ptr = nullptr;
-            cmd* command = nullptr;
 
-            if (g_options._force_unicode)
-            {
-                ptr = &g_curr_uparser->_actions[rule_idx];
-            }
-            else
-            {
-                ptr = &g_curr_parser->_actions[rule_idx];
-            }
-
-            command = ptr->_commands.back();
             command->_param1 = index;
             command->_second1 = true;
             // Pop copy of command
@@ -719,23 +593,12 @@ void build_config_parser()
         "replace_kwd '(' Index ',' ret_function ')'")] =
         [](config_state& state, const config_parser& parser)
         {
-            const uint16_t rule_idx = state._grules.grammar().size() & 0xffff;
+            actions* ptr = create_actions(state._grules);
+            cmd* command = ptr->_commands.back();
             const auto& token2 = state._results.dollar(2, parser._gsm,
                 state._productions);
             const uint16_t index = (atoi(token2.first + 1) - 1) & 0xffff;
-            actions* ptr = nullptr;
-            cmd* command = nullptr;
 
-            if (g_options._force_unicode)
-            {
-                ptr = &g_curr_uparser->_actions[rule_idx];
-            }
-            else
-            {
-                ptr = &g_curr_parser->_actions[rule_idx];
-            }
-
-            command = ptr->_commands.back();
             command->_param1 = index;
             // Pop copy of command
             ptr->_cmd_stack.pop_back();
@@ -744,26 +607,15 @@ void build_config_parser()
         "replace_kwd '(' Index ',' Index ',' ret_function ')'")] =
         [](config_state& state, const config_parser& parser)
         {
-            const uint16_t rule_idx = state._grules.grammar().size() & 0xffff;
+            actions* ptr = create_actions(state._grules);
+            cmd* command = ptr->_commands.back();
             const auto& token2 = state._results.dollar(2, parser._gsm,
                 state._productions);
             const uint16_t index1 = (atoi(token2.first + 1) - 1) & 0xffff;
             const auto& token4 = state._results.dollar(4, parser._gsm,
                 state._productions);
             const uint16_t index2 = (atoi(token4.first + 1) - 1) & 0xffff;
-            actions* ptr = nullptr;
-            cmd* command = nullptr;
 
-            if (g_options._force_unicode)
-            {
-                ptr = &g_curr_uparser->_actions[rule_idx];
-            }
-            else
-            {
-                ptr = &g_curr_parser->_actions[rule_idx];
-            }
-
-            command = ptr->_commands.back();
             command->_param1 = index1;
             command->_param2 = index2;
             // Pop copy of command
@@ -774,7 +626,8 @@ void build_config_parser()
         "Index '.' first_second ',' ret_function ')'")] =
         [](config_state& state, const config_parser& parser)
         {
-            const uint16_t rule_idx = state._grules.grammar().size() & 0xffff;
+            actions* ptr = create_actions(state._grules);
+            cmd* command = ptr->_commands.back();
             const auto& token2 = state._results.dollar(2, parser._gsm,
                 state._productions);
             const uint16_t index1 = (atoi(token2.first + 1) - 1) & 0xffff;
@@ -785,19 +638,7 @@ void build_config_parser()
             const uint16_t index2 = (atoi(token6.first + 1) - 1) & 0xffff;
             const bool second2 = *state._results.dollar(8, parser._gsm,
                 state._productions).first == 's';
-            actions* ptr = nullptr;
-            cmd* command = nullptr;
 
-            if (g_options._force_unicode)
-            {
-                ptr = &g_curr_uparser->_actions[rule_idx];
-            }
-            else
-            {
-                ptr = &g_curr_parser->_actions[rule_idx];
-            }
-
-            command = ptr->_commands.back();
             command->_param1 = index1;
             command->_second1 = second1;
             command->_param2 = index2;
@@ -816,23 +657,12 @@ void build_config_parser()
         "replace_all_inplace_kwd '(' Index ',' ret_function ',' ret_function ')'")] =
         [](config_state& state, const config_parser& parser)
         {
-            const uint16_t rule_idx = state._grules.grammar().size() & 0xffff;
+            actions* ptr = create_actions(state._grules);
+            cmd* command = ptr->_commands.back();
             const auto& token2 = state._results.dollar(2, parser._gsm,
                 state._productions);
             const uint16_t index = (atoi(token2.first + 1) - 1) & 0xffff;
-            actions* ptr = nullptr;
-            cmd* command = nullptr;
 
-            if (g_options._force_unicode)
-            {
-                ptr = &g_curr_uparser->_actions[rule_idx];
-            }
-            else
-            {
-                ptr = &g_curr_parser->_actions[rule_idx];
-            }
-
-            command = ptr->_commands.back();
             command->_param1 = index;
             // Pop copy of command
             ptr->_cmd_stack.pop_back();
@@ -843,61 +673,39 @@ void build_config_parser()
             push_kwd<replace_all_inplace_cmd>(state);
         };
     g_config_parser._actions[grules.push("mod_cmd",
-        "tolower_kwd '(' Index ')'")] =
+        "tolower_inplace_kwd '(' Index ')'")] =
         [](config_state& state, const config_parser& parser)
         {
-            const uint16_t rule_idx = state._grules.grammar().size() & 0xffff;
+            actions* ptr = create_actions(state._grules);
+            cmd* command = ptr->_commands.back();
             const auto& token2 = state._results.dollar(2, parser._gsm,
                 state._productions);
             const uint16_t index = (atoi(token2.first + 1) - 1) & 0xffff;
-            actions* ptr = nullptr;
-            cmd* command = nullptr;
 
-            if (g_options._force_unicode)
-            {
-                ptr = &g_curr_uparser->_actions[rule_idx];
-            }
-            else
-            {
-                ptr = &g_curr_parser->_actions[rule_idx];
-            }
-
-            command = ptr->_commands.back();
             command->_param1 = index;
             // Pop copy of command
             ptr->_cmd_stack.pop_back();
         };
-        g_config_parser._actions[grules.push("tolower_kwd", "'tolower'")] =
+        g_config_parser._actions[grules.push("tolower_inplace_kwd", "'tolower'")] =
         [](config_state& state, const config_parser&)
         {
             push_kwd<tolower_inplace_cmd>(state);
         };
         g_config_parser._actions[grules.push("mod_cmd",
-            "toupper_kwd '(' Index ')'")] =
+            "toupper_inplace_kwd '(' Index ')'")] =
             [](config_state& state, const config_parser& parser)
             {
-                const uint16_t rule_idx = state._grules.grammar().size() & 0xffff;
+                actions* ptr = create_actions(state._grules);
+                cmd* command = ptr->_commands.back();
                 const auto& token2 = state._results.dollar(2, parser._gsm,
                     state._productions);
                 const uint16_t index = (atoi(token2.first + 1) - 1) & 0xffff;
-                actions* ptr = nullptr;
-                cmd* command = nullptr;
 
-                if (g_options._force_unicode)
-                {
-                    ptr = &g_curr_uparser->_actions[rule_idx];
-                }
-                else
-                {
-                    ptr = &g_curr_parser->_actions[rule_idx];
-                }
-
-                command = ptr->_commands.back();
                 command->_param1 = index;
                 // Pop copy of command
                 ptr->_cmd_stack.pop_back();
             };
-        g_config_parser._actions[grules.push("toupper_kwd", "'toupper'")] =
+        g_config_parser._actions[grules.push("toupper_inplace_kwd", "'toupper'")] =
             [](config_state& state, const config_parser&)
             {
                 push_kwd<toupper_inplace_cmd>(state);
@@ -906,19 +714,9 @@ void build_config_parser()
     g_config_parser._actions[grules.push("ret_function", "ScriptString")] =
         [](config_state& state, const config_parser& parser)
         {
-            const uint16_t rule_idx = state._grules.grammar().size() & 0xffff;
+            actions* ptr = create_actions(state._grules);
             const auto& text = state._results.dollar(0, parser._gsm,
                 state._productions);
-            actions* ptr = nullptr;
-
-            if (g_options._force_unicode)
-            {
-                ptr = &g_curr_uparser->_actions[rule_idx];
-            }
-            else
-            {
-                ptr = &g_curr_parser->_actions[rule_idx];
-            }
 
             ptr->_storage.push_back(std::make_shared<string_cmd>
                 (state._print ?
@@ -926,44 +724,7 @@ void build_config_parser()
                     dedup_apostrophes(text.substr(1, 1))));
             ptr->_cmd_stack.back()->push(ptr->_storage.back().get());
         };
-    grules.push("ret_function", "perform_format "
-        "| perform_replace_all "
-        "| perform_system");
-    g_config_parser._actions[grules.push("perform_format",
-        "format_kwd '(' ret_function format_params ')'")] =
-        [](config_state& state, const config_parser&)
-        {
-            pop_ret_cmd(state);
-        };
-    g_config_parser._actions[grules.push("format_kwd", "'format'")] =
-        [](config_state& state, const config_parser&)
-        {
-            push_ret_kwd<format_cmd>(state);
-        };
-    g_config_parser._actions[grules.push("perform_replace_all",
-        "replace_all_kwd '(' ret_function ',' ret_function ',' ret_function ')'")] =
-        [](config_state& state, const config_parser&)
-        {
-            pop_ret_cmd(state);
-        };
-    g_config_parser._actions[grules.push("replace_all_kwd", "'replace_all'")] =
-        [](config_state& state, const config_parser&)
-        {
-            push_ret_kwd<replace_all_cmd>(state);
-        };
-    g_config_parser._actions[grules.push("perform_system",
-        "system_kwd '(' ret_function ')'")] =
-        [](config_state& state, const config_parser&)
-        {
-            pop_ret_cmd(state);
-        };
-    g_config_parser._actions[grules.push("system_kwd", "'system'")] =
-        [](config_state& state, const config_parser&)
-        {
-            push_ret_kwd<system_cmd>(state);
-        };
-
-    grules.push("format_params", "%empty | format_params ',' ret_function");
+    push_ret_functions(grules, g_config_parser);
 
     // Token regex macros
     grules.push("rx_macros", "%empty");
@@ -1333,7 +1094,7 @@ void build_replace_parser()
     grules.token("ScriptString");
     grules.push("start", "ret_function");
     g_replace_parser._actions[grules.push("ret_function", "ScriptString")] =
-        [](replace_state& state)
+        [](replace_state& state, const replace_parser&)
         {
             const auto& text = state._iter.dollar(0);
 
@@ -1341,67 +1102,7 @@ void build_replace_parser()
                 (dedup_apostrophes(text.substr(1, 1))));
             state._actions._cmd_stack.back()->push(state._actions._storage.back().get());
         };
-    grules.push("ret_function", "perform_format "
-        "| perform_replace_all "
-        "| perform_system "
-        "| perform_tolower "
-        "| perform_toupper");
-    g_replace_parser._actions[grules.push("perform_format",
-        "format_kwd '(' ret_function format_params ')'")] =
-        [](replace_state& state)
-        {
-            pop_replace_cmd(state);
-        };
-    g_replace_parser._actions[grules.push("format_kwd", "'format'")] =
-        [](replace_state& state)
-        {
-            push_ret_kwd<format_cmd>(state);
-        };
-    g_replace_parser._actions[grules.push("perform_replace_all",
-        "replace_all_kwd '(' ret_function ',' ret_function ',' ret_function ')'")] =
-        [](replace_state& state)
-        {
-            pop_replace_cmd(state);
-        };
-    g_replace_parser._actions[grules.push("replace_all_kwd", "'replace_all'")] =
-        [](replace_state& state)
-        {
-            push_ret_kwd<replace_all_cmd>(state);
-        };
-    g_replace_parser._actions[grules.push("perform_system",
-        "system_kwd '(' ret_function ')'")] =
-        [](replace_state& state)
-        {
-            pop_replace_cmd(state);
-        };
-    g_replace_parser._actions[grules.push("system_kwd", "'system'")] =
-        [](replace_state& state)
-        {
-            push_ret_kwd<system_cmd>(state);
-        };
-    g_replace_parser._actions[grules.push("perform_tolower",
-        "tolower_kwd '(' ret_function ')'")] =
-        [](replace_state& state)
-        {
-            pop_replace_cmd(state);
-        };
-    g_replace_parser._actions[grules.push("tolower_kwd", "'tolower'")] =
-        [](replace_state& state)
-        {
-            push_ret_kwd<tolower_cmd>(state);
-        };
-    g_replace_parser._actions[grules.push("perform_toupper",
-        "toupper_kwd '(' ret_function ')'")] =
-        [](replace_state& state)
-        {
-            pop_replace_cmd(state);
-        };
-    g_replace_parser._actions[grules.push("toupper_kwd", "'toupper'")] =
-        [](replace_state& state)
-        {
-            push_ret_kwd<toupper_cmd>(state);
-        };
-    grules.push("format_params", "%empty | format_params ',' ret_function");
+    push_ret_functions(grules, g_replace_parser);
     parsertl::generator::build(grules, g_replace_parser._gsm);
 
     lrules.push(R"(\()", grules.token_id("'('"));

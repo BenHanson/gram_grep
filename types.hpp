@@ -542,27 +542,27 @@ struct condition_parser
     lexertl::state_machine _lsm;
 };
 
-struct config_parser;
-
-using config_actions_map = std::map<uint16_t,
-    void(*)(config_state& state, const config_parser& parser)>;
 
 struct config_parser
 {
+    using state = config_state&;
+    using parser = const config_parser&;
+    using actions = std::map<uint16_t, void(*)(state, parser)>;
+
     parsertl::state_machine _gsm;
     lexertl::state_machine _lsm;
-    config_actions_map _actions;
+    actions _actions;
 };
-
-struct replace_parser;
-
-using replace_actions_map = std::map<uint16_t, void(*)(replace_state& state)>;
 
 struct replace_parser
 {
+    using state = replace_state&;
+    using parser = const replace_parser&;
+    using actions = std::map<uint16_t, void(*)(state, parser)>;
+
     parsertl::state_machine _gsm;
     lexertl::state_machine _lsm;
-    replace_actions_map _actions;
+    actions _actions;
 };
 
 struct match
