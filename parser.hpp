@@ -11,11 +11,23 @@ void build_replace_parser();
 template<typename PARSER>
 void push_ret_functions(parsertl::rules& grules, PARSER& parser)
 {
-    grules.push("ret_function", "perform_format "
+    grules.push("ret_function", "perform_capitalise "
+        "| perform_format "
         "| perform_replace_all "
         "| perform_system "
         "| perform_tolower "
         "| perform_toupper");
+    parser._actions[grules.push("perform_capitalise",
+        "capitalise_kwd '(' ret_function ')'")] =
+        [](typename PARSER::state& state, const typename PARSER::parser&)
+        {
+            pop_ret_cmd(state);
+        };
+    parser._actions[grules.push("capitalise_kwd", "'capitalise'")] =
+        [](typename PARSER::state& state, const typename PARSER::parser&)
+        {
+            push_ret_kwd<capitalise_cmd>(state);
+        };
     parser._actions[grules.push("perform_format",
         "format_kwd '(' ret_function format_params ')'")] =
         [](typename PARSER::state& state, const typename PARSER::parser&)

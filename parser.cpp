@@ -1018,6 +1018,7 @@ void build_config_parser()
     lrules.push("SCRIPT", R"(\.)", grules.token_id("'.'"), ".");
     lrules.push("SCRIPT", ";", grules.token_id("';'"), ".");
     lrules.push("SCRIPT", R"(\+=)", grules.token_id("'+='"), ".");
+    lrules.push("SCRIPT", "capitalise", grules.token_id("'capitalise'"), ".");
     lrules.push("SCRIPT", "erase", grules.token_id("'erase'"), ".");
     lrules.push("SCRIPT", "first", grules.token_id("'first'"), ".");
     lrules.push("SCRIPT", "format", grules.token_id("'format'"), ".");
@@ -1109,6 +1110,7 @@ void build_replace_parser()
     lrules.push(R"(\))", grules.token_id("')'"));
     lrules.push(",", grules.token_id("','"));
     lrules.push("'(''|[^'])*'", grules.token_id("ScriptString"));
+    lrules.push("capitalise", grules.token_id("'capitalise'"));
     lrules.push("format", grules.token_id("'format'"));
     lrules.push("replace_all", grules.token_id("'replace_all'"));
     lrules.push("system", grules.token_id("'system'"));

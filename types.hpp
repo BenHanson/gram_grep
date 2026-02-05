@@ -190,9 +190,9 @@ struct cmd
     enum class type
     {
         unknown,
-        string,
-        assign,
         append,
+        assign,
+        capitalise,
         erase,
         format,
         insert,
@@ -200,6 +200,7 @@ struct cmd
         replace,
         replace_all,
         replace_all_inplace,
+        string,
         system,
         tolower,
         tolower_inplace,
@@ -298,6 +299,14 @@ struct vector_cmd : cmd
     void push(cmd* command) override
     {
         _params.push_back(command);
+    }
+};
+
+struct capitalise_cmd : param_cmd
+{
+    capitalise_cmd() :
+        param_cmd(type::capitalise)
+    {
     }
 };
 

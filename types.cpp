@@ -127,6 +127,7 @@ std::string actions::exec(cmd* command)
             _cmd_stack.pop_back();
             break;
         }
+        case cmd::type::capitalise:
         case cmd::type::system:
         case cmd::type::tolower:
         case cmd::type::toupper:
@@ -169,6 +170,17 @@ std::string cmd_data::run() const
 
     switch (_type)
     {
+    case cmd::type::capitalise:
+        output = _params.back();
+
+        if (!output.empty())
+            *output.data() = static_cast<char>(::toupper(*output.data()));
+
+        if (output.size() > 1)
+            std::transform(++output.begin(), output.end(), ++output.begin(),
+                [](const char c) { return static_cast<char>(::tolower(c)); });
+
+        break;
     case cmd::type::format:
     {
         auto iter = _params.begin();
