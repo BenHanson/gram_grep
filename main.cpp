@@ -32,6 +32,8 @@
 #include <algorithm>
 #include <bit>
 #include <cstdint>
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <exception>
 #include <filesystem>
@@ -47,7 +49,9 @@
 #include <processenv.h>
 #endif
 
+#include <memory>
 #include <queue>
+#include <sstream>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>
@@ -59,7 +63,7 @@
 
 extern std::string build_text(const std::string& input,
     const capture_vector& captures);
-static void parse_replace(const std::string& script, replace_state& state);
+static ret_state parse_ret(const std::string& script);
 extern const char* try_help();
 extern std::string unescape(const std::string_view& vw);
 extern const char* usage();
@@ -76,7 +80,7 @@ boost::regex g_capture_rx(R"(\$\d+)");
 condition_map g_conditions;
 condition_parser g_condition_parser;
 config_parser g_config_parser;
-replace_parser g_replace_parser;
+ret_parser g_ret_parser;
 parser* g_curr_parser = nullptr;
 uparser* g_curr_uparser = nullptr;
 std::size_t g_files = 0;
@@ -193,6 +197,77 @@ static file_type load_file(std::vector<unsigned char>& utf8,
     return type;
 }
 
+static std::string replace_captures(const std::string& text,
+    const std::string& script, const capture_vector& captures, bool& skip)
+{
+    std::string ret;
+    static lexertl::state_machine cap_sm;
+
+    if (cap_sm.empty())
+    {
+        lexertl::rules rules;
+
+        rules.push(R"(\$\d)", 1);
+        lexertl::generator::build(rules, cap_sm);
+    }
+
+    lexertl::citerator i;
+    lexertl::citerator e;
+
+    if (script.empty())
+    {
+        i = lexertl::citerator(text.c_str(), text.c_str() + text.size(), cap_sm);
+    }
+    else
+    {
+        i = lexertl::citerator(script.c_str(),
+            script.c_str() + script.size(), cap_sm);
+    }
+
+    for (; i != e; ++i)
+    {
+        if (i->id == 1)
+        {
+            const std::size_t idx = atoi(i->first + 1);
+
+            if (idx < captures.size())
+                ret += captures[idx].front();
+            else
+            {
+                output_text_nl(std::cerr, is_a_tty(stderr),
+                    g_options._wa_text.c_str(),
+                    std::format("{}Capture ${} is "
+                        "out of range.",
+                        gg_text(),
+                        idx));
+                skip = true;
+            }
+        }
+        else
+            ret.push_back(*i->first);
+    }
+
+    return ret;
+}
+
+static std::string run_script(const std::string& script,
+    const capture_vector& captures)
+{
+    std::string ret;
+    bool skip = false;
+    const std::string input = replace_captures(std::string(), script,
+        captures, skip);
+
+    if (!skip)
+    {
+        ret_state state = parse_ret(input);
+
+        ret = state._actions.exec(nullptr);
+    }
+
+    return ret;
+}
+
 [[nodiscard]] static bool perform_replacements(const match_rev_iter& iter,
     const match& tuple, match_data& data)
 {
@@ -220,63 +295,14 @@ static file_type load_file(std::vector<unsigned char>& utf8,
                     second - first)] = g_options._replace;
             else
             {
-                static lexertl::state_machine cap_sm;
-                std::string replace;
                 bool skip = false;
-
-                if (cap_sm.empty())
-                {
-                    lexertl::rules rules;
-
-                    rules.push(R"(\$\d)", 1);
-                    lexertl::generator::build(rules, cap_sm);
-                }
-
-                std::string temp;
-                lexertl::citerator i;
-                lexertl::citerator e;
-
-                if (g_options._replace_script.empty())
-                {
-                    i = lexertl::citerator(g_options._replace.c_str(),
-                        g_options._replace.c_str() + g_options._replace.size(),
-                        cap_sm);
-                }
-                else
-                {
-                    temp = g_options._replace_script;
-                    i = lexertl::citerator(temp.c_str(),
-                        temp.c_str() + temp.size(), cap_sm);
-                }
-
-                for (; i != e; ++i)
-                {
-                    if (i->id == 1)
-                    {
-                        const std::size_t idx = atoi(i->first + 1);
-
-                        if (idx < data._captures.size())
-                            replace += data._captures[idx].front();
-                        else
-                        {
-                            output_text_nl(std::cerr, is_a_tty(stderr),
-                                g_options._wa_text.c_str(),
-                                std::format("{}Capture ${} is "
-                                    "out of range.",
-                                    gg_text(),
-                                    idx));
-                            skip = true;
-                        }
-                    }
-                    else
-                        replace.push_back(*i->first);
-                }
+                std::string replace = replace_captures(g_options._replace,
+                    g_options._replace_script, data._captures, skip);
 
                 if (!g_options._replace_script.empty())
                 {
-                    replace_state state;
+                    ret_state state = parse_ret(replace);
 
-                    parse_replace(replace, state);
                     replace = state._actions.exec(nullptr);
                 }
 
@@ -315,7 +341,7 @@ static void print_separator(const std::string& separator)
 }
 
 static void print_prefix(const std::string& pathname,
-    match_data& data, const std::string& separator)
+    const match_data& data, const std::string& separator)
 {
     if (pathname.empty())
     {
@@ -725,6 +751,10 @@ static bool process_matches(match_data& data,
             else if (!g_options._print.empty())
             {
                 std::cout << build_text(g_options._print, data._captures);
+            }
+            else if (!g_options._print_script.empty())
+            {
+                std::cout << run_script(g_options._print_script, data._captures);
             }
             else if (!g_options._exec.empty())
             {
@@ -1567,10 +1597,11 @@ static void queue_word_list(config& cfg, std::size_t& word_list_idx)
 {
     word_list words;
     lexertl::memory_file& mf =
-        g_options._word_list_files[word_list_idx++];
+        g_options._word_list_files[word_list_idx];
     const lexertl::state_machine sm = word_lexer();
     lexertl::citerator iter;
 
+    ++word_list_idx;
     words._flags = cfg._flags;
     words._conditions = std::move(cfg._conditions);
     mf.open(cfg._param.c_str());
@@ -1596,21 +1627,23 @@ static void fill_pipeline(std::vector<config>&& configs)
     // Postponed to allow -i to be processed first.
     for (auto&& cfg : std::move(configs))
     {
+        using enum match_type;
+
         switch (cfg._type)
         {
-        case match_type::dfa_regex:
+        case dfa_regex:
             queue_dfa_regex(cfg);
             break;
-        case match_type::parser:
+        case parser:
             queue_parser(cfg);
             break;
-        case match_type::regex:
+        case regex:
             queue_regex(cfg);
             break;
-        case match_type::text:
+        case text:
             queue_text(cfg);
             break;
-        case match_type::word_list:
+        case word_list:
             queue_word_list(cfg, word_list_idx);
             break;
         default:
@@ -1713,12 +1746,13 @@ static void parse_colours(const std::string& colours)
     }
 }
 
-static void parse_replace(const std::string& script, replace_state& state)
+static ret_state parse_ret(const std::string& script)
 {
+    ret_state state;
     lexertl::citerator liter(script.c_str(),
-        script.c_str() + script.size(), g_replace_parser._lsm);
+        script.c_str() + script.size(), g_ret_parser._lsm);
 
-    state._iter = parsertl::citerator(liter, g_replace_parser._gsm);
+    state._iter = parsertl::citerator(liter, g_ret_parser._gsm);
     state._actions.emplace(std::make_shared<print_cmd>());
     // Temporary copy for ret_functions to connect to
     state._actions._cmd_stack.
@@ -1727,16 +1761,18 @@ static void parse_replace(const std::string& script, replace_state& state)
     for (; state._iter->entry.action != parsertl::action::accept &&
         state._iter->entry.action != parsertl::action::error; ++state._iter)
     {
-        auto iter = g_replace_parser._actions.find(state._iter->entry.param);
+        auto iter = g_ret_parser._actions.find(state._iter->entry.param);
 
-        if (iter != g_replace_parser._actions.end())
+        if (iter != g_ret_parser._actions.end())
         {
-            iter->second(state, g_replace_parser);
+            iter->second(state, g_ret_parser);
         }
     }
 
     if (state._iter->entry.action == parsertl::action::error)
         throw gg_error("Parse error in --replace-script.");
+
+    return state;
 }
 
 static std::vector<const char*> to_vector(std::string& grep_options)
@@ -1820,8 +1856,11 @@ int main(int argc, char* argv[])
         parse_colours(env_var("GREP_COLORS"));
         read_switches(argc, argv, configs, files);
 
-        if (!g_options._replace_script.empty())
-            build_replace_parser();
+        if (!g_options._print_script.empty() ||
+            !g_options._replace_script.empty())
+        {
+            build_ret_parser();
+        }
 
         fill_pipeline(std::move(configs));
 

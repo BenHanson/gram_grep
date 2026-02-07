@@ -1081,8 +1081,27 @@ const option g_option[]
         [](int& i, const bool longp, const char* const argv[],
             std::string_view value, std::vector<config>&)
         {
+            if (!g_options._print_script.empty())
+                throw gg_error("conflicting print specified");
+
             validate_value(i, argv, longp, value);
             g_options._print = unescape(value);
+        }
+    },
+    {
+        option::type::gram_grep,
+        '\0',
+        "print-script",
+        "SCRIPT",
+        "print result of SCRIPT instead of line of match",
+        [](int& i, const bool longp, const char* const argv[],
+            std::string_view value, std::vector<config>&)
+        {
+            if (!g_options._print.empty())
+                throw gg_error("conflicting print specified");
+
+            validate_value(i, argv, longp, value);
+            g_options._print_script = unescape(value);
         }
     },
     {
@@ -1104,8 +1123,8 @@ const option g_option[]
         option::type::gram_grep,
         '\0',
         "replace-script",
-        "TEXT",
-        "replace match with script in TEXT",
+        "SCRIPT",
+        "replace match with result of SCRIPT",
         [](int&, const bool, const char* const [],
             std::string_view value, std::vector<config>&)
         {

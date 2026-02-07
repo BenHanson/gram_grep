@@ -6,7 +6,7 @@
 
 void build_condition_parser();
 void build_config_parser();
-void build_replace_parser();
+void build_ret_parser();
 
 template<typename PARSER>
 void push_ret_functions(parsertl::rules& grules, PARSER& parser)

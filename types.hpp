@@ -127,6 +127,7 @@ struct options
     pattern_type _pattern_type = pattern_type::none;
     bool _perform_output = false;
     std::string _print;
+    std::string _print_script;
     bool _print_null = false;
     bool _quiet = false;
     std::string _replace;
@@ -539,7 +540,7 @@ struct config_state
     void parse(const unsigned int flags, const std::string& config_pathname);
 };
 
-struct replace_state
+struct ret_state
 {
     actions _actions;
     parsertl::citerator _iter;
@@ -563,10 +564,10 @@ struct config_parser
     actions _actions;
 };
 
-struct replace_parser
+struct ret_parser
 {
-    using state = replace_state&;
-    using parser = const replace_parser&;
+    using state = ret_state&;
+    using parser = const ret_parser&;
     using actions = std::map<uint16_t, void(*)(state, parser)>;
 
     parsertl::state_machine _gsm;

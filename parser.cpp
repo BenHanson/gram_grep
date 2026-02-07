@@ -30,7 +30,7 @@
 extern options g_options;
 extern condition_parser g_condition_parser;
 extern config_parser g_config_parser;
-extern replace_parser g_replace_parser;
+extern ret_parser g_ret_parser;
 extern parser* g_curr_parser;
 extern uparser* g_curr_uparser;
 
@@ -108,7 +108,7 @@ void push_ret_kwd(const config_state& state)
 }
 
 template<typename T>
-void push_ret_kwd(replace_state& state)
+void push_ret_kwd(ret_state& state)
 {
     auto command = std::make_shared<T>();
 
@@ -135,7 +135,7 @@ static void pop_ret_cmd(const config_state& state)
     ptr->_cmd_stack.pop_back();
 }
 
-static void pop_ret_cmd(replace_state& state)
+static void pop_ret_cmd(ret_state& state)
 {
     state._actions._cmd_stack.pop_back();
 }
@@ -1087,15 +1087,15 @@ void build_config_parser()
     lexertl::generator::build(lrules, g_config_parser._lsm);
 }
 
-void build_replace_parser()
+void build_ret_parser()
 {
     parsertl::rules grules;
     lexertl::rules lrules;
 
     grules.token("ScriptString");
     grules.push("start", "ret_function");
-    g_replace_parser._actions[grules.push("ret_function", "ScriptString")] =
-        [](replace_state& state, const replace_parser&)
+    g_ret_parser._actions[grules.push("ret_function", "ScriptString")] =
+        [](ret_state& state, const ret_parser&)
         {
             const auto& text = state._iter.dollar(0);
 
@@ -1103,8 +1103,8 @@ void build_replace_parser()
                 (dedup_apostrophes(text.substr(1, 1))));
             state._actions._cmd_stack.back()->push(state._actions._storage.back().get());
         };
-    push_ret_functions(grules, g_replace_parser);
-    parsertl::generator::build(grules, g_replace_parser._gsm);
+    push_ret_functions(grules, g_ret_parser);
+    parsertl::generator::build(grules, g_ret_parser._gsm);
 
     lrules.push(R"(\()", grules.token_id("'('"));
     lrules.push(R"(\))", grules.token_id("')'"));
@@ -1117,5 +1117,5 @@ void build_replace_parser()
     lrules.push("tolower", grules.token_id("'tolower'"));
     lrules.push("toupper", grules.token_id("'toupper'"));
     lrules.push("[ \t]+", lexertl::rules::skip());
-    lexertl::generator::build(lrules, g_replace_parser._lsm);
+    lexertl::generator::build(lrules, g_ret_parser._lsm);
 }
