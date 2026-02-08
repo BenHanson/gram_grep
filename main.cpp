@@ -1770,7 +1770,7 @@ static ret_state parse_ret(const std::string& script)
     }
 
     if (state._iter->entry.action == parsertl::action::error)
-        throw gg_error("Parse error in --replace-script.");
+        throw gg_error("Parse error in script.");
 
     return state;
 }

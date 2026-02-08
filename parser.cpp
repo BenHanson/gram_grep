@@ -1119,3 +1119,54 @@ void build_ret_parser()
     lrules.push("[ \t]+", lexertl::rules::skip());
     lexertl::generator::build(lrules, g_ret_parser._lsm);
 }
+
+std::pair<parsertl::state_machine, lexertl::state_machine> param_parser()
+{
+    static parsertl::state_machine gsm;
+    static lexertl::state_machine lsm;
+
+    if (gsm.empty())
+    {
+        parsertl::rules grules(*parsertl::rule_flags::enable_captures);
+        lexertl::rules lrules;
+
+        grules.token("ANY TYPE UINT");
+        grules.push("format_spec", "'{' opt_colon options width_and_precision [type] '}'");
+        grules.push("opt_colon", "%empty | ':'");
+        grules.push("options", "[fill] [align] [sign] ['z'] ['#'] ['0']");
+        grules.push("fill", "ANY");
+        grules.push("align", "'<' | '>' | '=' | '^'");
+        grules.push("sign", "'+' | '-' | ' '");
+        grules.push("width_and_precision", "width_with_grouping [precision_with_grouping]");
+        grules.push("width_with_grouping", "[width] [grouping]");
+        grules.push("precision_with_grouping", "'.' [precision] [grouping]");
+        grules.push("width", "UINT");
+        grules.push("precision", "UINT");
+        grules.push("grouping", "',' | '_'");
+        grules.push("type", "(TYPE)");
+        parsertl::generator::build(grules, gsm);
+
+        lrules.push("z", grules.token_id("'z'"));
+        lrules.push("#", grules.token_id("'#'"));
+        lrules.push("0", grules.token_id("'0'"));
+        lrules.push("<", grules.token_id("'<'"));
+        lrules.push(">", grules.token_id("'>'"));
+        lrules.push("=", grules.token_id("'='"));
+        lrules.push(R"(\^)", grules.token_id("'^'"));
+        lrules.push(R"(\+)", grules.token_id("'+'"));
+        lrules.push("-", grules.token_id("'-'"));
+        lrules.push(" ", grules.token_id("' '"));
+        lrules.push(",", grules.token_id("','"));
+        lrules.push("_", grules.token_id("'_'"));
+        lrules.push(":", grules.token_id("':'"));
+        lrules.push(R"(\{)", grules.token_id("'{'"));
+        lrules.push(R"(\})", grules.token_id("'}'"));
+        lrules.push(R"(\.)", grules.token_id("'.'"));
+        lrules.push("[aAbBdeEfFgGoxX]", grules.token_id("TYPE"));
+        lrules.push(R"(\d+)", grules.token_id("UINT"));
+        lrules.push(".", grules.token_id("ANY"));
+        lexertl::generator::build(lrules, lsm);
+    }
+
+    return std::make_pair(gsm, lsm);
+}

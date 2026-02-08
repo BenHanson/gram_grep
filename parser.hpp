@@ -2,11 +2,17 @@
 
 #include "types.hpp"
 
+#include <lexertl/state_machine.hpp>
 #include <parsertl/rules.hpp>
+#include <parsertl/state_machine.hpp>
+
+#include <cstdint>
+#include <tuple>
 
 void build_condition_parser();
 void build_config_parser();
 void build_ret_parser();
+std::pair<parsertl::state_machine, lexertl::state_machine> param_parser();
 
 template<typename PARSER>
 void push_ret_functions(parsertl::rules& grules, PARSER& parser)

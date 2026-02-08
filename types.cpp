@@ -2,6 +2,7 @@
 
 #include "gg_error.hpp"
 #include "output.hpp"
+#include "parser.hpp"
 #include "types.hpp"
 
 #include <lexertl/enums.hpp>
@@ -13,6 +14,7 @@
 #include <boost/regex.hpp>
 #include <lexertl/rules.hpp>
 #include <parsertl/rules.hpp>
+#include <parsertl/search_iterator.hpp>
 #include <lexertl/state_machine.hpp>
 
 #include <algorithm>
@@ -191,10 +193,52 @@ std::string cmd_data::run() const
 
         for (; iter != end; ++iter)
         {
-            const auto fmt_idx = output.find("{}");
+            const auto [gsm, lsm] = param_parser();
+            lexertl::citerator liter(output.c_str(),
+                output.c_str() + output.size(), lsm);
+            parsertl::csearch_iterator giter(liter, gsm);
+            parsertl::csearch_iterator gend;
 
-            if (fmt_idx != std::string::npos)
-                output.replace(fmt_idx, 2, *iter);
+            for (; giter != gend; ++giter)
+            {
+                const auto token = (*giter)[0][0];
+                const auto fmt_idx = token.first - output.c_str();
+
+                if ((*giter)[1].empty())
+                    output.replace(fmt_idx, token.length(),
+                        std::vformat(token.str(), std::make_format_args(*iter)));
+                else
+                {
+                    switch (*(*giter)[1][0].first)
+                    {
+                    case 'a':
+                    case 'A':
+                    case 'e':
+                    case 'E':
+                    case 'f':
+                    case 'F':
+                    case 'g':
+                    case 'G':
+                    {
+                        const float val = std::stof(*iter);
+
+                        output.replace(fmt_idx, token.length(),
+                            std::vformat(token.str(),
+                                std::make_format_args(val)));
+                        break;
+                    }
+                    default:
+                    {
+                        const int val = std::stoi(*iter);
+
+                        output.replace(fmt_idx, token.length(),
+                            std::vformat(token.str(),
+                                std::make_format_args(val)));
+                        break;
+                    }
+                    }
+                }
+            }
         }
 
         break;
