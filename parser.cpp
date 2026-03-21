@@ -424,6 +424,36 @@ void build_config_parser()
         "| cmd_list single_cmd ';'");
     grules.push("single_cmd", "cmd");
 
+    g_config_parser._actions[grules.push("cmd", "Name '=' Index")] =
+        [](config_state& state, const config_parser& parser)
+        {
+            actions* ptr = create_actions(state._grules);
+            const auto& name = state._results.dollar(0, parser._gsm,
+                state._productions);
+            const auto& token = state._results.dollar(2, parser._gsm,
+                state._productions);
+            const uint16_t index = (atoi(token.first + 1) - 1) & 0xffff;
+            auto command =
+                std::make_shared<assign_index_cmd>(name.str(), index);
+
+            ptr->emplace(std::move(command));
+        };
+    g_config_parser._actions[grules.push("cmd", "name_assign ret_function")] =
+        [](config_state& state, const config_parser& /*parser*/)
+        {
+            pop_ret_cmd(state);
+        };
+    g_config_parser._actions[grules.push("name_assign", "Name '='")] =
+        [](config_state& state, const config_parser& parser)
+        {
+            actions* ptr = create_actions(state._grules);
+            auto name = state._results.dollar(0, parser._gsm,
+                state._productions);
+            auto command = std::make_shared<assign_cmd>(name.str());
+
+            ptr->emplace(command);
+            ptr->_cmd_stack.push_back(command.get());
+        };
     g_config_parser._actions[grules.push("cmd", "'match' '=' Index")] =
         [](config_state& state, const config_parser& parser)
         {
@@ -432,9 +462,8 @@ void build_config_parser()
                 state._productions);
             const uint16_t index = (atoi(token.first + 1) - 1) & 0xffff;
             auto command = std::make_shared<match_cmd>
-                (cmd::type::assign, index);
+                (cmd::type::match_assign, index);
 
-            command->_front = atoi(token.first) & 0xffff;
             ptr->emplace(std::move(command));
         };
     g_config_parser._actions[grules.push("cmd",
@@ -449,7 +478,7 @@ void build_config_parser()
                 state._productions);
             const auto& token8 = state._results.dollar(8, parser._gsm,
                 state._productions);
-            auto command = std::make_shared<match_cmd>(cmd::type::assign, index);
+            auto command = std::make_shared<match_cmd>(cmd::type::match_assign, index);
 
             command->_front = atoi(token6.first) & 0xffff;
             command->_back = atoi(token8.first) & 0xffff;
@@ -462,7 +491,7 @@ void build_config_parser()
             const auto& token = state._results.dollar(2, parser._gsm,
                 state._productions);
             const uint16_t index = (atoi(token.first + 1) - 1) & 0xffff;
-            auto command = std::make_shared<match_cmd>(cmd::type::append, index);
+            auto command = std::make_shared<match_cmd>(cmd::type::match_append, index);
 
             ptr->emplace(std::move(command));
         };
@@ -478,7 +507,7 @@ void build_config_parser()
                 state._productions);
             const auto& token8 = state._results.dollar(8, parser._gsm,
                 state._productions);
-            auto command = std::make_shared<match_cmd>(cmd::type::append, index);
+            auto command = std::make_shared<match_cmd>(cmd::type::match_append, index);
 
             command->_front = atoi(token6.first) & 0xffff;
             command->_back = atoi(token8.first) & 0xffff;
@@ -488,9 +517,7 @@ void build_config_parser()
         "print_kwd '(' ret_function ')'")] =
         [](config_state& state, const config_parser&)
         {
-            actions* ptr = create_actions(state._grules);
-
-            ptr->_cmd_stack.pop_back();
+            pop_ret_cmd(state);
             state._print = true;
         };
     g_config_parser._actions[grules.push("print_kwd", "'print'")] =
@@ -722,6 +749,16 @@ void build_config_parser()
                 (state._print ?
                     unescape_str(text.substr(1, 1)) :
                     dedup_apostrophes(text.substr(1, 1))));
+            ptr->_cmd_stack.back()->push(ptr->_storage.back().get());
+        };
+    g_config_parser._actions[grules.push("ret_function", "Name")] =
+        [](config_state& state, const config_parser& parser)
+        {
+            actions* ptr = create_actions(state._grules);
+            const auto& var = state._results.dollar(0, parser._gsm,
+                state._productions);
+
+            ptr->_storage.push_back(std::make_shared<var_cmd>(var.str()));
             ptr->_cmd_stack.back()->push(ptr->_storage.back().get());
         };
     push_ret_functions(grules, g_config_parser);
@@ -975,13 +1012,12 @@ void build_config_parser()
     lrules.insert_macro("control_char", "c[@A-Za-z]");
     lrules.insert_macro("hex", "x[0-9A-Fa-f]+");
     lrules.insert_macro("escape", R"(\\([^0-9cx]|\d{1,3}|{hex}|{control_char}))");
-    lrules.insert_macro("macro_name", R"([A-Z_a-z][-\w]*)");
+    lrules.insert_macro("name", R"([A-Z_a-z][-\w]*)");
     lrules.insert_macro("nl", "\r?\n");
     lrules.insert_macro("posix_name", "alnum|alpha|blank|cntrl|digit|graph|"
         "lower|print|punct|space|upper|xdigit");
     lrules.insert_macro("posix", R"(\[:{posix_name}:\])");
     lrules.insert_macro("spc_tab", "[ \t]+");
-    lrules.insert_macro("state_name", R"([A-Z_a-z]\w*)");
 
     lrules.push("INITIAL,OPTION", "{spc_tab}", lexertl::rules::skip(), ".");
     lrules.push("{nl}", grules.token_id("NL"));
@@ -1032,6 +1068,7 @@ void build_config_parser()
     lrules.push("SCRIPT", "system", grules.token_id("'system'"), ".");
     lrules.push("SCRIPT", "tolower", grules.token_id("'tolower'"), ".");
     lrules.push("SCRIPT", "toupper", grules.token_id("'toupper'"), ".");
+    lrules.push("SCRIPT", "{name}", grules.token_id("Name"), ".");
     lrules.push("SCRIPT", R"(\d+)", grules.token_id("Integer"), ".");
     lrules.push("SCRIPT", R"(\s+)", lexertl::rules::skip(), ".");
     lrules.push("SCRIPT", R"(\$[1-9]\d*)", grules.token_id("Index"), ".");
@@ -1050,14 +1087,14 @@ void build_config_parser()
     lrules.push("ID", R"([1-9]\d*)", grules.token_id("Number"), ".");
 
     lrules.push("MACRO,RULE", "%%", grules.token_id("'%%'"), "RULE");
-    lrules.push("MACRO", "{macro_name}", grules.token_id("MacroName"), "REGEX");
+    lrules.push("MACRO", "{name}", grules.token_id("MacroName"), "REGEX");
     lrules.push("MACRO", "{c_comment}", lexertl::rules::skip(), ".");
     lrules.push("MACRO,REGEX", "{nl}", lexertl::rules::skip(), "MACRO");
 
     lrules.push("REGEX", "{spc_tab}", lexertl::rules::skip(), ".");
     lrules.push("RULE", "^{spc_tab}({c_comment}({spc_tab}|{c_comment})*)?",
         lexertl::rules::skip(), ".");
-    lrules.push("RULE", R"(^<(\*|{state_name}(,{state_name})*)>)",
+    lrules.push("RULE", R"(^<(\*|{name}(,{name})*)>)",
         grules.token_id("StartState"), ".");
     lrules.push("REGEX,RULE", R"(\^)", grules.token_id("'^'"), ".");
     lrules.push("REGEX,RULE", R"(\$)", grules.token_id("'$'"), ".");
@@ -1072,7 +1109,7 @@ void build_config_parser()
     lrules.push("REGEX,RULE", R"(\+\?)", grules.token_id("'+?'"), ".");
     lrules.push("REGEX,RULE", R"({escape}|(\[^?({escape}|{posix}|[^\\\]])*\])|\S)",
         grules.token_id("Charset"), ".");
-    lrules.push("REGEX,RULE", R"(\{{macro_name}\})", grules.token_id("Macro"), ".");
+    lrules.push("REGEX,RULE", R"(\{{name}\})", grules.token_id("Macro"), ".");
     lrules.push("REGEX,RULE", R"(\{\d+(,(\d+)?)?\}[?]?)",
         grules.token_id("Repeat"), ".");
     lrules.push("REGEX,RULE", R"(\"(\\.|[^\\\r\n"])*\")",
@@ -1080,7 +1117,7 @@ void build_config_parser()
 
     lrules.push("RULE,ID", "{spc_tab}({c_comment}({spc_tab}|{c_comment})*)?",
         lexertl::rules::skip(), "ID");
-    lrules.push("RULE", R"(<([.<]|{state_name}|>{state_name}(:{state_name})?)>)",
+    lrules.push("RULE", R"(<([.<]|{name}|>{name}(:{name})?)>)",
         grules.token_id("ExitState"), "ID");
     lrules.push("RULE,ID", "{nl}", lexertl::rules::skip(), "RULE");
     lrules.push("ID", R"(skip\s*\(\s*\))", grules.token_id("'skip()'"), "RULE");

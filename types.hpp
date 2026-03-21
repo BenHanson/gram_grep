@@ -191,12 +191,14 @@ struct cmd
     enum class type
     {
         unknown,
-        append,
         assign,
+        assign_index,
         capitalise,
         erase,
         format,
         insert,
+        match_append,
+        match_assign,
         print,
         replace,
         replace_all,
@@ -206,7 +208,8 @@ struct cmd
         tolower,
         tolower_inplace,
         toupper,
-        toupper_inplace
+        toupper_inplace,
+        var
     };
 
     type _type = type::unknown;
@@ -260,6 +263,40 @@ struct cmd
     }
 };
 
+struct param_cmd : cmd
+{
+    cmd* _param = nullptr;
+
+    using cmd::cmd;
+
+    void push(cmd* command) override
+    {
+        _param = command;
+    }
+};
+
+struct assign_cmd : param_cmd
+{
+    std::string _name;
+
+    assign_cmd(std::string name) :
+        param_cmd(type::assign),
+        _name(std::move(name))
+    {
+    }
+};
+
+struct assign_index_cmd : cmd
+{
+    std::string _name;
+
+    assign_index_cmd(std::string name, const uint16_t index) :
+        cmd(type::assign_index, index),
+        _name(std::move(name))
+    {
+    }
+};
+
 struct erase_cmd : cmd
 {
     explicit erase_cmd(const uint16_t index) :
@@ -276,18 +313,6 @@ struct erase_cmd : cmd
         const uint16_t param2, const bool second2) :
         cmd(type::erase, param1, second1, param2, second2)
     {
-    }
-};
-
-struct param_cmd : cmd
-{
-    cmd* _param = nullptr;
-
-    using cmd::cmd;
-
-    void push(cmd* command) override
-    {
-        _param = command;
     }
 };
 
@@ -418,6 +443,16 @@ struct toupper_inplace_cmd : param_cmd
     }
 };
 
+struct var_cmd : cmd
+{
+    std::string _name;
+
+    explicit var_cmd(std::string&& name) :
+        cmd(type::var),
+        _name(std::move(name))
+    {}
+};
+
 struct cmd_data
 {
     cmd::type _type = cmd::type::unknown;
@@ -435,7 +470,7 @@ struct cmd_data
         return _param_count == _params.size();
     }
 
-    std::string run() const;
+    std::string run(std::map<std::string, std::string>* vars) const;
 };
 
 struct actions
@@ -467,7 +502,7 @@ struct actions
         _cmd_stack.pop_back();
     }
 
-    std::string exec(cmd* command);
+    std::string exec(cmd* command, std::map<std::string, std::string>* vars);
 };
 
 struct parser_base : match_type_base

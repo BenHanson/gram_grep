@@ -192,7 +192,8 @@ void process_action(const parser_t& p, const char* start,
     const std::map<uint16_t, actions>::iterator& action_iter,
     const std::pair<uint16_t, token_vector>& item,
     std::stack<std::string>& matches,
-    std::map<std::pair<std::size_t, std::size_t>, std::string>& replacements)
+    std::map<std::pair<std::size_t, std::size_t>, std::string>& replacements,
+    std::map<std::string, std::string>& vars)
 {
     for (const auto cmd : action_iter->second._commands)
     {
@@ -200,60 +201,22 @@ void process_action(const parser_t& p, const char* start,
 
         switch (cmd->_type)
         {
-        case cmd::type::append:
-        {
-            const auto c = static_cast<match_cmd*>(cmd);
-            const auto &token = dollar(item.first,
-                cmd->_param1, p._gsm, productions);
-            const std::string_view temp(get_ptr(token.first),
-                get_ptr(token.second));
-            const uint16_t size = c->_front + c->_back;
-
-            if (c->_front == 0 && c->_back == 0)
-                matches.top() += temp;
-            else
-            {
-                if (c->_front >= temp.size() || size > temp.size())
-                {
-                    throw gg_error(std::format("substr(${}, {}, {}) out of "
-                        "range for string '{}'.",
-                        cmd->_param1 + 1,
-                        c->_front,
-                        c->_back,
-                        temp));
-                }
-
-                matches.top() += temp.substr(c->_front, temp.size() - size);
-            }
-
-            break;
-        }
         case cmd::type::assign:
         {
-            const auto& c = static_cast<match_cmd*>(cmd);
+            auto c = static_cast<assign_cmd*>(cmd);
+            std::string rhs = action_iter->second.exec(c->_param, &vars);
+
+            vars[c->_name] = std::move(rhs);
+            break;
+        }
+        case cmd::type::assign_index:
+        {
+            auto c = static_cast<assign_index_cmd*>(cmd);
             const auto& token = dollar(item.first, cmd->_param1, p._gsm,
                 productions);
-            std::string temp(get_ptr(token.first), get_ptr(token.second));
+            std::string rhs(get_ptr(token.first), get_ptr(token.second));
 
-            if (c->_front == 0 && c->_back == 0)
-                matches.top() = std::move(temp);
-            else
-            {
-                const uint16_t size = c->_front + c->_back;
-
-                if (c->_front >= temp.size() || size > temp.size())
-                {
-                    throw gg_error(std::format("substr(${}, {}, {}) out of "
-                        "range for string '{}'.",
-                        cmd->_param1 + 1,
-                        c->_front,
-                        c->_back,
-                        temp));
-                }
-
-                matches.top() = temp.substr(c->_front, temp.size() - size);
-            }
-
+            vars[c->_name] = std::move(rhs);
             break;
         }
         case cmd::type::erase:
@@ -286,12 +249,68 @@ void process_action(const parser_t& p, const char* start,
                     get_ptr(param.first)) - start;
 
                 replacements[std::pair(index, 0)] =
-                    action_iter->second.exec(c->_param);
+                    action_iter->second.exec(c->_param, &vars);
             }
 
             break;
+        case cmd::type::match_append:
+        {
+            const auto c = static_cast<match_cmd*>(cmd);
+            const auto& token = dollar(item.first,
+                cmd->_param1, p._gsm, productions);
+            const std::string_view temp(get_ptr(token.first),
+                get_ptr(token.second));
+            const uint16_t size = c->_front + c->_back;
+
+            if (c->_front == 0 && c->_back == 0)
+                matches.top() += temp;
+            else
+            {
+                if (c->_front >= temp.size() || size > temp.size())
+                {
+                    throw gg_error(std::format("substr(${}, {}, {}) out of "
+                        "range for string '{}'.",
+                        cmd->_param1 + 1,
+                        c->_front,
+                        c->_back,
+                        temp));
+                }
+
+                matches.top() += temp.substr(c->_front, temp.size() - size);
+            }
+
+            break;
+        }
+        case cmd::type::match_assign:
+        {
+            const auto& c = static_cast<match_cmd*>(cmd);
+            const auto& token = dollar(item.first, cmd->_param1, p._gsm,
+                productions);
+            std::string temp(get_ptr(token.first), get_ptr(token.second));
+
+            if (c->_front == 0 && c->_back == 0)
+                matches.top() = std::move(temp);
+            else
+            {
+                const uint16_t size = c->_front + c->_back;
+
+                if (c->_front >= temp.size() || size > temp.size())
+                {
+                    throw gg_error(std::format("substr(${}, {}, {}) out of "
+                        "range for string '{}'.",
+                        cmd->_param1 + 1,
+                        c->_front,
+                        c->_back,
+                        temp));
+                }
+
+                matches.top() = temp.substr(c->_front, temp.size() - size);
+            }
+
+            break;
+        }
         case cmd::type::print:
-            std::cout << format_item(action_iter->second.exec(cmd), item);
+            std::cout << format_item(action_iter->second.exec(cmd, &vars), item);
             break;
         case cmd::type::replace:
             if (g_options._perform_output)
@@ -311,7 +330,7 @@ void process_action(const parser_t& p, const char* start,
                         get_ptr(param2.first)) - start;
 
                 replacements[std::pair(index1, index2 - index1)] =
-                    action_iter->second.exec(c->_param);
+                    action_iter->second.exec(c->_param, &vars);
             }
 
             break;
@@ -326,12 +345,12 @@ void process_action(const parser_t& p, const char* start,
                 const auto index2 = get_ptr(param.second) - start;
                 auto pair = std::pair(index1, index2 - index1);
                 auto iter = replacements.find(pair);
-                const boost::regex rx(action_iter->second.exec(c->_params[0]));
+                const boost::regex rx(action_iter->second.exec(c->_params[0], &vars));
                 const std::string text =
                     boost::regex_replace(iter == replacements.end() ?
                         std::string(get_ptr(param.first), get_ptr(param.second)) :
                         iter->second,
-                        rx, action_iter->second.exec(c->_params[1]));
+                        rx, action_iter->second.exec(c->_params[1], &vars));
 
                 replacements[pair] = text;
             }
@@ -920,6 +939,8 @@ bool process_parser(parser_t& p, const char* data_first,
                 success = false;
             }
 
+            std::map<std::string, std::string> vars;
+
             for (const auto& item : prod_map)
             {
                 auto action_iter = p._actions.find(item.first);
@@ -927,7 +948,7 @@ bool process_parser(parser_t& p, const char* data_first,
                 if (action_iter != p._actions.end())
                 {
                     process_action(p, data_first, action_iter, item, matches,
-                        replacements);
+                        replacements, vars);
 
                     if (!(p._flags & *ret_prev_match))
                     {

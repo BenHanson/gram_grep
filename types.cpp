@@ -61,7 +61,8 @@ extern uparser* g_curr_uparser;
     return result;
 }
 
-std::string actions::exec(cmd* command)
+std::string actions::exec(cmd* command,
+    std::map<std::string, std::string>* vars)
 {
     std::string output;
     std::vector<cmd_data> stack;
@@ -129,6 +130,25 @@ std::string actions::exec(cmd* command)
             _cmd_stack.pop_back();
             break;
         }
+        case cmd::type::var:
+        {
+            auto ptr = static_cast<var_cmd*>(command);
+
+            if (stack.empty())
+            {
+                stack.emplace_back(cmd::type::var, 1);
+                stack.back()._params.push_back(ptr->_name);
+            }
+            else
+            {
+                stack[_index_stack.back()]._params.
+                    push_back((*vars)[ptr->_name]);
+                _index_stack.pop_back();
+            }
+
+            _cmd_stack.pop_back();
+            break;
+        }
         case cmd::type::capitalise:
         case cmd::type::system:
         case cmd::type::tolower:
@@ -148,7 +168,7 @@ std::string actions::exec(cmd* command)
         while (!stack.empty() && stack.back().ready())
         {
             // Execute command
-            output = stack.back().run();
+            output = stack.back().run(vars);
 
             if (!_index_stack.empty())
             {
@@ -166,7 +186,7 @@ std::string actions::exec(cmd* command)
     return output;
 }
 
-std::string cmd_data::run() const
+std::string cmd_data::run(std::map<std::string, std::string>* vars) const
 {
     std::string output;
 
@@ -185,28 +205,29 @@ std::string cmd_data::run() const
         break;
     case cmd::type::format:
     {
-        auto iter = _params.begin();
-        auto end = _params.end();
-
-        output = *iter;
-        ++iter;
-
-        for (; iter != end; ++iter)
+        if (!_params.empty())
         {
+            auto iter = _params.begin();
+            auto fmt_iter = iter;
+            auto end = _params.end();
             const auto [gsm, lsm] = param_parser();
-            lexertl::citerator liter(output.c_str(),
-                output.c_str() + output.size(), lsm);
+            lexertl::citerator liter(iter->c_str(),
+                iter->c_str() + iter->size(), lsm);
             parsertl::csearch_iterator giter(liter, gsm);
             parsertl::csearch_iterator gend;
+            std::map<std::pair<std::size_t, std::size_t>, std::string> fmt_map;
 
-            for (; giter != gend; ++giter)
+            ++iter;
+
+            for (; iter != end && giter != gend; ++iter, ++giter)
             {
-                const auto token = (*giter)[0][0];
-                const auto fmt_idx = token.first - output.c_str();
+                auto p = (*giter)[0][0];
+                const auto key =
+                    std::make_pair(p.first - fmt_iter->c_str(), p.length());
 
                 if ((*giter)[1].empty())
-                    output.replace(fmt_idx, token.length(),
-                        std::vformat(token.str(), std::make_format_args(*iter)));
+                    fmt_map[key] =
+                        std::vformat(p.view(), std::make_format_args(*iter));
                 else
                 {
                     switch (*(*giter)[1][0].first)
@@ -222,23 +243,26 @@ std::string cmd_data::run() const
                     {
                         const float val = std::stof(*iter);
 
-                        output.replace(fmt_idx, token.length(),
-                            std::vformat(token.str(),
-                                std::make_format_args(val)));
+                        fmt_map[key] = std::vformat(p.view(),
+                                std::make_format_args(val));
                         break;
                     }
                     default:
                     {
                         const int val = std::stoi(*iter);
 
-                        output.replace(fmt_idx, token.length(),
-                            std::vformat(token.str(),
-                                std::make_format_args(val)));
+                        fmt_map[key] = std::vformat(p.view(),
+                                std::make_format_args(val));
                         break;
                     }
                     }
                 }
             }
+
+            output = *fmt_iter;
+
+            for (auto i = fmt_map.crbegin(), e = fmt_map.crend(); i != e; ++i)
+                output.replace(i->first.first, i->first.second, i->second);
         }
 
         break;
@@ -248,6 +272,11 @@ std::string cmd_data::run() const
         break;
     case cmd::type::string:
         output = _params.back();
+        break;
+    case cmd::type::var:
+        if (vars)
+            output = (*vars)[_params.back()];
+
         break;
     case cmd::type::system:
         output = exec_ret(_params.back());
