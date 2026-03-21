@@ -424,6 +424,22 @@ void build_config_parser()
         "| cmd_list single_cmd ';'");
     grules.push("single_cmd", "cmd");
 
+    g_config_parser._actions[grules.push("cmd", "name_append ret_function")] =
+        [](config_state& state, const config_parser& /*parser*/)
+        {
+            pop_ret_cmd(state);
+        };
+    g_config_parser._actions[grules.push("name_append", "Name '+='")] =
+        [](config_state& state, const config_parser& parser)
+        {
+            actions* ptr = create_actions(state._grules);
+            auto name = state._results.dollar(0, parser._gsm,
+                state._productions);
+            auto command = std::make_shared<append_cmd>(name.str());
+
+            ptr->emplace(command);
+            ptr->_cmd_stack.push_back(command.get());
+        };
     g_config_parser._actions[grules.push("cmd", "name_assign ret_function")] =
         [](config_state& state, const config_parser& /*parser*/)
         {

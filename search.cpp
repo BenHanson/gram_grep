@@ -219,22 +219,22 @@ void process_action(const parser_t& p, const char* start,
 
         switch (cmd->_type)
         {
+        case cmd::type::append:
+        {
+            auto c = static_cast<append_cmd*>(cmd);
+            std::vector<std::string> params = production_to_strings(item.first,
+                p._gsm, productions);
+            std::string rhs = action_iter->second.exec(c->_param, &params, &vars);
+
+            vars[c->_name] += std::move(rhs);
+            break;
+        }
         case cmd::type::assign:
         {
             auto c = static_cast<assign_cmd*>(cmd);
             std::vector<std::string> params = production_to_strings(item.first,
                 p._gsm, productions);
             std::string rhs = action_iter->second.exec(c->_param, &params, &vars);
-
-            vars[c->_name] = std::move(rhs);
-            break;
-        }
-        case cmd::type::assign_index:
-        {
-            auto c = static_cast<assign_index_cmd*>(cmd);
-            const auto& token = dollar(item.first, cmd->_param1, p._gsm,
-                productions);
-            std::string rhs(get_ptr(token.first), get_ptr(token.second));
 
             vars[c->_name] = std::move(rhs);
             break;

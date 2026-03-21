@@ -191,8 +191,8 @@ struct cmd
     enum class type
     {
         unknown,
+        append,
         assign,
-        assign_index,
         capitalise,
         erase,
         format,
@@ -276,23 +276,23 @@ struct param_cmd : cmd
     }
 };
 
+struct append_cmd : param_cmd
+{
+    std::string _name;
+
+    append_cmd(std::string name) :
+        param_cmd(type::append),
+        _name(std::move(name))
+    {
+    }
+};
+
 struct assign_cmd : param_cmd
 {
     std::string _name;
 
     assign_cmd(std::string name) :
         param_cmd(type::assign),
-        _name(std::move(name))
-    {
-    }
-};
-
-struct assign_index_cmd : cmd
-{
-    std::string _name;
-
-    assign_index_cmd(std::string name, const uint16_t index) :
-        cmd(type::assign_index, index),
         _name(std::move(name))
     {
     }
