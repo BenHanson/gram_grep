@@ -62,6 +62,7 @@ extern uparser* g_curr_uparser;
 }
 
 std::string actions::exec(cmd* command,
+    std::vector<std::string>* productions,
     std::map<std::string, std::string>* vars)
 {
     std::string output;
@@ -90,6 +91,25 @@ std::string actions::exec(cmd* command,
                 _cmd_stack.push_back(*iter);
             }
 
+            break;
+        }
+        case cmd::type::index:
+        {
+            auto ptr = static_cast<index_cmd*>(command);
+
+            if (stack.empty())
+            {
+                stack.emplace_back(cmd::type::index, 1);
+                stack.back()._params.push_back((*productions)[ptr->_param1]);
+            }
+            else
+            {
+                stack[_index_stack.back()]._params.
+                    push_back((*productions)[ptr->_param1]);
+                _index_stack.pop_back();
+            }
+
+            _cmd_stack.pop_back();
             break;
         }
         case cmd::type::print:
@@ -277,6 +297,9 @@ std::string cmd_data::run(std::map<std::string, std::string>* vars) const
         if (vars)
             output = (*vars)[_params.back()];
 
+        break;
+    case cmd::type::index:
+        output = _params.back();
         break;
     case cmd::type::system:
         output = exec_ret(_params.back());

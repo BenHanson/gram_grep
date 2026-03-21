@@ -424,20 +424,6 @@ void build_config_parser()
         "| cmd_list single_cmd ';'");
     grules.push("single_cmd", "cmd");
 
-    g_config_parser._actions[grules.push("cmd", "Name '=' Index")] =
-        [](config_state& state, const config_parser& parser)
-        {
-            actions* ptr = create_actions(state._grules);
-            const auto& name = state._results.dollar(0, parser._gsm,
-                state._productions);
-            const auto& token = state._results.dollar(2, parser._gsm,
-                state._productions);
-            const uint16_t index = (atoi(token.first + 1) - 1) & 0xffff;
-            auto command =
-                std::make_shared<assign_index_cmd>(name.str(), index);
-
-            ptr->emplace(std::move(command));
-        };
     g_config_parser._actions[grules.push("cmd", "name_assign ret_function")] =
         [](config_state& state, const config_parser& /*parser*/)
         {
@@ -759,6 +745,17 @@ void build_config_parser()
                 state._productions);
 
             ptr->_storage.push_back(std::make_shared<var_cmd>(var.str()));
+            ptr->_cmd_stack.back()->push(ptr->_storage.back().get());
+        };
+    g_config_parser._actions[grules.push("ret_function", "Index")] =
+        [](config_state& state, const config_parser& parser)
+        {
+            actions* ptr = create_actions(state._grules);
+            const auto& token = state._results.dollar(0, parser._gsm,
+                state._productions);
+            const uint16_t index = (atoi(token.first + 1) - 1) & 0xffff;
+
+            ptr->_storage.push_back(std::make_shared<index_cmd>(index));
             ptr->_cmd_stack.back()->push(ptr->_storage.back().get());
         };
     push_ret_functions(grules, g_config_parser);

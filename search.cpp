@@ -187,6 +187,24 @@ bool conditions_met(const condition_map& conditions, const T& cap_vec)
     return success;
 }
 
+template<typename token_vector>
+std::vector<std::string> production_to_strings(const uint16_t rule_,
+    const parsertl::state_machine& sm_, const token_vector& productions_)
+{
+    std::vector<std::string> ret;
+    const auto size = production_size(sm_, rule_);
+
+    for (std::size_t i = 0; i < size; ++i)
+    {
+        const auto& token = dollar(rule_, i, sm_, productions_);
+        std::string rhs(get_ptr(token.first), get_ptr(token.second));
+
+        ret.push_back(std::move(rhs));
+    }
+
+    return ret;
+}
+
 template<typename parser_t, typename token_vector>
 void process_action(const parser_t& p, const char* start,
     const std::map<uint16_t, actions>::iterator& action_iter,
@@ -204,7 +222,9 @@ void process_action(const parser_t& p, const char* start,
         case cmd::type::assign:
         {
             auto c = static_cast<assign_cmd*>(cmd);
-            std::string rhs = action_iter->second.exec(c->_param, &vars);
+            std::vector<std::string> params = production_to_strings(item.first,
+                p._gsm, productions);
+            std::string rhs = action_iter->second.exec(c->_param, &params, &vars);
 
             vars[c->_name] = std::move(rhs);
             break;
@@ -247,9 +267,11 @@ void process_action(const parser_t& p, const char* start,
                 const auto index = (cmd->_second1 ?
                     get_ptr(param.second) :
                     get_ptr(param.first)) - start;
+                std::vector<std::string> params = production_to_strings(item.first,
+                    p._gsm, productions);
 
                 replacements[std::pair(index, 0)] =
-                    action_iter->second.exec(c->_param, &vars);
+                    action_iter->second.exec(c->_param, &params, &vars);
             }
 
             break;
@@ -310,8 +332,14 @@ void process_action(const parser_t& p, const char* start,
             break;
         }
         case cmd::type::print:
-            std::cout << format_item(action_iter->second.exec(cmd, &vars), item);
+        {
+            std::vector<std::string> params = production_to_strings(item.first,
+                p._gsm, productions);
+
+            std::cout << format_item(action_iter->second.
+                exec(cmd, &params, &vars), item);
             break;
+        }
         case cmd::type::replace:
             if (g_options._perform_output)
             {
@@ -328,9 +356,11 @@ void process_action(const parser_t& p, const char* start,
                     (c->_second2 ?
                         get_ptr(param2.second) :
                         get_ptr(param2.first)) - start;
+                std::vector<std::string> params = production_to_strings(item.first,
+                    p._gsm, productions);
 
                 replacements[std::pair(index1, index2 - index1)] =
-                    action_iter->second.exec(c->_param, &vars);
+                    action_iter->second.exec(c->_param, &params, &vars);
             }
 
             break;
@@ -345,12 +375,14 @@ void process_action(const parser_t& p, const char* start,
                 const auto index2 = get_ptr(param.second) - start;
                 auto pair = std::pair(index1, index2 - index1);
                 auto iter = replacements.find(pair);
-                const boost::regex rx(action_iter->second.exec(c->_params[0], &vars));
+                std::vector<std::string> params = production_to_strings(item.first,
+                    p._gsm, productions);
+                const boost::regex rx(action_iter->second.exec(c->_params[0], &params, &vars));
                 const std::string text =
                     boost::regex_replace(iter == replacements.end() ?
                         std::string(get_ptr(param.first), get_ptr(param.second)) :
                         iter->second,
-                        rx, action_iter->second.exec(c->_params[1], &vars));
+                        rx, action_iter->second.exec(c->_params[1], &params, &vars));
 
                 replacements[pair] = text;
             }

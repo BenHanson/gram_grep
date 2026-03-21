@@ -196,6 +196,7 @@ struct cmd
         capitalise,
         erase,
         format,
+        index,
         insert,
         match_append,
         match_assign,
@@ -340,6 +341,14 @@ struct format_cmd : vector_cmd
 {
     format_cmd() :
         vector_cmd(type::format)
+    {
+    }
+};
+
+struct index_cmd : cmd
+{
+    index_cmd(const uint16_t param) :
+        cmd(type::index, param)
     {
     }
 };
@@ -502,7 +511,8 @@ struct actions
         _cmd_stack.pop_back();
     }
 
-    std::string exec(cmd* command, std::map<std::string, std::string>* vars);
+    std::string exec(cmd* command, std::vector<std::string>* productions,
+        std::map<std::string, std::string>* vars);
 };
 
 struct parser_base : match_type_base

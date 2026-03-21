@@ -262,7 +262,7 @@ static std::string run_script(const std::string& script,
     {
         ret_state state = parse_ret(input);
 
-        ret = state._actions.exec(nullptr, nullptr);
+        ret = state._actions.exec(nullptr, nullptr, nullptr);
     }
 
     return ret;
@@ -303,7 +303,7 @@ static std::string run_script(const std::string& script,
                 {
                     ret_state state = parse_ret(replace);
 
-                    replace = state._actions.exec(nullptr, nullptr);
+                    replace = state._actions.exec(nullptr, nullptr, nullptr);
                 }
 
                 if (!skip)
