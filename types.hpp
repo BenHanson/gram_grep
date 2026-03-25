@@ -203,13 +203,10 @@ struct cmd
         print,
         replace,
         replace_all,
-        replace_all_inplace,
         string,
         system,
         tolower,
-        tolower_inplace,
         toupper,
-        toupper_inplace,
         var
     };
 
@@ -393,14 +390,6 @@ struct replace_all_cmd : vector_cmd
     }
 };
 
-struct replace_all_inplace_cmd : vector_cmd
-{
-    replace_all_inplace_cmd() :
-        vector_cmd(type::replace_all_inplace)
-    {
-    }
-};
-
 struct string_cmd : cmd
 {
     std::string _str;
@@ -428,26 +417,10 @@ struct tolower_cmd : param_cmd
     }
 };
 
-struct tolower_inplace_cmd : param_cmd
-{
-    tolower_inplace_cmd() :
-        param_cmd(cmd::type::tolower_inplace)
-    {
-    }
-};
-
 struct toupper_cmd : param_cmd
 {
     toupper_cmd() :
         param_cmd(cmd::type::toupper)
-    {
-    }
-};
-
-struct toupper_inplace_cmd : param_cmd
-{
-    toupper_inplace_cmd() :
-        param_cmd(cmd::type::toupper_inplace)
     {
     }
 };
@@ -479,7 +452,7 @@ struct cmd_data
         return _param_count == _params.size();
     }
 
-    std::string run(std::map<std::string, std::string>* vars) const;
+    std::string run(std::map<std::string, std::string, std::less<>>* vars) const;
 };
 
 struct actions
@@ -512,7 +485,7 @@ struct actions
     }
 
     std::string exec(cmd* command, std::vector<std::string>* productions,
-        std::map<std::string, std::string>* vars);
+        std::map<std::string, std::string, std::less<>>* vars);
 };
 
 struct parser_base : match_type_base

@@ -682,63 +682,6 @@ void build_config_parser()
         };
 
     grules.push("first_second", "'first' | 'second'");
-    g_config_parser._actions[grules.push("mod_cmd",
-        "replace_all_inplace_kwd '(' Index ',' ret_function ',' ret_function ')'")] =
-        [](config_state& state, const config_parser& parser)
-        {
-            actions* ptr = create_actions(state._grules);
-            cmd* command = ptr->_commands.back();
-            const auto& token2 = state._results.dollar(2, parser._gsm,
-                state._productions);
-            const uint16_t index = (atoi(token2.first + 1) - 1) & 0xffff;
-
-            command->_param1 = index;
-            // Pop copy of command
-            ptr->_cmd_stack.pop_back();
-        };
-    g_config_parser._actions[grules.push("replace_all_inplace_kwd", "'replace_all'")] =
-        [](config_state& state, const config_parser&)
-        {
-            push_kwd<replace_all_inplace_cmd>(state);
-        };
-    g_config_parser._actions[grules.push("mod_cmd",
-        "tolower_inplace_kwd '(' Index ')'")] =
-        [](config_state& state, const config_parser& parser)
-        {
-            actions* ptr = create_actions(state._grules);
-            cmd* command = ptr->_commands.back();
-            const auto& token2 = state._results.dollar(2, parser._gsm,
-                state._productions);
-            const uint16_t index = (atoi(token2.first + 1) - 1) & 0xffff;
-
-            command->_param1 = index;
-            // Pop copy of command
-            ptr->_cmd_stack.pop_back();
-        };
-        g_config_parser._actions[grules.push("tolower_inplace_kwd", "'tolower'")] =
-        [](config_state& state, const config_parser&)
-        {
-            push_kwd<tolower_inplace_cmd>(state);
-        };
-        g_config_parser._actions[grules.push("mod_cmd",
-            "toupper_inplace_kwd '(' Index ')'")] =
-            [](config_state& state, const config_parser& parser)
-            {
-                actions* ptr = create_actions(state._grules);
-                cmd* command = ptr->_commands.back();
-                const auto& token2 = state._results.dollar(2, parser._gsm,
-                    state._productions);
-                const uint16_t index = (atoi(token2.first + 1) - 1) & 0xffff;
-
-                command->_param1 = index;
-                // Pop copy of command
-                ptr->_cmd_stack.pop_back();
-            };
-        g_config_parser._actions[grules.push("toupper_inplace_kwd", "'toupper'")] =
-            [](config_state& state, const config_parser&)
-            {
-                push_kwd<toupper_inplace_cmd>(state);
-            };
 
     g_config_parser._actions[grules.push("ret_function", "ScriptString")] =
         [](config_state& state, const config_parser& parser)

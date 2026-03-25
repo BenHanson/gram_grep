@@ -211,7 +211,7 @@ void process_action(const parser_t& p, const char* start,
     const std::pair<uint16_t, token_vector>& item,
     std::stack<std::string>& matches,
     std::map<std::pair<std::size_t, std::size_t>, std::string>& replacements,
-    std::map<std::string, std::string>& vars)
+    std::map<std::string, std::string, std::less<>>& vars)
 {
     for (const auto cmd : action_iter->second._commands)
     {
@@ -361,60 +361,6 @@ void process_action(const parser_t& p, const char* start,
 
                 replacements[std::pair(index1, index2 - index1)] =
                     action_iter->second.exec(c->_param, &params, &vars);
-            }
-
-            break;
-        case cmd::type::replace_all_inplace:
-            if (g_options._perform_output)
-            {
-                const auto c = static_cast<replace_all_inplace_cmd*>(cmd);
-                const auto size = productions.size() -
-                    production_size(p._gsm, item.first);
-                const auto& param = productions[size + c->_param1];
-                const auto index1 = get_ptr(param.first) - start;
-                const auto index2 = get_ptr(param.second) - start;
-                auto pair = std::pair(index1, index2 - index1);
-                auto iter = replacements.find(pair);
-                std::vector<std::string> params = production_to_strings(item.first,
-                    p._gsm, productions);
-                const boost::regex rx(action_iter->second.exec(c->_params[0], &params, &vars));
-                const std::string text =
-                    boost::regex_replace(iter == replacements.end() ?
-                        std::string(get_ptr(param.first), get_ptr(param.second)) :
-                        iter->second,
-                        rx, action_iter->second.exec(c->_params[1], &params, &vars));
-
-                replacements[pair] = text;
-            }
-
-            break;
-        case cmd::type::tolower_inplace:
-            if (g_options._perform_output)
-            {
-                const auto& param = dollar(item.first, cmd->_param1, p._gsm,
-                    productions);
-                const auto index1 = get_ptr(param.first) - start;
-                const auto index2 = get_ptr(param.second) - start;
-                auto text = std::string(get_ptr(param.first), get_ptr(param.second));
-
-                std::transform(text.begin(), text.end(), text.begin(),
-                    [](const char c) { return static_cast<char>(::tolower(c)); });
-                replacements[std::pair(index1, index2 - index1)] = text;
-            }
-
-            break;
-        case cmd::type::toupper_inplace:
-            if (g_options._perform_output)
-            {
-                const auto& param = dollar(item.first, cmd->_param1, p._gsm,
-                    productions);
-                const auto index1 = get_ptr(param.first) - start;
-                const auto index2 = get_ptr(param.second) - start;
-                auto text = std::string(get_ptr(param.first), get_ptr(param.second));
-
-                std::transform(text.begin(), text.end(), text.begin(),
-                    [](const char c) { return static_cast<char>(::toupper(c)); });
-                replacements[std::pair(index1, index2 - index1)] = text;
             }
 
             break;
@@ -971,7 +917,7 @@ bool process_parser(parser_t& p, const char* data_first,
                 success = false;
             }
 
-            std::map<std::string, std::string> vars;
+            std::map<std::string, std::string, std::less<>> vars;
 
             for (const auto& item : prod_map)
             {

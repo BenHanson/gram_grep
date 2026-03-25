@@ -63,7 +63,7 @@ extern uparser* g_curr_uparser;
 
 std::string actions::exec(cmd* command,
     std::vector<std::string>* productions,
-    std::map<std::string, std::string>* vars)
+    std::map<std::string, std::string, std::less<>>* vars)
 {
     std::string output;
     std::vector<cmd_data> stack;
@@ -206,7 +206,8 @@ std::string actions::exec(cmd* command,
     return output;
 }
 
-std::string cmd_data::run(std::map<std::string, std::string>* vars) const
+std::string cmd_data::run(std::map<std::string,
+    std::string, std::less<>>* vars) const
 {
     std::string output;
 
