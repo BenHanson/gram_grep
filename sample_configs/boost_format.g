@@ -8,7 +8,7 @@ format: 'boost' '::' 'format' '(' string ')' { replace($1, 'std');
 	replace($5, replace_all($5, '%((?:\d+)?\.\d+f)', '{:$1}'));
 	replace($5, replace_all($5, '%x', '{:x}'));
 	replace($5, replace_all($5, '%[ds]', '{}'));
-	replace($1, replace_all($1, '%%', '%'));
+	replace($5, replace_all($5, '%%', '%'));
 	erase($6); };
 string: String;
 string: RawString;
