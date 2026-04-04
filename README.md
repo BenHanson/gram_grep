@@ -186,19 +186,19 @@ Scripting can be applied at both the regex level and the search grammar level. T
 
 #### Top level functions
 
-* erase($n);
-* erase($from, $to);
-* erase($from.second, $to.first);
-* insert($n, 'text');
-* insert($n.second, 'text');
-* match = $n;
-* match = substr($n, <omit from left>, <omit from right>);
-* match += $n;
-* match += substr($n, <omit from left>, <omit from right>);
+* erase(\$*n*);
+* erase(\$*from*, \$*to*);
+* erase(\$*from*.second, \$*to*.first);
+* insert(\$*n*, 'text');
+* insert(\$*n*.second, 'text');
+* match = \$*n*;
+* match = substr(\$*n*, &lt;*omit from left*&gt;, &lt;*omit from right*&gt;);
+* match += \$*n*;
+* match += substr(\$*n*, &lt;*omit from left*&gt;, &lt;*omit from right*&gt;);
 * print('text');
-* replace($n, 'text');
-* replace($from, $to, 'text');
-* replace($from.second, $to.first, 'text');
+* replace(\$*n*, 'text');
+* replace(\$*from*, \$*to*, 'text');
+* replace(\$*from*.second, \$*to*.first, 'text');
 
 #### Grammar
 
