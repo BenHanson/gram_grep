@@ -198,7 +198,7 @@ static file_type load_file(std::vector<unsigned char>& utf8,
 }
 
 static std::string replace_captures(const std::string& text,
-    const capture_vector& captures, bool& skip)
+    const capture_vector& captures)
 {
     std::string ret;
     static lexertl::state_machine cap_sm;
@@ -225,13 +225,7 @@ static std::string replace_captures(const std::string& text,
                 ret += captures[idx].front();
             else
             {
-                output_text_nl(std::cerr, is_a_tty(stderr),
-                    g_options._wa_text.c_str(),
-                    std::format("{}Capture ${} is "
-                        "out of range.",
-                        gg_text(),
-                        idx));
-                skip = true;
+                throw gg_error(std::format("Capture ${} is out of range.", idx));
             }
         }
         else
@@ -287,7 +281,7 @@ static std::string run_script(const std::string& script,
                 if (g_options._replace_script.empty())
                 {
                     replace = replace_captures(g_options._replace,
-                        data._captures, data._negate);
+                        data._captures);
                 }
                 else
                 {

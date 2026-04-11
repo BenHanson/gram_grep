@@ -88,14 +88,7 @@ static std::string replace_captures(const std::string& text,
             if (idx < productions.size())
                 ret += productions[idx];
             else
-            {
-                output_text_nl(std::cerr, is_a_tty(stderr),
-                    g_options._wa_text.c_str(),
-                    std::format("{}Capture ${} is "
-                        "out of range.",
-                        gg_text(),
-                        idx));
-            }
+                throw gg_error(std::format("Capture ${} is out of range", idx));
         }
         else
             ret.push_back(*i->first);
@@ -140,6 +133,10 @@ std::string actions::exec(cmd* command,
         {
             auto ptr = static_cast<index_cmd*>(command);
 
+            if (ptr->_param1 >= productions.size())
+                throw gg_error(std::format("Index ${} is out of range",
+                    ptr->_param1));
+
             if (stack.empty())
             {
                 stack.emplace_back(cmd::type::index, 1);
@@ -147,7 +144,12 @@ std::string actions::exec(cmd* command,
             }
             else
             {
-                stack[_index_stack.back()]._params.
+                const auto idx = _index_stack.back();
+
+                if (idx >= stack.size())
+                    throw gg_error(std::format("Index ${} is out of range", idx));
+
+                stack[idx]._params.
                     push_back(productions[ptr->_param1]);
                 _index_stack.pop_back();
             }

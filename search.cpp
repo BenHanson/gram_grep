@@ -123,10 +123,11 @@ static std::string format_item(const std::string& input,
         const std::size_t idx =
             static_cast<std::size_t>(atoi((*iter)[0].first + 1)) - 1;
 
+        if (idx >= item.second.size())
+            throw gg_error(std::format("Capture ${} is out of range.", idx + 1));
+
         output.append(last, (*iter)[0].first);
-        output += idx >= item.second.size() ?
-            std::string() :
-            item.second[idx].str();
+        output += item.second[idx].str();
         last = (*iter)[0].second;
     }
 
@@ -149,11 +150,14 @@ static std::string format_item(const std::string& input,
         const std::size_t idx =
             static_cast<std::size_t>(atoi((*iter)[0].first + 1)) - 1;
 
+        if (idx >= item.second.size())
+        {
+            throw gg_error(std::format("Capture ${} is out of range.", idx + 1));
+        }
+
         output.append(last, (*iter)[0].first);
-        output += idx >= item.second.size() ?
-            std::string() :
-            std::string(item.second[idx].first.get(),
-                item.second[idx].second.get());
+        output += std::string(item.second[idx].first.get(),
+            item.second[idx].second.get());
         last = (*iter)[0].second;
     }
 
@@ -382,10 +386,11 @@ std::string build_text(const std::string& input, const capture_vector& captures)
     {
         const auto idx = static_cast<std::size_t>(atoi((*iter)[0].first + 1));
 
+        if (idx >= captures.size())
+            throw gg_error(std::format("Capture ${} is out of range.", idx));
+
         output.append(last, (*iter)[0].first);
-        output += idx >= captures.size() ?
-            std::string_view() :
-            captures[idx].front();
+        output += captures[idx].front();
         last = (*iter)[0].second;
     }
 
