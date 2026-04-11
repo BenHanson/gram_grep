@@ -484,7 +484,7 @@ struct actions
         _cmd_stack.pop_back();
     }
 
-    std::string exec(cmd* command, std::vector<std::string>* productions,
+    std::string exec(cmd* command, const std::vector<std::string>& productions,
         std::map<std::string, std::string, std::less<>>* vars);
 };
 

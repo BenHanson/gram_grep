@@ -61,8 +61,51 @@ extern uparser* g_curr_uparser;
     return result;
 }
 
+static std::string replace_captures(const std::string& text,
+    const std::vector<std::string>& productions)
+{
+    std::string ret;
+    static lexertl::state_machine cap_sm;
+
+    if (cap_sm.empty())
+    {
+        lexertl::rules rules;
+
+        rules.push(R"(\$\d)", 1);
+        lexertl::generator::build(rules, cap_sm);
+    }
+
+    auto i = lexertl::citerator(text.c_str(),
+        text.c_str() + text.size(), cap_sm);
+    lexertl::citerator e;
+
+    for (; i != e; ++i)
+    {
+        if (i->id == 1)
+        {
+            const std::size_t idx = atoi(i->first + 1);
+
+            if (idx < productions.size())
+                ret += productions[idx];
+            else
+            {
+                output_text_nl(std::cerr, is_a_tty(stderr),
+                    g_options._wa_text.c_str(),
+                    std::format("{}Capture ${} is "
+                        "out of range.",
+                        gg_text(),
+                        idx));
+            }
+        }
+        else
+            ret.push_back(*i->first);
+    }
+
+    return ret;
+}
+
 std::string actions::exec(cmd* command,
-    std::vector<std::string>* productions,
+    const std::vector<std::string>& productions,
     std::map<std::string, std::string, std::less<>>* vars)
 {
     std::string output;
@@ -100,12 +143,12 @@ std::string actions::exec(cmd* command,
             if (stack.empty())
             {
                 stack.emplace_back(cmd::type::index, 1);
-                stack.back()._params.push_back((*productions)[ptr->_param1]);
+                stack.back()._params.push_back(productions[ptr->_param1]);
             }
             else
             {
                 stack[_index_stack.back()]._params.
-                    push_back((*productions)[ptr->_param1]);
+                    push_back(productions[ptr->_param1]);
                 _index_stack.pop_back();
             }
 
@@ -135,15 +178,16 @@ std::string actions::exec(cmd* command,
         case cmd::type::string:
         {
             auto ptr = static_cast<string_cmd*>(command);
+            std::string str = replace_captures(ptr->_str, productions);
 
             if (stack.empty())
             {
                 stack.emplace_back(cmd::type::string, 1);
-                stack.back()._params.push_back(ptr->_str);
+                stack.back()._params.push_back(std::move(str));
             }
             else
             {
-                stack[_index_stack.back()]._params.push_back(ptr->_str);
+                stack[_index_stack.back()]._params.push_back(std::move(str));
                 _index_stack.pop_back();
             }
 

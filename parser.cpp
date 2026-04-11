@@ -1085,8 +1085,17 @@ void build_ret_parser()
     parsertl::rules grules;
     lexertl::rules lrules;
 
-    grules.token("ScriptString");
+    grules.token("Index ScriptString");
     grules.push("start", "ret_function");
+    g_ret_parser._actions[grules.push("ret_function", "Index")] =
+        [](ret_state& state, const ret_parser&)
+        {
+            const auto& token = state._iter.dollar(0);
+            const uint16_t index = atoi(token.first + 1) & 0xffff;
+
+            state._actions._storage.push_back(std::make_shared<index_cmd>(index));
+            state._actions._cmd_stack.back()->push(state._actions._storage.back().get());
+        };
     g_ret_parser._actions[grules.push("ret_function", "ScriptString")] =
         [](ret_state& state, const ret_parser&)
         {
@@ -1102,6 +1111,7 @@ void build_ret_parser()
     lrules.push(R"(\()", grules.token_id("'('"));
     lrules.push(R"(\))", grules.token_id("')'"));
     lrules.push(",", grules.token_id("','"));
+    lrules.push(R"(\$(0|[1-9]\d*))", grules.token_id("Index"));
     lrules.push("'(''|[^'])*'", grules.token_id("ScriptString"));
     lrules.push("capitalise", grules.token_id("'capitalise'"));
     lrules.push("format", grules.token_id("'format'"));

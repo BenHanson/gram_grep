@@ -198,7 +198,7 @@ static file_type load_file(std::vector<unsigned char>& utf8,
 }
 
 static std::string replace_captures(const std::string& text,
-    const std::string& script, const capture_vector& captures, bool& skip)
+    const capture_vector& captures, bool& skip)
 {
     std::string ret;
     static lexertl::state_machine cap_sm;
@@ -211,18 +211,9 @@ static std::string replace_captures(const std::string& text,
         lexertl::generator::build(rules, cap_sm);
     }
 
-    lexertl::citerator i;
+    auto i = lexertl::citerator(text.c_str(),
+        text.c_str() + text.size(), cap_sm);
     lexertl::citerator e;
-
-    if (script.empty())
-    {
-        i = lexertl::citerator(text.c_str(), text.c_str() + text.size(), cap_sm);
-    }
-    else
-    {
-        i = lexertl::citerator(script.c_str(),
-            script.c_str() + script.size(), cap_sm);
-    }
 
     for (; i != e; ++i)
     {
@@ -254,17 +245,13 @@ static std::string run_script(const std::string& script,
     const capture_vector& captures)
 {
     std::string ret;
-    bool skip = false;
-    const std::string input = replace_captures(std::string(), script,
-        captures, skip);
+    ret_state state = parse_ret(script);
+    std::vector<std::string> productions;
 
-    if (!skip)
-    {
-        ret_state state = parse_ret(input);
+    for (const auto& capture : captures)
+        productions.emplace_back(capture[0]);
 
-        ret = state._actions.exec(nullptr, nullptr, nullptr);
-    }
-
+    ret = state._actions.exec(nullptr, productions, nullptr);
     return ret;
 }
 
@@ -295,20 +282,27 @@ static std::string run_script(const std::string& script,
                     second - first)] = g_options._replace;
             else
             {
-                bool skip = false;
-                std::string replace = replace_captures(g_options._replace,
-                    g_options._replace_script, data._captures, skip);
+                std::string replace;
 
-                if (!g_options._replace_script.empty())
+                if (g_options._replace_script.empty())
                 {
-                    ret_state state = parse_ret(replace);
+                    replace = replace_captures(g_options._replace,
+                        data._captures, data._negate);
+                }
+                else
+                {
+                    ret_state state = parse_ret(g_options._replace_script);
+                    std::vector<std::string> productions;
 
-                    replace = state._actions.exec(nullptr, nullptr, nullptr);
+                    for (const auto& capture : data._captures)
+                        productions.emplace_back(capture[0]);
+
+                    replace = state._actions.exec(nullptr, productions,
+                        nullptr);
                 }
 
-                if (!skip)
-                    data._replacements[std::make_pair(first - data._first,
-                        second - first)] = replace;
+                data._replacements[std::make_pair(first - data._first,
+                    second - first)] = replace;
             }
         }
     }
@@ -754,7 +748,8 @@ static bool process_matches(match_data& data,
             }
             else if (!g_options._print_script.empty())
             {
-                std::cout << run_script(g_options._print_script, data._captures);
+                std::cout << run_script(g_options._print_script,
+                    data._captures);
             }
             else if (!g_options._exec.empty())
             {

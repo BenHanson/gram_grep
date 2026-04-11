@@ -224,7 +224,7 @@ void process_action(const parser_t& p, const char* start,
             auto c = static_cast<append_cmd*>(cmd);
             std::vector<std::string> params = production_to_strings(item.first,
                 p._gsm, productions);
-            std::string rhs = action_iter->second.exec(c->_param, &params, &vars);
+            std::string rhs = action_iter->second.exec(c->_param, params, &vars);
 
             vars[c->_name] += std::move(rhs);
             break;
@@ -234,7 +234,7 @@ void process_action(const parser_t& p, const char* start,
             auto c = static_cast<assign_cmd*>(cmd);
             std::vector<std::string> params = production_to_strings(item.first,
                 p._gsm, productions);
-            std::string rhs = action_iter->second.exec(c->_param, &params, &vars);
+            std::string rhs = action_iter->second.exec(c->_param, params, &vars);
 
             vars[c->_name] = std::move(rhs);
             break;
@@ -271,7 +271,7 @@ void process_action(const parser_t& p, const char* start,
                     p._gsm, productions);
 
                 replacements[std::pair(index, 0)] =
-                    action_iter->second.exec(c->_param, &params, &vars);
+                    action_iter->second.exec(c->_param, params, &vars);
             }
 
             break;
@@ -337,7 +337,7 @@ void process_action(const parser_t& p, const char* start,
                 p._gsm, productions);
 
             std::cout << format_item(action_iter->second.
-                exec(cmd, &params, &vars), item);
+                exec(cmd, params, &vars), item);
             break;
         }
         case cmd::type::replace:
@@ -360,7 +360,7 @@ void process_action(const parser_t& p, const char* start,
                     p._gsm, productions);
 
                 replacements[std::pair(index1, index2 - index1)] =
-                    action_iter->second.exec(c->_param, &params, &vars);
+                    action_iter->second.exec(c->_param, params, &vars);
             }
 
             break;
