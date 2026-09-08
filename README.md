@@ -25,7 +25,7 @@ All dependencies are (thankfully) header only which greatly simplifies the build
 
 #### Acquiring the Source Dependencies
 
-```
+```shell
 git clone https://github.com/BenHanson/gram_grep.git
 git clone https://github.com/BenHanson/parsertl17.git
 git clone https://github.com/BenHanson/lexertl17.git
@@ -42,7 +42,7 @@ All platforms now require that you set the BOOST_ROOT environment variable to th
 - If you would like to use `cmake`, instead follow the below instructions
 
 #### Building Using CMake
-```
+```shell
 cd gram_grep
 mkdir build
 cd build
@@ -77,7 +77,7 @@ a::b::c::d
 
 `gram_grep` command:
 
-```
+```shell
 gram_grep --config=sample_configs\rev.g test.txt
 ```
 
@@ -186,19 +186,19 @@ Scripting can be applied at both the regex level and the search grammar level. T
 
 #### Top level functions
 
-* erase(\$*n*);
-* erase(\$*from*, \$*to*);
-* erase(\$*from*.second, \$*to*.first);
-* insert(\$*n*, 'text');
-* insert(\$*n*.second, 'text');
-* match = \$*n*;
-* match = substr(\$*n*, &lt;*omit from left*&gt;, &lt;*omit from right*&gt;);
-* match += \$*n*;
-* match += substr(\$*n*, &lt;*omit from left*&gt;, &lt;*omit from right*&gt;);
-* print('text');
-* replace(\$*n*, 'text');
-* replace(\$*from*, \$*to*, 'text');
-* replace(\$*from*.second, \$*to*.first, 'text');
+* `erase($n);`
+* `erase($from, $to);`
+* `erase($from.second, $to.first);`
+* `insert($n, 'text');`
+* `insert($n.second, 'text');`
+* `match = $n;`
+* `match = substr($n, <omit from left>, <omit from right>);`
+* `match += $n;`
+* `match += substr($n, <omit from left>, <omit from right>);`
+* `print('text');`
+* `replace($n, 'text');`
+* `replace($from, $to, 'text');`
+* `replace($from.second, $to.first, 'text');`
 
 #### Grammar
 
