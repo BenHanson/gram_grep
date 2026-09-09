@@ -1,10 +1,8 @@
 CXX = g++
-CXXFLAGS = -O -std=c++20 -Wall -I $(BOOST_ROOT) -I ../lexertl17/include \
+CXXFLAGS = -O3 -std=c++20 -Wall -I $(BOOST_ROOT) -I ../lexertl17/include \
 -I ../parsertl17/include -I ../wildcardtl/include
 
-LDFLAGS = -O
-
-LIBS = 
+LDFLAGS = -O3
 
 all: gram_grep
 
@@ -28,10 +26,6 @@ search.o: search.cpp
 
 types.o: types.cpp
 	$(CXX) $(CXXFLAGS) -o types.o -c types.cpp
-
-library:
-
-binary:
 
 clean:
 	- rm *.o
