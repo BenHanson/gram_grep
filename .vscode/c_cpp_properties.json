@@ -1,0 +1,18 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "compilerPath": "/usr/bin/g++",
+            "intelliSenseMode": "linux-gcc-x64",
+            "cppStandard": "c++20",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${env:BOOST_ROOT}",
+                "${workspaceFolder}/../lexertl17/include",
+                "${workspaceFolder}/../parsertl17/include",
+                "${workspaceFolder}/../wildcardtl/include"
+            ]
+        }
+    ],
+    "version": 4
+}

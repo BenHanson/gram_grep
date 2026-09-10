@@ -1,0 +1,17 @@
+{
+    "version": "0.2.0",
+    "console": "integratedTerminal",
+    "configurations": [
+        {
+            "name": "LLDB",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/gram_grep",
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "make",
+            "args": [
+                "--version"
+            ]
+        }
+    ]
+}
