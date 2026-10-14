@@ -670,8 +670,10 @@ static bool process_regex(const regex& r, const char* data_first,
 static std::pair<bool, lexertl::criterator> lexer_search(const lexer& l,
     const char* data_first, std::vector<match>& ranges)
 {
+    bool bol = ranges.back()._first == data_first ||
+        *(ranges.back()._first - 1) == '\n';
     lexertl::criterator iter(ranges.back()._first,
-        ranges.back()._eoi, l._sm);
+        ranges.back()._eoi, l._sm, bol);
     results cap_vec;
     bool success = iter->first != ranges.back()._eoi;
 
@@ -684,7 +686,8 @@ static std::pair<bool, lexertl::criterator> lexer_search(const lexer& l,
             l._flags) ||
         !conditions_met(l._conditions, cap_vec)))
     {
-        iter = lexertl::criterator(iter->second, iter->eoi, l._sm);
+        bol = iter->second == data_first || *(iter->second - 1) == '\n';
+        iter = lexertl::criterator(iter->second, iter->eoi, l._sm, bol);
         success = iter->first != ranges.back()._eoi;
 
         if (!success)
@@ -700,8 +703,10 @@ static std::pair<bool, lexertl::criterator> lexer_search(const lexer& l,
 static std::pair<bool, crutf8iterator> lexer_search(const ulexer& l,
     const char* data_first, std::vector<match>& ranges)
 {
+    bool bol = ranges.back()._first == data_first ||
+        *(ranges.back()._first - 1) == '\n';
     crutf8iterator iter(utf8_in_iterator(ranges.back()._first, ranges.back()._eoi),
-        utf8_in_iterator(ranges.back()._eoi, ranges.back()._eoi), l._sm);
+        utf8_in_iterator(ranges.back()._eoi, ranges.back()._eoi), l._sm, bol);
     results cap_vec;
     bool success =
         iter->first != utf8_in_iterator(ranges.back()._eoi, ranges.back()._eoi);
@@ -715,8 +720,9 @@ static std::pair<bool, crutf8iterator> lexer_search(const ulexer& l,
             ranges.front()._eoi, l._flags) ||
         !conditions_met(l._conditions, cap_vec)))
     {
+        bol = iter->second.get() == data_first || *(iter->second.get() - 1) == '\n';
         iter = crutf8iterator(utf8_in_iterator(iter->second.get(), iter->eoi.get()),
-            utf8_in_iterator(iter->eoi.get(), iter->eoi.get()), l._sm);
+            utf8_in_iterator(iter->eoi.get(), iter->eoi.get()), l._sm, bol);
         success = iter->first != utf8_in_iterator(ranges.back()._eoi,
             ranges.back()._eoi);
 
@@ -810,20 +816,26 @@ bool process_lexer(const lexer_t& l, const char* data_first,
 }
 
 static std::tuple<lexertl::criterator, lexertl::criterator, prod_map_t, results>
-get_iterators(const parser& p, const std::vector<match>& ranges)
+get_iterators(const parser& p, const char* data_first,
+    const std::vector<match>& ranges)
 {
-    lexertl::criterator iter(ranges.back()._first,
-        ranges.back()._eoi, p._lsm);
+    const bool bol = ranges.back()._first == data_first ||
+        *(ranges.back()._first - 1) == '\n';
+    lexertl::criterator iter(ranges.back()._first, ranges.back()._eoi,
+        p._lsm, bol);
 
     return std::make_tuple(std::move(iter), lexertl::criterator(),
         prod_map_t(), results());
 }
 
 static std::tuple<crutf8iterator, crutf8iterator, uprod_map_t, uresults>
-get_iterators(const uparser& p, const std::vector<match>& ranges)
+get_iterators(const uparser& p, const char* data_first,
+    const std::vector<match>& ranges)
 {
+    const bool bol = ranges.back()._first == data_first ||
+        *(ranges.back()._first - 1) == '\n';
     crutf8iterator iter(utf8_in_iterator(ranges.back()._first, ranges.back()._eoi),
-        utf8_in_iterator(ranges.back()._eoi, ranges.back()._eoi), p._lsm);
+        utf8_in_iterator(ranges.back()._eoi, ranges.back()._eoi), p._lsm, bol);
 
     return std::make_tuple(std::move(iter), crutf8iterator(),
         uprod_map_t(), uresults());
@@ -838,7 +850,7 @@ bool process_parser(parser_t& p, const char* data_first,
     using enum config_flags;
     // Use the lexertl enum operator
     using namespace lexertl;
-    auto [iter, end, prod_map, cap_vec] = get_iterators(p, ranges);
+    auto [iter, end, prod_map, cap_vec] = get_iterators(p, data_first, ranges);
     const bool has_captures = !p._gsm._captures.empty();
     bool success = false;
 
