@@ -1452,8 +1452,10 @@ static void queue_dfa_regex(config& cfg)
         lexer._conditions = std::move(cfg._conditions);
 
         if (lexer._flags & *config_flags::icase)
-            rules.flags(*regex_flags::icase |
-                *regex_flags::dot_not_cr_lf);
+            rules.flags(rules.flags() | *regex_flags::icase);
+
+        if (g_options._dump != dump::no)
+            rules.flags(rules.flags() | *regex_flags::match_zero_len);
 
         rules.push(cfg._param, 1);
 
@@ -1477,8 +1479,10 @@ static void queue_dfa_regex(config& cfg)
         lexer._conditions = std::move(cfg._conditions);
 
         if (lexer._flags & *config_flags::icase)
-            rules.flags(*regex_flags::icase |
-                *regex_flags::dot_not_cr_lf);
+            rules.flags(rules.flags() | *regex_flags::icase);
+
+        if (g_options._dump != dump::no)
+            rules.flags(rules.flags() | *regex_flags::match_zero_len);
 
         rules.push(cfg._param, 1);
 
