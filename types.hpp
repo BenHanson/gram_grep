@@ -216,36 +216,36 @@ struct cmd
     uint16_t _param2 = 0;
     bool _second2 = true;
 
-    explicit cmd(const type type) :
-        _type(type)
+    explicit cmd(const type ty) :
+        _type(ty)
     {
     }
 
-    cmd(const type type, const uint16_t param) :
-        _type(type),
+    cmd(const type ty, const uint16_t param) :
+        _type(ty),
         _param1(param),
         _param2(param)
     {
     }
 
-    cmd(const type type, const uint16_t param, const bool second) :
-        _type(type),
+    cmd(const type ty, const uint16_t param, const bool second) :
+        _type(ty),
         _param1(param),
         _second1(second),
         _param2(param)
     {
     }
 
-    cmd(const type type, const uint16_t param1, const uint16_t param2) :
-        _type(type),
+    cmd(const type ty, const uint16_t param1, const uint16_t param2) :
+        _type(ty),
         _param1(param1),
         _param2(param2)
     {
     }
 
-    cmd(const type type, const uint16_t param1, const bool second1,
+    cmd(const type ty, const uint16_t param1, const bool second1,
         const uint16_t param2, const bool second2) :
-        _type(type),
+        _type(ty),
         _param1(param1),
         _second1(second1),
         _param2(param2),
