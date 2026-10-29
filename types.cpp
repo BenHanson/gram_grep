@@ -411,11 +411,11 @@ void config_state::parse(const unsigned int flags,
                     const auto idx =
                         _results.production_size(g_config_parser._gsm,
                             _results.entry.param) - 1;
-                    const auto& token =
+                    const auto& tkn =
                         _results.dollar(idx, g_config_parser._gsm,
                             _productions);
                     const std::size_t line =
-                        1 + std::count(_mf.data(), token.first, '\n');
+                        1 + std::count(_mf.data(), tkn.first, '\n');
 
                     // Column makes no sense here as we are
                     // already at the end of the line
