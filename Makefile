@@ -1,5 +1,5 @@
 CXX = g++
-CXXFLAGS = -O3 -std=c++20 -Wall -I $(BOOST_ROOT) -I ../lexertl17/include \
+CXXFLAGS = -O3 -std=c++20 -Wall -Wshadow -Werror -I $(BOOST_ROOT) -I ../lexertl17/include \
 -I ../parsertl17/include -I ../wildcardtl/include
 
 LDFLAGS = -O3
