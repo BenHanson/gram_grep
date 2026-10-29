@@ -196,73 +196,67 @@ void build_config_parser()
     g_config_parser._actions[grules.push("directive", "'%left' tokens NL")] =
         [](config_state& state, const config_parser& parser)
         {
-            const auto& token = state._results.dollar(1, parser._gsm,
+            const auto& tokens = state._results.dollar(1, parser._gsm,
                 state._productions);
-            const std::string tokens = token.str();
 
-            state._grules.left(tokens.c_str());
+            state._grules.left(tokens.str());
         };
     // Read and store %nonassoc entries
     g_config_parser._actions[grules.push("directive",
         "'%nonassoc' tokens NL")] =
         [](config_state& state, const config_parser& parser)
         {
-            const auto& token = state._results.dollar(1, parser._gsm,
-                state._productions);
-            const std::string tokens = token.str();
+            const std::string tokens = state._results.dollar(1, parser._gsm,
+                state._productions).str();
 
-            state._grules.nonassoc(tokens.c_str());
+            state._grules.nonassoc(tokens);
         };
     // Read and store %precedence entries
     g_config_parser._actions[grules.push("directive",
         "'%precedence' tokens NL")] =
         [](config_state& state, const config_parser& parser)
         {
-            const auto& token = state._results.dollar(1, parser._gsm,
-                state._productions);
-            const std::string tokens = token.str();
+            const std::string tokens = state._results.dollar(1, parser._gsm,
+                state._productions).str();
 
-            state._grules.precedence(tokens.c_str());
+            state._grules.precedence(tokens);
         };
     // Read and store %right entries
     g_config_parser._actions[grules.push("directive", "'%right' tokens NL")] =
         [](config_state& state, const config_parser& parser)
         {
-            const auto& token = state._results.dollar(1, parser._gsm,
-                state._productions);
-            const std::string tokens = token.str();
+            const auto& tokens = state._results.dollar(1, parser._gsm,
+                state._productions).str();
 
-            state._grules.right(tokens.c_str());
+            state._grules.right(tokens);
         };
     // Read and store %start
     g_config_parser._actions[grules.push("directive", "'%start' Name NL")] =
         [](config_state& state, const config_parser& parser)
         {
-            const auto& token = state._results.dollar(1, parser._gsm,
-                state._productions);
-            const std::string name = token.str();
+            const std::string name = state._results.dollar(1, parser._gsm,
+                state._productions).str();
 
-            state._grules.start(name.c_str());
+            state._grules.start(name);
         };
     // Read and store %token entries
     g_config_parser._actions[grules.push("directive", "'%token' tokens NL")] =
         [](config_state& state, const config_parser& parser)
         {
-            const auto& token = state._results.dollar(1, parser._gsm,
-                state._productions);
-            const std::string tokens = token.str();
+            const std::string tokens = state._results.dollar(1, parser._gsm,
+                state._productions).str();
 
-            state._grules.token(tokens.c_str());
+            state._grules.token(tokens);
         };
     g_config_parser._actions[grules.push("tokens", "token")] =
         [](config_state& state, const config_parser& parser)
         {
             if (state._store_tokens)
             {
-                const auto& token = state._results.dollar(0, parser._gsm,
+                const auto& tkn = state._results.dollar(0, parser._gsm,
                     state._productions);
 
-                state._consume.push_back(token.str());
+                state._consume.push_back(tkn.str());
             }
         };
     g_config_parser._actions[grules.push("tokens", "tokens token")] =
@@ -270,10 +264,10 @@ void build_config_parser()
         {
             if (state._store_tokens)
             {
-                const auto& token = state._results.dollar(1, parser._gsm,
+                const auto& tkn = state._results.dollar(1, parser._gsm,
                     state._productions);
 
-                state._consume.push_back(token.str());
+                state._consume.push_back(tkn.str());
             }
         };
     grules.push("token", "Literal | Name");
@@ -406,10 +400,10 @@ void build_config_parser()
             if (!parser._gsm._captures.empty())
                 throw gg_error("Cannot mix %captures and actions.");
 
-            const auto& token = state._results.dollar(1, parser._gsm,
+            const auto& tkn = state._results.dollar(1, parser._gsm,
                 state._productions);
 
-            if (token.first == token.second)
+            if (tkn.first == tkn.second)
             {
                 const uint16_t size = state._grules.grammar().size() & 0xffff;
 
@@ -460,9 +454,9 @@ void build_config_parser()
         [](config_state& state, const config_parser& parser)
         {
             actions* ptr = create_actions(state._grules);
-            const auto& token = state._results.dollar(2, parser._gsm,
+            const auto& tkn = state._results.dollar(2, parser._gsm,
                 state._productions);
-            const uint16_t index = (atoi(token.first + 1) - 1) & 0xffff;
+            const uint16_t index = (atoi(tkn.first + 1) - 1) & 0xffff;
             auto command = std::make_shared<match_cmd>
                 (cmd::type::match_assign, index);
 
@@ -490,9 +484,9 @@ void build_config_parser()
         [](config_state& state, const config_parser& parser)
         {
             actions* ptr = create_actions(state._grules);
-            const auto& token = state._results.dollar(2, parser._gsm,
+            const auto& tkn = state._results.dollar(2, parser._gsm,
                 state._productions);
-            const uint16_t index = (atoi(token.first + 1) - 1) & 0xffff;
+            const uint16_t index = (atoi(tkn.first + 1) - 1) & 0xffff;
             auto command = std::make_shared<match_cmd>(cmd::type::match_append, index);
 
             ptr->emplace(std::move(command));
@@ -541,9 +535,9 @@ void build_config_parser()
         [](config_state& state, const config_parser& parser)
         {
             actions* ptr = create_actions(state._grules);
-            const auto& token = state._results.dollar(2, parser._gsm,
+            const auto& tkn = state._results.dollar(2, parser._gsm,
                 state._productions);
-            const uint16_t index = (atoi(token.first + 1) - 1) & 0xffff;
+            const uint16_t index = (atoi(tkn.first + 1) - 1) & 0xffff;
             auto command = std::make_shared<erase_cmd>(index);
 
             ptr->emplace(std::move(command));
@@ -710,9 +704,9 @@ void build_config_parser()
         [](config_state& state, const config_parser& parser)
         {
             actions* ptr = create_actions(state._grules);
-            const auto& token = state._results.dollar(0, parser._gsm,
+            const auto& tkn = state._results.dollar(0, parser._gsm,
                 state._productions);
-            const uint16_t index = (atoi(token.first + 1) - 1) & 0xffff;
+            const uint16_t index = (atoi(tkn.first + 1) - 1) & 0xffff;
 
             ptr->_storage.push_back(std::make_shared<index_cmd>(index));
             ptr->_cmd_stack.back()->push(ptr->_storage.back().get());
@@ -725,9 +719,8 @@ void build_config_parser()
         "rx_macros MacroName regex")] =
         [](config_state& state, const config_parser& parser)
         {
-            const auto& token = state._results.dollar(1, parser._gsm,
-                state._productions);
-            const std::string name = token.str();
+            const std::string name = state._results.dollar(1, parser._gsm,
+                state._productions).str();
             const std::string regex = state._results.dollar(2, parser._gsm,
                 state._productions).str();
 
@@ -742,9 +735,8 @@ void build_config_parser()
     g_config_parser._actions[grules.push("rx_rules", "rx_rules regex Number")] =
         [](config_state& state, const config_parser& parser)
         {
-            const auto& token = state._results.dollar(1, parser._gsm,
-                state._productions);
-            const std::string regex = token.str();
+            const std::string regex = state._results.dollar(1, parser._gsm,
+                state._productions).str();
             const std::string number = state._results.dollar(2, parser._gsm,
                 state._productions).str();
 
@@ -805,9 +797,8 @@ void build_config_parser()
         "rx_rules regex Literal")] =
         [](config_state& state, const config_parser& parser)
         {
-            const auto& token = state._results.dollar(1, parser._gsm,
-                state._productions);
-            const std::string regex = token.str();
+            const std::string regex = state._results.dollar(1, parser._gsm,
+                state._productions).str();
             const std::string literal = state._results.dollar(2, parser._gsm,
                 state._productions).str();
 
@@ -845,9 +836,8 @@ void build_config_parser()
     g_config_parser._actions[grules.push("rx_rules", "rx_rules regex Name")] =
         [](config_state& state, const config_parser& parser)
         {
-            const auto& token = state._results.dollar(1, parser._gsm,
-                state._productions);
-            const std::string regex = token.str();
+            const std::string regex = state._results.dollar(1, parser._gsm,
+                state._productions).str();
             const std::string name = state._results.dollar(2, parser._gsm,
                 state._productions).str();
 
@@ -886,9 +876,8 @@ void build_config_parser()
         "rx_rules regex 'skip()'")] =
         [](config_state& state, const config_parser& parser)
         {
-            const auto& token = state._results.dollar(1, parser._gsm,
-                state._productions);
-            const std::string regex = token.str();
+            const std::string regex = state._results.dollar(1, parser._gsm,
+                state._productions).str();
 
             if (g_options._force_unicode)
                 state._lurules.push(regex, config_state::lurules::skip());
@@ -1090,8 +1079,8 @@ void build_ret_parser()
     g_ret_parser._actions[grules.push("ret_function", "Index")] =
         [](ret_state& state, const ret_parser&)
         {
-            const auto& token = state._iter.dollar(0);
-            const uint16_t index = atoi(token.first + 1) & 0xffff;
+            const auto& tkn = state._iter.dollar(0);
+            const uint16_t index = atoi(tkn.first + 1) & 0xffff;
 
             state._actions._storage.push_back(std::make_shared<index_cmd>(index));
             state._actions._cmd_stack.back()->push(state._actions._storage.back().get());
