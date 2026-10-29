@@ -200,8 +200,8 @@ std::vector<std::string> production_to_strings(const uint16_t rule_,
 
     for (std::size_t i = 0; i < size; ++i)
     {
-        const auto& token = dollar(rule_, i, sm_, productions_);
-        std::string rhs(get_ptr(token.first), get_ptr(token.second));
+        const auto& tkn = dollar(rule_, i, sm_, productions_);
+        std::string rhs(get_ptr(tkn.first), get_ptr(tkn.second));
 
         ret.push_back(std::move(rhs));
     }
@@ -282,10 +282,10 @@ void process_action(const parser_t& p, const char* start,
         case cmd::type::match_append:
         {
             const auto c = static_cast<match_cmd*>(cmd);
-            const auto& token = dollar(item.first,
+            const auto& tkn = dollar(item.first,
                 cmd->_param1, p._gsm, productions);
-            const std::string_view temp(get_ptr(token.first),
-                get_ptr(token.second));
+            const std::string_view temp(get_ptr(tkn.first),
+                get_ptr(tkn.second));
             const uint16_t size = c->_front + c->_back;
 
             if (c->_front == 0 && c->_back == 0)
@@ -310,9 +310,9 @@ void process_action(const parser_t& p, const char* start,
         case cmd::type::match_assign:
         {
             const auto& c = static_cast<match_cmd*>(cmd);
-            const auto& token = dollar(item.first, cmd->_param1, p._gsm,
+            const auto& tkn = dollar(item.first, cmd->_param1, p._gsm,
                 productions);
-            std::string temp(get_ptr(token.first), get_ptr(token.second));
+            std::string temp(get_ptr(tkn.first), get_ptr(tkn.second));
 
             if (c->_front == 0 && c->_back == 0)
                 matches.top() = std::move(temp);
