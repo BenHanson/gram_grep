@@ -14,14 +14,17 @@
 #include <lexertl/parser/tokeniser/re_tokeniser_helper.hpp>
 #include <lexertl/parser/tokeniser/re_tokeniser_state.hpp>
 #include <lexertl/rules.hpp>
+#include <lexertl/state_machine.hpp>
 #include <parsertl/rules.hpp>
+#include <parsertl/state_machine.hpp>
 
+#include <algorithm>
 #include <cstdint>
+#include <cstdio>
+#include <cstdlib>
 #include <format>
 #include <iostream>
 #include <locale>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -199,15 +202,15 @@ void build_config_parser()
             const auto& tokens = state._results.dollar(1, parser._gsm,
                 state._productions);
 
-            state._grules.left(tokens.str());
+            state._grules.left(tokens.view());
         };
     // Read and store %nonassoc entries
     g_config_parser._actions[grules.push("directive",
         "'%nonassoc' tokens NL")] =
         [](config_state& state, const config_parser& parser)
         {
-            const std::string tokens = state._results.dollar(1, parser._gsm,
-                state._productions).str();
+            const std::string_view tokens = state._results.dollar(1,
+                parser._gsm, state._productions).view();
 
             state._grules.nonassoc(tokens);
         };
@@ -216,8 +219,8 @@ void build_config_parser()
         "'%precedence' tokens NL")] =
         [](config_state& state, const config_parser& parser)
         {
-            const std::string tokens = state._results.dollar(1, parser._gsm,
-                state._productions).str();
+            const std::string_view tokens = state._results.dollar(1,
+                parser._gsm, state._productions).view();
 
             state._grules.precedence(tokens);
         };
@@ -225,8 +228,8 @@ void build_config_parser()
     g_config_parser._actions[grules.push("directive", "'%right' tokens NL")] =
         [](config_state& state, const config_parser& parser)
         {
-            const auto& tokens = state._results.dollar(1, parser._gsm,
-                state._productions).str();
+            const std::string_view tokens = state._results.dollar(1, parser._gsm,
+                state._productions).view();
 
             state._grules.right(tokens);
         };
@@ -234,8 +237,8 @@ void build_config_parser()
     g_config_parser._actions[grules.push("directive", "'%start' Name NL")] =
         [](config_state& state, const config_parser& parser)
         {
-            const std::string name = state._results.dollar(1, parser._gsm,
-                state._productions).str();
+            const std::string_view name = state._results.dollar(1, parser._gsm,
+                state._productions).view();
 
             state._grules.start(name);
         };
@@ -243,8 +246,8 @@ void build_config_parser()
     g_config_parser._actions[grules.push("directive", "'%token' tokens NL")] =
         [](config_state& state, const config_parser& parser)
         {
-            const std::string tokens = state._results.dollar(1, parser._gsm,
-                state._productions).str();
+            const std::string_view tokens = state._results.dollar(1,
+                parser._gsm, state._productions).view();
 
             state._grules.token(tokens);
         };
@@ -427,7 +430,7 @@ void build_config_parser()
         [](config_state& state, const config_parser& parser)
         {
             actions* ptr = create_actions(state._grules);
-            auto name = state._results.dollar(0, parser._gsm,
+            const auto& name = state._results.dollar(0, parser._gsm,
                 state._productions);
             auto command = std::make_shared<append_cmd>(name.str());
 
@@ -443,7 +446,7 @@ void build_config_parser()
         [](config_state& state, const config_parser& parser)
         {
             actions* ptr = create_actions(state._grules);
-            auto name = state._results.dollar(0, parser._gsm,
+            const auto& name = state._results.dollar(0, parser._gsm,
                 state._productions);
             auto command = std::make_shared<assign_cmd>(name.str());
 
@@ -803,9 +806,9 @@ void build_config_parser()
                 state._productions).str();
 
             if (g_options._force_unicode)
-                state._lurules.push(regex, state._grules.token_id(literal.c_str()));
+                state._lurules.push(regex, state._grules.token_id(literal));
             else
-                state._lrules.push(regex, state._grules.token_id(literal.c_str()));
+                state._lrules.push(regex, state._grules.token_id(literal));
         };
     g_config_parser._actions[grules.push("rx_rules",
         "rx_rules StartState regex ExitState Literal")] =
@@ -823,13 +826,13 @@ void build_config_parser()
             if (g_options._force_unicode)
                 state._lurules.push(std::string(start_state.first + 1,
                     start_state.second - 1).c_str(),
-                    regex, state._grules.token_id(literal.c_str()),
+                    regex, state._grules.token_id(literal),
                     std::string(exit_state.first + 1,
                         exit_state.second - 1).c_str());
             else
                 state._lrules.push(std::string(start_state.first + 1,
                     start_state.second - 1).c_str(),
-                    regex, state._grules.token_id(literal.c_str()),
+                    regex, state._grules.token_id(literal),
                     std::string(exit_state.first + 1,
                         exit_state.second - 1).c_str());
         };
@@ -842,9 +845,9 @@ void build_config_parser()
                 state._productions).str();
 
             if (g_options._force_unicode)
-                state._lurules.push(regex, state._grules.token_id(name.c_str()));
+                state._lurules.push(regex, state._grules.token_id(name));
             else
-                state._lrules.push(regex, state._grules.token_id(name.c_str()));
+                state._lrules.push(regex, state._grules.token_id(name));
         };
     g_config_parser._actions[grules.push("rx_rules",
         "rx_rules StartState regex ExitState Name")] =
@@ -862,13 +865,13 @@ void build_config_parser()
             if (g_options._force_unicode)
                 state._lurules.push(std::string(start_state.first + 1,
                     start_state.second - 1).c_str(),
-                    regex, state._grules.token_id(name.c_str()),
+                    regex, state._grules.token_id(name),
                     std::string(exit_state.first + 1,
                         exit_state.second - 1).c_str());
             else
                 state._lrules.push(std::string(start_state.first + 1,
                     start_state.second - 1).c_str(),
-                    regex, state._grules.token_id(name.c_str()),
+                    regex, state._grules.token_id(name),
                     std::string(exit_state.first + 1,
                         exit_state.second - 1).c_str());
         };
